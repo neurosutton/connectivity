@@ -3,6 +3,7 @@ Functions to explore connectivity matrices generated through CONN.
 
 Date: August 2020
 @author: Josh Bear, MD
+v0.2 (BMS) Adapted fmri_analysis_functions for pandas
 """
 from scipy.io import loadmat
 import scipy.stats
@@ -14,8 +15,12 @@ from matplotlib import colors
 from matplotlib.pyplot import figure
 import pandas as pd
 from matplotlib import cm
+import json
 
-conn_dir = ''
+with open(op.join(op.realpath(__file__),'directory_defs.json') as f:
+    defs = json.load(f)
+    conn_dir = defs['conn_dir']
+
 data_dir = op.join(conn_dir,'conn_project01_results')
 file = 'resultsROI_Condition001.mat'
 subject_file = op.join(conn_dir,'eses_subjects_202008.csv')
