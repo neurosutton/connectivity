@@ -3,23 +3,26 @@ Explore connectivity matrices generated through preprocessing in CONN, using the
 Date: August 2020
 @author: Josh Bear, MD
 """
-
-import fmri_analysis_functions as faf
 from scipy.io import loadmat
 import os.path as op
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn
+import seaborn as sns
+import json
 
 from importlib import reload
 from scipy.stats.stats import pearsonr
 from scipy.stats.stats import spearmanr
+import fmri_analysis_functions_pd as faf
 
-conn_dir = ''
-data_dir = op.join(conn_dir,'conn_project01_results')
+with open(op.join(op.dirname(op.realpath(__file__)),'directory_defs.json')) as f:
+    defs = json.load(f)
+    conn_dir = defs['conn_dir']
+    main_dir = defs['main_dir']
+data_dir = op.join(conn_dir)
 file = 'resultsROI_Condition001.mat'
-subject_file =  op.join(conn_dir,'conn_project01_results/eses_subjects_202008.csv')
+subject_file =  op.join(main_dir,'eses_subjects_202008.csv')
 
 mdata = loadmat(op.join(data_dir, file))
 subj_data = pd.read_csv(subject_file)
@@ -102,7 +105,7 @@ conn_values
 np.corrcoef(conn_values, score_values)
 pearsonr(conn_values, score_values)
 
-seaborn.regplot(conn_values, score_values)
+sns.regplot(conn_values, score_values)
 
 
 # quick check to show network-specific strenght by subject..
@@ -145,7 +148,7 @@ for subj in scores.keys():
     score_values.append(scores[subj])
 
 pearsonr(conn_values, score_values)
-seaborn.regplot(conn_values, score_values)
+sns.regplot(conn_values, score_values)
 
 # LANGUAGE_L
 scores = faf.get_subject_scores(subject_file, 'np_verbal')
@@ -167,7 +170,7 @@ for subj in scores.keys():
     score_values.append(scores[subj])
 
 pearsonr(conn_values, score_values)
-seaborn.regplot(conn_values, score_values)
+sns.regplot(conn_values, score_values)
 
 
 # DEFAULT MODE AND WORKING MEMORY
@@ -190,7 +193,7 @@ for subj in scores.keys():
     score_values.append(scores[subj])
 
 pearsonr(conn_values, score_values)
-seaborn.regplot(conn_values, score_values)
+sns.regplot(conn_values, score_values)
 
 # Executive Function and Frontoparietal Network
 scores = faf.get_subject_scores(subject_file, 'np_exec')
@@ -212,4 +215,4 @@ for subj in scores.keys():
     score_values.append(scores[subj])
 
 pearsonr(conn_values, score_values)
-seaborn.regplot(conn_values, score_values)
+sns.regplot(conn_values, score_values)

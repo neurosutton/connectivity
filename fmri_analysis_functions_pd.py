@@ -17,35 +17,42 @@ import pandas as pd
 from matplotlib import cm
 import json
 
-with open(op.join(op.realpath(__file__),'directory_defs.json') as f:
+with open(op.join(op.dirname(op.realpath(__file__)),'directory_defs.json')) as f:
     defs = json.load(f)
     conn_dir = defs['conn_dir']
-
-data_dir = op.join(conn_dir,'conn_project01_results')
+    main_dir = defs['main_dir']
+data_dir = op.join(conn_dir)
 file = 'resultsROI_Condition001.mat'
-subject_file = op.join(conn_dir,'eses_subjects_202008.csv')
+subject_file =  op.join(main_dir,'eses_subjects_202008.csv')
+
+name_id_col = "BK_name"
+group_id_col = "group"
 
 mdata = loadmat(op.join(data_dir, file))
+conn_data = mdata['Z']
+debug = 'y'
+dict = {}
 
-# Numpy version
-#subj_data = pd.read_csv(subject_file)
-#eses_indices = [i for i, x in enumerate(list(subj_data['group'])) if x == 'eses']
-#hc_indices = [i for i, x in enumerate(list(subj_data['group'])) if x == 'hc']
 
 def get_subj_df_data(subject_file):
     """Primarily for reading in demographic and neuropsychological data."""
+    #TODO Ask Josh about using OO method?
     subj_df = pd.DataFrame(pd.read_csv(subject_file))
-    #dict(zip(subj_df['conn_name'],subj_df['BK_name']))
-    subj_dict = {k,v for k,v in enumerate(subj_df['BK_name'])}
-    return subj_df,
+    #dict(zip(subj_df['conn_name'],subj_df[name_id_col]))
+    subj_dict = {k:v for k,v in enumerate(subj_df[name_id_col])}
+    group_dict = dict(zip(subj_df[name_id_col],subj_df[group_id_col]))
+    return subj_df, subj_dict, group_dict
 
 def get_group_membership(subj_df, group):
-    return subj_df.loc[:,subj_df['group'] == group].ix
+    return subj_df.loc[:,subj_df[group_id_col] == group].ix
 
-def get_network_parcels(conn_data, network_name, subj_idx):
+def get_group_membership_by_name(subj_df, group):
+    return subj_df[name_id_col].loc[:,subj_df[group_id_col] == group]
+
+def get_network_parcels(mdata, network_name):
     """Returns parcel names and indices with HCP remaining in the name and indexed to work with numpy-based functions."""
-    parcel_names = [str[0] for str in conn_data['names'][0]]
-    parcels = {k:v for v,k in enumerate([str[0] for str in conn_data['names'][0]])}
+    parcel_names = [str[0] for str in mdata['names'][0]]
+    parcels = {k:v for v,k in enumerate([str[0] for str in mdata['names'][0]])}
     pattern = 'hcp_atlas.' + network_name + '*'
     matching = fnmatch.filter(parcels.keys(), pattern)
     network_parcels = {k:v for k,v in parcels.items() if k in matching}
@@ -53,9 +60,9 @@ def get_network_parcels(conn_data, network_name, subj_idx):
     return network_parcels
 
 
-def get_parcel_dict(conn_data, network_name=None):
+def get_parcel_dict(mdata, network_name=None):
     """Alternate method to get ROI indices and names."""
-    parcel_names = [str[0] for str in conn_data['names'][0]]
+    parcel_names = [str[0] for str in mdata['names'][0]]
     parcel_dict = {}
     parcel_dict_inv = {}
     for p,parcel in enumerate(parcel_names):
@@ -66,60 +73,59 @@ def get_parcel_dict(conn_data, network_name=None):
     return parcel_dict, parcel_dict_inv
 
 
-def create_conn_df(mdata):
-    """Provides the overarching connectivity for all participants as a searchable dataframe"""
-    x, subj_dict = get_subj_df_data(subject_file)
-    parcel_dict = get_parcel_dict(conn_data)
-    col_names = parcel_dict.keys()
-    conn_df = pd.DataFrame(columns = col_names.append('subj'))
-    for s in range(0,mdata['Z'].shape[-1]):
-        tmp_df = pd.DataFrame(mdata['Z'][:,mdata['Z'].shape[0],s], index = col_names, columns = col_names)
-        tmp_df['subj'] = subj_dict[s]
-        conn_df = pd.concat(conn_df,tmp_df)
-
-
-
-def get_network_matrix(conn_data, network_name, subj):
-    parcels = get_parcel_dict(conn_data, network_name)
-    indices = list(parcels.values())
-    return conn_data['Z'][:, :, subj_idx][np.ix_(indices, indices)]
-
-
-def get_cohort_network_matrices(conn_data, network_name, subj_idx, mean=False):
-    ''' Get the matrices for a cohort of patients in a given network. '''
-    cohort_matrices = []  # need to collect all the matrices to add
-    for subj in subj_idx:
-        cohort_matrices.append(get_network_matrix(mdata, network_name, subj))
-    cohort_matrices = np.asarray(cohort_matrices)
-    if mean is True:
-        return np.nanmean(cohort_matrices, axis=0)
+def get_network_matrix(mdata, network_name = None, subj=None):
+    """Provides the overarching connectivity for all participants as a searchable dataframe. No group assignments or covariates are included by this method."""
+    x, subj_dict, group_dict = get_subj_df_data(subject_file)
+    parcel_dict = get_parcel_dict(mdata, network_name)
+    # Select the index for the third dimension fo the numpy array
+    if subj:
+        if isinstance(subj,int):
+            subj_ix = subj
+        else:
+            # For the case where you want to search by name
+            subj_ix = [k for k,v in subj_dict.items() if subj in v] # TODO make sure that subj is passed to the list comp
     else:
-        return cohort_matrices
+        subj_ix = mdata['Z'].shape[-1]
+    rois = parcel_dict.keys()
+    col_names = ['subj'] + rois # Use the subj column to be able to search and filter by specific participants
+    conn_df = pd.DataFrame(columns = col_names)
+    for s in range(0, subj_ix):
+        tmp_df = pd.DataFrame(mdata['Z'][:,:mdata['Z'].shape[0],s], index = rois, columns = rois) # Grab the ROIs that are part of the atlas and not all the extra regressor correlations
+        tmp_df['subj'] = subj_dict[s]
+        conn_df = pd.concat([conn_df,tmp_df])
+    conn_df[group_id_col] = conn_df['subj'].apply(group_dict)
+    return conn_df
 
 
-def plot_network_matrix(conn_data, network_name, subj_idx):
-    parcels = get_parcel_dict(conn_data, network_name)
-    indices = list(parcels.values())
+def get_cohort_network_matrices(mdata, network_name, group, mean=False):
+    ''' Get the matrices for a cohort of patients in a given network. '''
+    cohort_df = get_network_matrix(mdata,network_name)
+    cohort_df = cohort_df.loc[cohort_df[group_id_col]==group,:]
+    cohort_df.drop(['subj',group_id_col], inplace = True)
+    if mean is True:
+        return np.nanmean(cohort_df.to_numpy(), axis=0)
+    else:
+        return cohort_df.to_numpy()
+
+
+def plot_network_matrix(mdata, network_name, subj):
+    parcels = get_parcel_dict(mdata, network_name)
     fig = plt.figure()
     ax = plt.gca()
-    im = ax.matshow(conn_data['Z'][:, :, subj_idx][np.ix_(indices, indices)])
+    df = get_network_matrix(mdata, network_name, subj)
+    im = ax.matshow(df)
     fig.colorbar(im)
-    # plt.matshow(conn_data['Z'][:, :, 0][np.ix_(indices, indices)])
     # Let's adjust the tick labels.
-    plt.title(f'Subject: {subj_idx} | Network: {network_name}')
-    plt.xticks(np.arange(len(indices)), list(parcels.keys()), rotation='vertical')
-    plt.yticks(np.arange(len(indices)), list(parcels.keys()), rotation='horizontal')
+    plt.title(f'Subject: {subj} | Network: {network_name}')
+    plt.xticks(np.arange(len(parcels.keys())), list(parcels.keys()), rotation='vertical')
+    plt.yticks(np.arange(len(parcels.keys())), list(parcels.keys()), rotation='horizontal')
     # plt.colorbar()
     ax.tick_params(axis="x", bottom=True, top=True, labelbottom=True, labeltop=False)
     plt.show()
 
 
-def plot_cohort_network_matrix(conn_data, network_name, subj_idx_list):
-    cohort_matrices = []  # need to collect all the matrices to add
-    for subj in subj_idx_list:
-        cohort_matrices.append(get_network_matrix(mdata, network_name, subj))
-    cohort_matrices = np.asarray(cohort_matrices)
-    mean_matrix = np.nanmean(cohort_matrices, axis=0)
+def plot_cohort_network_matrix(mdata, network_name, group):
+    mean_matrix = get_cohort_network_matrices(mdata, network, group, mean = True)
     fig = plt.figure()
     ax = plt.gca()
     im = ax.matshow(mean_matrix)
@@ -127,13 +133,13 @@ def plot_cohort_network_matrix(conn_data, network_name, subj_idx_list):
     plt.show()
 
 
-def plot_cohort_comparison(conn_data, network_name, subj_idx_list_1, subj_idx_list_2, vmin=None, vmax=None):
-    mean_matrix_1 = get_cohort_network_matrices(conn_data, network_name, subj_idx_list_1, mean=True)  # need to collect all the matrices to add
-    mean_matrix_2 = get_cohort_network_matrices(conn_data, network_name, subj_idx_list_2, mean=True)
+def plot_cohort_comparison(mdata, network_name, group_1, group_2, vmin=None, vmax=None):
+    mean_matrix_1 = get_cohort_network_matrices(mdata, network_name, group_1, mean=True)  # need to collect all the matrices to add
+    mean_matrix_2 = get_cohort_network_matrices(mdata, network_name, group_2, mean=True)
     vmin = np.min([np.nanmin(mean_matrix_1), np.nanmin(mean_matrix_2)]) if vmin is None else vmin
     vmax = np.max([np.nanmax(mean_matrix_1), np.nanmax(mean_matrix_2)]) if vmax is None else vmax
     boundary = np.max([np.absolute(vmin), np.absolute(vmax)])
-    parcels = get_network_parcels(conn_data, network_name, subj_idx_list_1[0])
+    x,parcels = get_parcel_dict(mdata, network_name)
     indices = list(parcels.values())
     fig, axs = plt.subplots(1, 2, figsize=(8, 6), dpi=180)
     cmap = plt.get_cmap('Spectral')
@@ -153,34 +159,30 @@ def plot_cohort_comparison(conn_data, network_name, subj_idx_list_1, subj_idx_li
     plt.show()
 
 
-def describe_cohort_networks(conn_data, network_name, subj_idx_list_1, subj_idx_list_2, name_1=None, name_2=None):
-    matrix_1 = get_cohort_network_matrices(conn_data, network_name, subj_idx_list_1, mean=False)
-    matrix_2 = get_cohort_network_matrices(conn_data, network_name, subj_idx_list_2, mean=False)
+def describe_cohort_networks(mdata, network_name, group_1, group_2, name_1=None, name_2=None):
+    matrix_1 = get_cohort_network_matrices(mdata, network_name, group_1, mean=False)
+    matrix_2 = get_cohort_network_matrices(mdata, network_name, group_2, mean=False)
     # Need to mask out the upper triangle of all of these.
     for m in matrix_1:
         m[np.triu_indices(m.shape[0], k=0)] = np.nan
+    for m in matrix_2:
+        m[np.triu_indices(m.shape[0], k=0)] = np.nan
     t_test_results = scipy.stats.ttest_ind(matrix_1, matrix_2, axis=None, nan_policy='omit')
-    print(f'Shapes: {matrix_1.shape=} | {matrix_2.shape=}')
-    print(f'Means: {np.nanmean(matrix_1)=} | {np.nanmean(matrix_2)=}')
-    print(f'StDev: {np.nanstd(matrix_1)=} | {np.nanstd(matrix_2)=}')
-    print(f'{t_test_results=}')
+    print(f'Shapes: {matrix_1.shape} | {matrix_2.shape}')
+    print(f'Means: {np.nanmean(matrix_1)} | {np.nanmean(matrix_2)}')
+    print(f'StDev: {np.nanstd(matrix_1)} | {np.nanstd(matrix_2)}')
+    print(f'{t_test_results}')
 
-
-def get_subject_scores(subject_file, measure):
-    subj_data = pd.read_csv(subject_file)
-    scores = {}
-    for row in subj_data.index:
-        if not np.isnan(float(subj_data[subj_data.index == row][measure])):
-            scores[row] = float(subj_data[subj_data.index == row][measure])
-    return scores
-
-
-def plot_score_by_network(subject_file, measure, conn_data, network, drop=[]]):
-    scores = get_subject_scores(subject_file, measure)
+def plot_score_by_network(subject_file, measure, mdata, network, drop=[]):
+    score_df = get_subj_df_data(subject_file)
+    col = [col for col in score_df.columns if measure in col]
+    if len(col) > 1:
+        print(f'Found multiple matching columns for {measure}')
+    scores = dict(zip(score_df[name_id_col],score_df[col]))
     for idx in drop:
         scores.pop(idx, None)
     for subj in scores.keys():
-        m = get_network_matrix(conn_data, network, subj)
+        m = get_network_matrix(mdata, network, subj)
         m[np.triu_indices(m.shape[0], k=0)] = np.nan
         plt.scatter(np.nanmean(m), scores[subj])
     plt.show()
