@@ -21,10 +21,10 @@ with open(op.join(op.dirname(op.realpath(__file__)),'directory_defs.json')) as f
     conn_dir = defs['conn_dir']
     main_dir = defs['main_dir']
 data_dir = op.join(conn_dir)
-file = 'resultsROI_Condition001.mat'
+conn_file = 'resultsROI_Condition001.mat'
 subject_file =  op.join(main_dir,'eses_subjects_202008.csv')
 
-mdata = loadmat(op.join(data_dir, file))
+mdata = loadmat(op.join(data_dir, conn_file))
 subj_data = pd.read_csv(subject_file)
 eses_indices = [i for i, x in enumerate(list(subj_data['group'])) if x == 'eses']
 hc_indices = [i for i, x in enumerate(list(subj_data['group'])) if x == 'hc']
