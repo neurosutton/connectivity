@@ -17,6 +17,7 @@ import pandas as pd
 import seaborn as sns
 from matplotlib import cm
 import json
+from collections import OrderedDict
 
 with open(op.join(op.dirname(op.realpath(__file__)),'directory_defs.json')) as f:
     defs = json.load(f)
@@ -69,8 +70,7 @@ def get_network_parcels(mdata, network_name):
 def get_parcel_dict(mdata, network_name=None, inverse=False):
     """Alternate method to get ROI indices and names."""
     parcel_names = [str[0] for str in mdata['names'][0]]
-    parcel_dict = {}
-    parcel_dict_inv = {}
+    parcel_dict = OrderedDict()
     if network_name:
         print(f'Selecting ROIs belonging to the {network_name} network.\n')
     for p,parcel in enumerate(parcel_names):
@@ -94,6 +94,8 @@ def create_conn_df(mdata, triu=False):
     """"Create the full, filterable connectivity matrix. Add subject id and group info"""
     subj_ix = mdata['Z'].shape[-1]
     x, subj_dict, group_dict = get_subj_df_data(subjects_file)
+    if debug:
+        print('Getting the whole connectivity matrix, so get_parcel_dict will return all ROIs intentionally.')
     parcel_dict = get_parcel_dict(mdata, network_name=None)
     rois = list(parcel_dict.keys())
     col_names = [name_id_col] + rois # Use the subj column to be able to search and filter by specific participants
@@ -108,13 +110,14 @@ def create_conn_df(mdata, triu=False):
         conn_df = pd.concat([conn_df,tmp_df])
 
     conn_df[group_id_col] = conn_df[name_id_col].map(group_dict)
+    if debug:
+        print(f'create_conn_df columns: {conn_df.columns}\nIndex: {conn_df.index}')
     return conn_df
     
 
-def get_network_matrix(mdata, network_name=None, subj_list=None, parcel_dict=None, triu=False):
+def get_network_matrix(mdata, network_name=None, subj_list=None, triu=False):
     """Provides the overarching connectivity for all participants as a searchable dataframe. No group assignments or covariates are included by this method."""
-    if not parcel_dict:
-        parcel_dict = get_parcel_dict(mdata, network_name)
+    parcel_dict = get_parcel_dict(mdata, network_name)
     # Select the index for the third dimension fo the numpy array
     if subj_list:
         if not isinstance(subj_list,list):
@@ -141,14 +144,17 @@ def get_network_matrix(mdata, network_name=None, subj_list=None, parcel_dict=Non
 
 def get_cohort_network_matrices(mdata, network_name, group, mean=False, triu=False):
     ''' Get the matrices for a cohort of patients in a given network. '''
+    if debug:
+        print('get_cohort_network_matrices')
     cohort_df = get_network_matrix(mdata,network_name)
     cohort_df = cohort_df.loc[cohort_df[group_id_col]==group,:]
     cohort_df.drop(columns = [name_id_col,group_id_col], inplace = True)
+    cols = cohort_df.columns
     print(f'After group filter, matrix size is {cohort_df.shape}')
     if mean is True:
         if debug:
-            print(cohort_df.groupby(level=0).mean())
-        return cohort_df.groupby(level=0).mean().to_numpy()
+            print(cohort_df.groupby(level=0).mean().reindex(cols))
+        return cohort_df.groupby(level=0).mean().reindex(cols).to_numpy()
         #return np.nanmean(cohort_df.to_numpy(), axis=0) # This flattened the array and didn't seem to return the means by ROI
     else:
         return cohort_df.to_numpy()
@@ -164,14 +170,13 @@ def check_subj_avlbl(subj):
         return_status = 1
     return return_status
 
-def plot_network_matrix(mdata, network_name, subj, parcel_dict=None):
+def plot_network_matrix(mdata, network_name, subj):
     if subj:
         status = check_subj_avlbl(subj)
     else:
         status = 1
     if status == 1:
-        if not parcel_dict:
-            parcels = get_parcel_dict(mdata, network_name)
+        parcels = get_parcel_dict(mdata, network_name)
         fig = plt.figure()
         ax = plt.gca()
         df = get_network_matrix(mdata, network_name, subj)
@@ -252,34 +257,6 @@ def plot_score_by_network(subjects_file, measure, mdata, network, drop=[]):
         plt.scatter(np.nanmean(m), scores[subj])
     plt.show()
 
-def import_conn_mat(in_file, mstr_df, mdata):
-    # Load in the data, initially including the extra correlations
-    df = pd.DataFrame( data = mdata['Z'],
-                      index = roi_labels)
-
-    # Keep only the HCP ROIs
-    df = df.iloc[:,:df.shape[0]] # pare down the values to the ROI-to-ROI of interest, not all other covariates and/or atlases
-
-    # Undo the z transformation - FOR COMPARISON WITH JOSH, COMMENT THIS OUT
-    #df.applymap(lambda x: np.tanh(x))  # Get r values instead of z-scores
-
-    # Add labels for the HCP ROIs. Per Josh's observation, change the logic to grab the names from names2, rather than assume that the ROIs are the same going down and across
-    rois_col = mdata['names'] # Retrieve the ROI names for the HCP atlas
-    roi_labels = [roi[0].replace('hcp_atlas.','') for r_array in rois_col for roi in r_array]
-    rois_col = mdata['names2'] # Retrieve the ROI names for the HCP atlas
-    roi_labels_col = [roi[0].replace('hcp_atlas.','') for r_array in rois_col for roi in r_array]
-    df.columns = roi_labels_col[:df.shape[0]]
-
-    plt.matshow(df) # Sanity check that the tanh(x) function returns a symmetrical, logical matrix.
-    plt.colorbar()
-    plt.show()
-
-    # Add the subject number to the long df prior to concatenation
-    tmp = op.basename(in_file)
-    df[name_id_col] = tmp.split('_')[1]
-    print('Adding {}'.format(tmp.split('_')[1]))
-    mstr_df = pd.concat([mstr_df, df]) # stack the data on top of each other, so it is searchable by name
-    return mstr_df
 
 def plot_correl_matrix(corr,correl_type='beta'):
 
