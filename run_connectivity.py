@@ -63,6 +63,20 @@ class network_analysis():
             faf.plot_cohort_comparison(self.mdata, network_name, group1, group2, vmax=self.vmax, vmin=self.vmin)
             faf.describe_cohort_networks(self.mdata, network)
 
+
+    def get_network_df_for_bct(self, network_name, group=None, subj=None):
+        if subj:
+            df = faf.get_network_matrix(self.mdata, network_name = network_name, subj_list=subj)
+            df.drop(columns=['BK_name','group'],inplace=True)
+        elif group:
+            df = faf.get_cohort_network_matrices(self.mdata, network_name, group, mean=True)
+        else:
+            print('Either group or subject is required to be able to grab the correct data.')
+        rois = df.columns
+        df = df.to_numpy()
+        np.fill_diagonal(df, 0)
+        return df, rois
+
 if __name__ == "__main__":
     na1 = network_analysis(main_dir, conn_dir,subjects_file, data_dir, conn_file)
     na1.characterize_networks(network_name='att', group1='hc', group2='eses')

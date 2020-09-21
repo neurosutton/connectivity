@@ -154,10 +154,10 @@ def get_cohort_network_matrices(mdata, network_name, group, mean=False, triu=Fal
     if mean is True:
         if debug:
             print(cohort_df.groupby(level=0).mean().reindex(cols))
-        return cohort_df.groupby(level=0).mean().reindex(cols).to_numpy()
+        return cohort_df.groupby(level=0).mean().reindex(cols)
         #return np.nanmean(cohort_df.to_numpy(), axis=0) # This flattened the array and didn't seem to return the means by ROI
     else:
-        return cohort_df.to_numpy()
+        return cohort_df
 
 
 def check_subj_avlbl(subj):
@@ -198,7 +198,7 @@ def plot_cohort_network_matrix(mdata, network_name, group):
     mean_matrix = get_cohort_network_matrices(mdata, network_name, group, mean = True)
     fig = plt.figure()
     ax = plt.gca()
-    im = ax.matshow(mean_matrix)
+    im = ax.matshow(mean_matrix.to_numpy())
     fig.colorbar(im)
     parcels = get_parcel_dict(mdata, network_name)
     plt.xticks(np.arange(len(parcels.keys())), list(parcels.keys()), rotation='vertical')
@@ -207,7 +207,9 @@ def plot_cohort_network_matrix(mdata, network_name, group):
 
 def plot_cohort_comparison(mdata, network_name, group_1, group_2, vmin=None, vmax=None):
     mean_matrix_1 = get_cohort_network_matrices(mdata, network_name, group_1, mean=True)  # need to collect all the matrices to add
+    mean_matrix_1 = mean_matrix_1.to_numpy()
     mean_matrix_2 = get_cohort_network_matrices(mdata, network_name, group_2, mean=True)
+    mean_matrix_2 = mean_matrix_2.to_numpy()
     vmin = np.min([np.nanmin(mean_matrix_1), np.nanmin(mean_matrix_2)]) if vmin is None else vmin
     vmax = np.max([np.nanmax(mean_matrix_1), np.nanmax(mean_matrix_2)]) if vmax is None else vmax
     boundary = np.max([np.absolute(vmin), np.absolute(vmax)])

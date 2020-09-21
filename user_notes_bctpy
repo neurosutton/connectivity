@@ -1,0 +1,8 @@
+User notes on BCTpy toolbox
+
+The suffixes on the methods are trying to tell you what type of input it takes.
+Example: clustering_coef_bu
+    - "bu" stands for binarized, unweighted.
+
+Found that if you add zeroes to the diagonal, replacing nan's, then the clustereing algorithms work.
+- This action should not change the math, based on the fact that the algorithm masks by "not 0"
