@@ -20,10 +20,6 @@ from scipy.stats.stats import spearmanr
 import sys
 
 
-import sys
-
-
-
 import fmri_analysis_functions_pd as faf
 
 class network_analysis():
@@ -61,7 +57,7 @@ class network_analysis():
             if not self.vmin:
                 self.gather_input_options()
             faf.plot_cohort_comparison(self.mdata, network_name, group1, group2, vmax=self.vmax, vmin=self.vmin)
-            faf.describe_cohort_networks(self.mdata, network)
+            faf.describe_cohort_networks(self.mdata, network_name)
 
 
     def get_network_df_for_bct(self, network_name, group=None, subj=None):
@@ -76,6 +72,33 @@ class network_analysis():
         df = df.to_numpy()
         np.fill_diagonal(df, 0)
         return df, rois
+    
+    def compare_groups(self, group_list, network_list=None, abs_thr_list=None, prop_thr_list=None):
+        x, nodes = self.get_network_df_for_bct(network_list[0],group_list[0])
+        df = pd.DataFrame(index=list(itertools.chain.from_iterable(itertools.repeat(x,len(group_list)*len(network_list)) for x in nodes)),columns = ['group','network','abs_thr','prop_thr','cc'])
+        
+        for group in group_list:
+            for network in network_list:
+                for abs_thr in abs_thr_list:
+                    for prop_thr in prop_thr_list:
+                        tmp, x = self.get_network_df_for_bct(network,group, abs_thr=abs_thr, prop_thr=prop_thr)
+                        np.fill_diagonal(tmp,0)
+                        tmp1=pd.DataFrame()
+                        tmp1['cc'] = bct.clustering_coef_wu(tmp).tolist()
+                        tmp1['group'] = group
+                        tmp1['network'] = network
+                        tmp1['abs_thr'] = abs_thr
+                        tmp1['prop_thr'] = prop_thr
+
+                        try:
+                            df = pd.concat([df,tmp1])
+                        except:
+                            pass
+        print(df.groupby(['group','network','abs_thr','prop_thr']).agg({'cc':['mean','std','count']}))
+        return df
+
+            
+            
 
 if __name__ == "__main__":
     na1 = network_analysis(main_dir, conn_dir,subjects_file, data_dir, conn_file)
