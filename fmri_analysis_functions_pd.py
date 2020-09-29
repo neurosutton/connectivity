@@ -19,6 +19,7 @@ from matplotlib import cm
 import json
 import bct
 from collections import OrderedDict
+from datetime import datetime
 
 with open(op.join(op.dirname(op.realpath(__file__)),'directory_defs.json')) as f:
     defs = json.load(f)
@@ -31,6 +32,8 @@ subjects_file =  op.join(main_dir,'eses_subjects_202008.csv')
 name_id_col = "BK_name"
 group_id_col = "group"
 debug = ''
+
+dt = datetime.today().strftime('%Y%m%d')
 
 def load_mat(data_dir, conn_file):
     """Loading and reloading the module is much quicker with loading the matrix as its own method. Call first, so that there is data, though."""
@@ -72,8 +75,8 @@ def get_parcel_dict(mdata, network_name=None, inverse=False):
     """Alternate method to get ROI indices and names."""
     parcel_names = [str[0] for str in mdata['names'][0]]
     parcel_dict = OrderedDict()
-    if network_name:
-        print(f'Selecting ROIs belonging to the {network_name} network.\n')
+#    if network_name:
+#        print(f'Selecting ROIs belonging to the {network_name} network.\n')
     for p,parcel in enumerate(parcel_names):
         parcel = parcel.replace('hcp_atlas.','') # Clean the names
         if network_name:
@@ -83,7 +86,7 @@ def get_parcel_dict(mdata, network_name=None, inverse=False):
                 print(f'Did not find {network_name} in {parcel}')
             else:
                 pass
-        else:            
+        else:
             parcel_dict[parcel] = p
     if inverse == True:
         parcel_dict = {v:k for k,v in parcel_dict.items()}
@@ -99,55 +102,46 @@ def create_conn_df(mdata, abs_thr=None, prop_thr=None, triu=False):
         print('Getting the whole connectivity matrix, so get_parcel_dict will return all ROIs intentionally.')
     parcel_dict = get_parcel_dict(mdata, network_name=None)
     rois = list(parcel_dict.keys())
-    col_names = [name_id_col] + rois # Use the subj column to be able to search and filter by specific participants           
+    col_names = [name_id_col] + rois # Use the subj column to be able to search and filter by specific participants
     conn_df = pd.DataFrame(columns = col_names)
+    abs_thr_dict = {}
     for s in range(0, subj_ix):
         tmp_df = pd.DataFrame(mdata['Z'][:,:mdata['Z'].shape[0],s], index = rois, columns = rois) # Grab the ROIs that are part of the atlas and not all the extra regressor correlations
+        sign_mask = np.sign(tmp_df)
+        tmp = tmp_df.abs().to_numpy(na_value=0)
+
         if abs_thr:
-            #First, do a super light absolute threshold
-            if debug:
-                print(f'Start with\n{tmp_df.head(5)}')   
-            mask = np.sign(tmp_df)
-            try: 
-                tmp_df = bct.threshold_absolute(tmp_df.abs().to_numpy(na_value=0), abs_thr, copy=False)
+            try:
+                tmp = bct.threshold_absolute(tmp, abs_thr, copy=False)
             except Exception as E:
                 print(f'{E}') # Likely that the threshold input is not a float
-            tmp_df = tmp_df*mask
-            tmp_df = pd.DataFrame(tmp_df, index = rois, columns = rois)
-            tmp_df = tmp_df.replace([-0,np.nan],0)
-            print(f'{(tmp_df!=0).sum(1).sum()} connections still exist after absolute thresholding.')
-            
+            tmp[tmp == -0] = 0
+            abs_thr_dict[subj_dict[s]] = np.count_nonzero(tmp)
+
         if prop_thr:
             #Second, proportionally threshold the matrix. May be used in combination with the absolutely thresholded values
-            mask = np.sign(tmp_df)
             try:
-                tmp_df = bct.threshold_proportional(tmp_df.abs().to_numpy(na_value=0), prop_thr, copy=False)
+                tmp = bct.threshold_proportional(tmp, prop_thr, copy=False)
             # There is a note in the BCT wiki about the behavior of this function. Specifically, being careful with matrices that are both signed and sparse. Thus, the input is the absolute value of the connectivities (for now).
             except Exception as E:
-                print(f'{E}') # Likely that the threshold input is not a float
-            tmp_df = tmp_df*mask
-            tmp_df = pd.DataFrame(tmp_df, index = rois, columns = rois)
-            tmp_df = tmp_df.replace([-0,np.nan],0)
-            if s == subj_ix:
-                print(f'{(tmp_df!=0).sum(1).sum()} connections are present in all participants after proportional thresholding.')
+                print(f'Exception thrown from create_conn_df:\n{E}') # Likely that the threshold input is not a float
 
-        if debug:
-                print(f'End with\n{tmp_df.head(5)}')  
-            
-            
         if triu==True:
-            tmp = tmp_df.to_numpy()
             tmp[np.triu_indices(tmp.shape[0], k=0)] = np.nan
-            tmp_df = pd.DataFrame(data=tmp, index = rois, columns=rois)
-            
+
+        tmp_df = pd.DataFrame(data=tmp, index = rois, columns=rois)
+        tmp_df = tmp_df*sign_mask
+        tmp_df = tmp_df.replace([-0,np.nan],0)
         tmp_df[name_id_col] = subj_dict[s]
         conn_df = pd.concat([conn_df,tmp_df])
 
     conn_df[group_id_col] = conn_df[name_id_col].map(group_dict)
+    if abs_thr_dict:
+        conn_df['abs_thr_cxns'] = conn_df[name_id_col].map(abs_thr_dict)
     if debug:
         print(f'create_conn_df columns: {conn_df.columns}\nIndex: {conn_df.index}')
     return conn_df
-    
+
 
 def get_network_matrix(mdata, network_name=None, subj_list=None, abs_thr=None, prop_thr=None, triu=False):
     """Provides the overarching connectivity for all participants as a searchable dataframe. No group assignments or covariates are included by this method."""
@@ -162,9 +156,12 @@ def get_network_matrix(mdata, network_name=None, subj_list=None, abs_thr=None, p
     if subj_list:
         print(f'Gathering {subj_list}')
     if network_name:
-        cols = [col for col in conn_df.columns if col in ([name_id_col, group_id_col] + list(parcel_dict.keys()))]
+        if abs_thr:
+            cols = [col for col in conn_df.columns if col in ([name_id_col, group_id_col,'abs_thr_cxns'] + list(parcel_dict.keys()))]
+        else:
+            cols = [col for col in conn_df.columns if col in ([name_id_col, group_id_col] + list(parcel_dict.keys()))]
         conn_df = conn_df[cols][conn_df.index.isin(parcel_dict.keys())]
-        print(f'After applying {network_name} filter, the matrix is {conn_df.shape}')
+
         nonzeros = int(((conn_df!=0).sum(1).sum())/(mdata["Z"].shape[-1]))
         print(f'{nonzeros} non-zero values exist in {network_name}')
     if subj_list:
@@ -174,7 +171,7 @@ def get_network_matrix(mdata, network_name=None, subj_list=None, abs_thr=None, p
             conn_df = conn_df.loc[conn_df[name_id_col].isin(subj_list),:]
         if debug:
             print(subj_list)
-        print(f'After filtering for {len(subj_list)} participants, the matrix is {conn_df.shape}\n')
+        #print(f'After filtering for {len(subj_list)} participants, the matrix is {conn_df.shape}\n')
     return conn_df
 
 
@@ -182,9 +179,12 @@ def get_cohort_network_matrices(mdata, network_name, group, mean=False, abs_thr=
     ''' Get the matrices for a cohort of patients in a given network. '''
     if debug:
         print('get_cohort_network_matrices')
+    parcel_dict = get_parcel_dict(mdata, network_name=None)
+    rois = list(parcel_dict.keys())
     cohort_df = get_network_matrix(mdata,network_name, abs_thr = abs_thr, prop_thr=prop_thr)
     cohort_df = cohort_df.loc[cohort_df[group_id_col]==group,:]
-    cohort_df.drop(columns = [name_id_col,group_id_col], inplace = True)
+    drop_cols = [col for col in cohort_df.columns if col not in rois]
+    cohort_df.drop(columns = drop_cols, inplace = True)
     cols = cohort_df.columns
     print(f'After group filter, matrix size is {cohort_df.shape}')
     if mean is True:
@@ -280,6 +280,47 @@ def describe_cohort_networks(mdata, network_name, group_1, group_2, name_1=None,
     print(f'Means: {np.nanmean(matrix_1)} | {np.nanmean(matrix_2)}')
     print(f'StDev: {np.nanstd(matrix_1)} | {np.nanstd(matrix_2)}')
     print(f'{t_test_results}')
+
+def describe_cohort_clustering(mdata, network_list, prop_thr_list=None):
+    study_df_file = op.join(data_dir,dt+'_mean_clustering.csv')
+    if op.isfile(study_df_file):
+        study_df = pd.read_csv(study_df_file)
+    else:
+        study_df = pd.DataFrame(columns=['group','network','cc','fc','prop_thr'])
+        for prop_thr in prop_thr_list:
+            for network in network_list:
+                network_df = get_network_matrix(mdata, network_name=network, prop_thr=prop_thr)
+                parcel_dict = get_parcel_dict(mdata, network_name=network)
+                rois = list(parcel_dict.keys())
+                for subj in set(network_df[name_id_col]):
+                    tmp = pd.DataFrame(index=rois)
+                    mat = network_df.loc[network_df[name_id_col]==subj,rois].to_numpy(na_value=0) #Still has negatives
+                    np.fill_diagonal(mat,0)
+                    tmp['cc'] = bct.clustering_coef_wu(mat).tolist()
+                    tmp[name_id_col]  = network_df.loc[network_df[name_id_col]==subj, name_id_col]
+                    tmp[group_id_col] = network_df.loc[network_df[name_id_col]==subj, group_id_col]
+                    tmp['network'] = network
+                    tmp['prop_thr'] = prop_thr
+                    tmp['fc'] = network_df.loc[network_df[name_id_col]==subj,rois].mean(axis=0)
+                    study_df = pd.concat([study_df,tmp])
+
+    plot_df = study_df.groupby(['network', 'group', 'prop_thr']).agg({'cc':['mean','std','count']})
+    plot_df = plot_df.reset_index().T.reset_index(drop=True).T
+    plot_df.columns = ['network','group','prop_thr','cc_mean','cc_std','cc_count']
+    plot_df[['prop_thr','cc_mean','cc_std']] = plot_df[['prop_thr','cc_mean','cc_std']].apply(pd.to_numeric)
+    for n in set(plot_df['network']):
+        f,ax = plt.subplots()
+        sns.lineplot(x='prop_thr',y='cc_mean',hue='group',data=plot_df.loc[plot_df['network']==n,:])
+        plt.title(n.title())
+        plt.xlabel('Proportional thresholding value')
+        plt.ylabel('Mean clustering coefficient')
+        plt.show()
+    study_df.to_csv()
+    return study_df
+
+def plot_ks_score_by_network():
+    stat.ks_2samp()
+
 
 def plot_score_by_network(subjects_file, measure, mdata, network, drop=[]):
     score_df = get_subj_df_data(subjects_file)
