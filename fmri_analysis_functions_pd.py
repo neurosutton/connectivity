@@ -18,7 +18,7 @@ import seaborn as sns
 from matplotlib import cm
 import json
 import bct
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from datetime import datetime
 
 with open(op.join(op.dirname(op.realpath(__file__)),'directory_defs.json')) as f:
@@ -31,6 +31,7 @@ subjects_file =  op.join(main_dir,'eses_subjects_202008.csv')
 
 name_id_col = "BK_name"
 group_id_col = "group"
+msr_dict = {'cc':"clusterin coefficienct", 'pl':"path length",'ms':"mean strength",'mod':"modularity", 'le':"local efficiency"}
 debug = ''
 
 dt = datetime.today().strftime('%Y%m%d')
@@ -281,12 +282,15 @@ def describe_cohort_networks(mdata, network_name, group_1, group_2, name_1=None,
     print(f'StDev: {np.nanstd(matrix_1)} | {np.nanstd(matrix_2)}')
     print(f'{t_test_results}')
 
-def get_cohort_clustering_coef(mdata, network_list, prop_thr_list=None, update=False):
-    study_df_file = op.join(data_dir,dt+'_mean_clustering.csv')
+def get_cohort_graph_msr(mdata, network_list, prop_thr_list=None, msr_list=['cc'], update=False, positive_only=True):
+    study_df_file = op.join(data_dir,dt+'_graph_msr.csv')
     if op.isfile(study_df_file) and update==False:
         study_df = pd.read_csv(study_df_file)
-    else:
-        study_df = pd.DataFrame(columns=['group','network','cc','fc','prop_thr'])
+        if not all(el in msr_list for el in study_df.columns):
+            print(el in msr_list for el in study_df.columns)
+            update = True
+    if update == True:
+        study_df = pd.DataFrame(columns=['group','network','fc','prop_thr'] + msr_list)
         for prop_thr in prop_thr_list:
             for network in network_list:
                 network_df = get_network_matrix(mdata, network_name=network, prop_thr=prop_thr)
@@ -296,61 +300,81 @@ def get_cohort_clustering_coef(mdata, network_list, prop_thr_list=None, update=F
                     tmp = pd.DataFrame(index=rois)
                     mat = network_df.loc[network_df[name_id_col]==subj,rois].to_numpy(na_value=0) #Still has negatives
                     np.fill_diagonal(mat,0)
-                    #bct.weight_conversion(mat, 'normalize', copy=False)
-                    tmp['cc_posConn']  = bct.clustering_coef_wu_sign(mat)[0].tolist()
-                    tmp['cc_negConn'] = bct.clustering_coef_wu_sign(mat)[-1].tolist()
+                    for msr in msr_list:
+                        if positive_only == True:
+                            mat = mat*(mat > 0)
+                            bct.weight_conversion(mat, 'normalize', copy=False)
+                        if positive_only == True and msr == 'cc':
+                            tmp[msr]  = bct.clustering_coef_wu(mat).tolist()
+                        elif positive_only == True and msr == 'mod':
+                            tmp[msr] = bct.community_louvain(mat)[1].tolist() #get q values
+                        elif msr== 'cc' :
+                            tmp[msr+'_pos']  = bct.clustering_coef_wu_sign(mat)[0].tolist()
+                            tmp[msr+'_neg'] = bct.clustering_coef_wu_sign(mat)[-1].tolist()
                     tmp[name_id_col]  = network_df.loc[network_df[name_id_col]==subj, name_id_col]
                     tmp[group_id_col] = network_df.loc[network_df[name_id_col]==subj, group_id_col]
                     tmp['network'] = network
                     tmp['prop_thr'] = prop_thr
                     tmp['fc'] = network_df.loc[network_df[name_id_col]==subj,rois].mean(axis=0)
                     study_df = pd.concat([study_df,tmp])
-
+        study_df = study_df.dropna(axis=1,how='all')
         study_df.to_csv(study_df_file, index=False)
     return study_df
 
-def plot_range_of_thresholds(mdata, network_list, prop_thr_list=None, msr="cc_posConn"):
-    study_df = get_cohort_clustering_coef(mdata, network_list, prop_thr_list=None)
-    #print(study_df.groupby(['network', 'group', 'prop_thr']).agg({'cc_posConn':['mean','std','count'],'cc_negConn':['mean','std','count']}))
-    result_dict = ks_score_by_network(mdata, network_list, msr=msr, study_df=study_df, prop_thr_list = prop_thr_list)
-    for n in set(study_df['network']):
-        f,ax = plt.subplots()
-        sns.lineplot(x='prop_thr',y='cc_posConn',hue='group', palette='tab10',data=study_df.loc[study_df['network']==n,:], ci=95)
-        #sns.lineplot(x='prop_thr',y='cc_negConn',palette='winter',hue='group',data=study_df.loc[study_df['network']==n,:], ci='sd')
-        plt.title(n.title())
-        plt.xlabel('Proportional thresholding value')
-        plt.ylabel('Mean clustering coefficient')
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-        plt.show()
-        print(f'ks_stat: {round(result_dict[n].statistic,4)}')
-        print(f'pvalue: {result_dict[n].pvalue}')
+def plot_range_of_thresholds(mdata, network_list, prop_thr_list=None, msr_list=["cc"]):
+    """Test and plot a range of thresholds to see how thresholds may affect hypothesis testing between two groups."""
+    if not isinstance(msr_list,list):
+        msr_list = [msr_list]
+    study_df = get_cohort_graph_msr(mdata, network_list, prop_thr_list=prop_thr_list, msr_list=msr_list)
 
-def plot_range_of_thresholds_individs(mdata, network_list, prop_thr_list=None):
-    study_df = get_cohort_clustering_coef(mdata, network_list, prop_thr_list=prop_thr_list)
-    print(study_df.groupby(['network', 'group', 'prop_thr']).agg({'cc_posConn':['mean','std','count'],'cc_negConn':['mean','std','count']}))
-    for n in set(study_df['network']):
-        f,ax = plt.subplots()
-        for subj in set(study_df[name_id_col]):
-            if set(study_df.loc[(study_df['network']==n) & (study_df[name_id_col]==subj),group_id_col]) == 'hc':
-                sns.lineplot(x='prop_thr',y='cc_posConn',color='red',data=study_df.loc[(study_df['network']==n) & (study_df[name_id_col]==subj),:])
-            else:
-                sns.lineplot(x='prop_thr',y='cc_posConn',color='blue',data=study_df.loc[(study_df['network']==n) & (study_df[name_id_col]==subj),:])
-        plt.title(n.title())
-        plt.xlabel('Proportional thresholding value')
-        plt.ylabel('Mean clustering coefficient')
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-        plt.show()
+    #msrs_to_agg = {col:['mean','std','count'] for col in study_df.columns if msr for msr_list in col }
+    #print(study_df.groupby(['network', 'group', 'prop_thr']).agg(msrs_to_agg))
+    msr_list = [col for col in study_df.columns if any(msr in col for msr in msr_list) ]
+    result_dict = scores_by_network(mdata, network_list, msr_list=msr_list, study_df=study_df, prop_thr_list = prop_thr_list)
 
-def ks_score_by_network(mdata, network_list, msr, study_df=None, prop_thr_list=None):
+    for n in set(study_df['network']):
+        for msr in msr_list:
+            f,ax = plt.subplots()
+            sns.lineplot(x='prop_thr',y=msr,hue='group', palette='tab10',data=study_df.loc[study_df['network']==n,:], ci=95)
+            #sns.lineplot(x='prop_thr',y='cc_negConn',palette='winter',hue='group',data=study_df.loc[study_df['network']==n,:], ci='sd')
+            plt.title(n.title())
+            plt.xlabel('Proportional thresholding value')
+            plt.ylabel(f'Mean {msr}')
+            plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+            plt.show()
+            print(f'ks_stat: {round(result_dict[msr][n].statistic,4)}')
+            print(f'pvalue: {result_dict[msr][n].pvalue}')
+
+def plot_range_of_thresholds_individs(mdata, network_list, prop_thr_list=None, msr_list=['cc']):
+    study_df = get_cohort_graph_msr(mdata, network_list, prop_thr_list=prop_thr_list)
+    msrs_to_agg = {col:['mean','std','count'] for col in study_df.columns if msr for msr_list in col }
+
+    print(study_df.groupby(['network', 'group', 'prop_thr']).agg(msrs_to_agg))
+    for n in set(study_df['network']):
+        for msr in msrs_to_agg.keys():
+            f,ax = plt.subplots()
+            for subj in set(study_df[name_id_col]):
+                if set(study_df.loc[(study_df['network']==n) & (study_df[name_id_col]==subj),group_id_col]) == 'hc':
+                    sns.lineplot(x='prop_thr',y=msr,color='red',data=study_df.loc[(study_df['network']==n) & (study_df[name_id_col]==subj),:])
+                else:
+                    sns.lineplot(x='prop_thr',y=msr,color='blue',data=study_df.loc[(study_df['network']==n) & (study_df[name_id_col]==subj),:])
+            plt.title(n.title())
+            plt.xlabel('Proportional thresholding value')
+            plt.ylabel(f'Mean {msr_dict[msr]}')
+            plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+            plt.show()
+
+def scores_by_network(mdata, network_list, msr_list, study_df=None, prop_thr_list=None, positive_only=False):
     if study_df.empty:
-        study_df = get_cohort_clustering_coef(mdata, network_list, prop_thr_list=prop_thr_list)
+        study_df = get_cohort_graph_msr(mdata, network_list, prop_thr_list=prop_thr_list, msr_list = msr_list, positive_only=positive_only)
     groups = list(set(study_df[group_id_col]))
-    result_dict = {}
+    result_dict = defaultdict(dict)
     for network in network_list:
         if network not in study_df['network'].unique():
             print(f'Need to rebuild the df as {network} does not exist in the the current one.')
-            study_df = get_cohort_clustering_coef(mdata, network_list, prop_thr_list=prop_thr_list, update = True)
-        result_dict[network] = scipy.stats.ks_2samp(study_df.loc[((study_df[group_id_col] == groups[0]) & (study_df['network'] == network)), msr], study_df.loc[((study_df[group_id_col] == groups[1]) & (study_df['network'] == network)), msr])
+            study_df = get_cohort_graph_msr(mdata, network_list, prop_thr_list=prop_thr_list, msr_list = msr_list, update = True, positive_only=positive_only)
+        for msr in msr_list:
+            result_dict[msr][network] = scipy.stats.ks_2samp(study_df.loc[((study_df[group_id_col] == groups[0]) & (study_df['network'] == network)), msr], study_df.loc[((study_df[group_id_col] == groups[1]) & (study_df['network'] == network)), msr])
     return result_dict
 
 
