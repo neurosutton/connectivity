@@ -297,29 +297,36 @@ def get_cohort_graph_msr(mdata, network_list, prop_thr_list=None, msr_list=['cc'
                 parcel_dict = get_parcel_dict(mdata, network_name=network)
                 rois = list(parcel_dict.keys())
                 for subj in set(network_df[name_id_col]):
-                    tmp = pd.DataFrame(index=rois)
-                    mat = network_df.loc[network_df[name_id_col]==subj,rois].to_numpy(na_value=0) #Still has negatives
-                    np.fill_diagonal(mat,0)
-                    for msr in msr_list:
-                        if positive_only == True:
-                            mat = mat*(mat > 0)
-                            bct.weight_conversion(mat, 'normalize', copy=False)
-                        if positive_only == True and msr == 'cc':
-                            tmp[msr]  = bct.clustering_coef_wu(mat).tolist()
-                        elif positive_only == True and msr == 'mod':
-                            tmp[msr] = bct.community_louvain(mat)[1].tolist() #get q values
-                        elif msr== 'cc' :
-                            tmp[msr+'_pos']  = bct.clustering_coef_wu_sign(mat)[0].tolist()
-                            tmp[msr+'_neg'] = bct.clustering_coef_wu_sign(mat)[-1].tolist()
-                    tmp[name_id_col]  = network_df.loc[network_df[name_id_col]==subj, name_id_col]
-                    tmp[group_id_col] = network_df.loc[network_df[name_id_col]==subj, group_id_col]
-                    tmp['network'] = network
-                    tmp['prop_thr'] = prop_thr
-                    tmp['fc'] = network_df.loc[network_df[name_id_col]==subj,rois].mean(axis=0)
+                    indvd_graph_calcs(network_df, subj, rois)
                     study_df = pd.concat([study_df,tmp])
         study_df = study_df.dropna(axis=1,how='all')
         study_df.to_csv(study_df_file, index=False)
     return study_df
+
+def indvd_graph_calcs(network_df, subj, rois):
+    """Individual graph measures are calculated and returned as a dataframe.
+    This function is dependent on a population-wide DF being passed, rather than re-creating through get_network_matrix."""
+    tmp = pd.DataFrame(index=rois)
+    mat = network_df.loc[network_df[name_id_col]==subj,rois].to_numpy(na_value=0) #Still has negatives
+    np.fill_diagonal(mat,0)
+    for msr in msr_list:
+        if positive_only == True:
+            mat = mat*(mat > 0)
+            bct.weight_conversion(mat, 'normalize', copy=False)
+        if positive_only == True and msr == 'cc':
+            tmp[msr]  = bct.clustering_coef_wu(mat).tolist()
+        elif positive_only == True and msr == 'mod':
+            tmp[msr] = bct.community_louvain(mat)[1].tolist() #get q values
+        elif msr== 'cc' :
+            tmp[msr+'_pos']  = bct.clustering_coef_wu_sign(mat)[0].tolist()
+            tmp[msr+'_neg'] = bct.clustering_coef_wu_sign(mat)[-1].tolist()
+    tmp[name_id_col]  = network_df.loc[network_df[name_id_col]==subj, name_id_col]
+    tmp[group_id_col] = network_df.loc[network_df[name_id_col]==subj, group_id_col]
+    tmp['network'] = network
+    tmp['prop_thr'] = prop_thr
+    tmp['fc'] = network_df.loc[network_df[name_id_col]==subj,rois].mean(axis=0)
+    tmp['norm_fc'] = np.mean(mat, axis=0)
+    return tmp
 
 def plot_range_of_thresholds(mdata, network_list, prop_thr_list=None, msr_list=["cc"]):
     """Test and plot a range of thresholds to see how thresholds may affect hypothesis testing between two groups."""
