@@ -10,7 +10,7 @@ import scipy.stats
 import matplotlib.pyplot as plt
 import os.path as op
 import numpy as np
-import fnmatch
+import fnmatch, random, time
 from matplotlib import colors
 from matplotlib.pyplot import figure
 import pandas as pd
@@ -20,7 +20,9 @@ import json
 import bct
 from collections import OrderedDict, defaultdict
 from datetime import datetime
-from  sklearn import preprocessing
+from sklearn import preprocessing, metrics, model_selection
+from tqdm import tqdm
+
 
 with open(op.join(op.dirname(op.realpath(__file__)),'directory_defs.json')) as f:
     defs = json.load(f)
@@ -35,7 +37,7 @@ group_id_col = "group"
 msr_dict = {'cc':"clusterin coefficienct", 'pl':"path length",'ms':"mean strength",'mod':"modularity", 'le':"local efficiency"}
 debug = ''
 
-dt = datetime.today().strftime('%Y%m%d')
+dt = datetime.today().strftime('%Y%m')
 
 def load_mat(data_dir, conn_file):
     """Loading and reloading the module is much quicker with loading the matrix as its own method. Call first, so that there is data, though."""
@@ -301,10 +303,11 @@ def get_cohort_graph_msr(mdata, network_list, prop_thr_list=None, msr_list=['cc'
             for network in network_list:
                 network_df = get_network_matrix(mdata, network_name=network, prop_thr=prop_thr)
                 for subj in set(network_df[name_id_col]):
-                    tmp = indvd_summary_and_graph_calcs(mdata, subj, network, msr_list=msr_list, positive_only=positive_only)
+                    tmp = indvd_summary_and_graph_calcs(mdata, subj, network, msr_list=msr_list, positive_only=positive_only, prop_thr=prop_thr)
                     study_df = pd.concat([study_df,tmp])
         study_df = study_df.dropna(axis=1,how='all')
-        study_df = study_df.drop_duplicates(subset=[name_id_col,'fc'])
+        study_df = study_df.drop_duplicates()
+        study_df.sort_values([group_id_col, name_id_col], inplace=True)
         study_df.to_csv(study_df_file)
     return study_df
 
@@ -346,9 +349,7 @@ def indvd_summary_and_graph_calcs(mdata, subj, network, msr_list=['cc'], positiv
 
 def assess_summaries_and_graph_calcs(mdata,subj_list=None, network_list=None, msr_list=['cc'], prop_thr_list=None, positive_only=True):
     study_df = get_cohort_graph_msr(mdata, network_list=network_list, prop_thr_list=prop_thr_list, msr_list=msr_list, update=False, positive_only=True)
-    study_df = study_df.drop_duplicates(subset=[name_id_col,'network','fc'])
-    study_df.sort_values([group_id_col, name_id_col], inplace=True)
-    msr_dict = {msr:['mean','std','max','min'] for msr in study_df.columns if msr not in ['group', name_id_col, group_id_col, 'network', 'rois']}
+    msr_dict = {msr:['mean','std','max','min'] for msr in study_df.columns if msr not in ['group', name_id_col, group_id_col, 'network', 'rois','prop_thr']}
     #print(list(msr_dict.items()))
     # Aggregrate the subject-level
     plot_df = study_df.groupby([name_id_col,'network']).agg(msr_dict)
@@ -356,14 +357,75 @@ def assess_summaries_and_graph_calcs(mdata,subj_list=None, network_list=None, ms
 
     for network in network_list:
         for msr in sorted(msr_dict.keys()):
-            fig, ax = plt.subplots(figsize=(14,6))
-            sns.stripplot(x=name_id_col, y=msr, data=study_df.loc[study_df['network']==network,:], jitter=True)
+            fig, ax = plt.subplots(figsize=(20,6))
+            if "prop_thr" in study_df.columns:
+                study_df['prop_thr']=study_df['prop_thr'].astype('category')
+                sns.stripplot(x=name_id_col, y=msr, hue="prop_thr", dodge=True, data=study_df.loc[study_df['network']==network,:], jitter=True)
+            else:
+                sns.stripplot(x=name_id_col, y=msr, data=study_df.loc[study_df['network']==network,:], jitter=True)
             plt.title(network)
             plt.xticks(rotation=80)
             plt.show()
     return study_df, plot_df
 
+def calculate_AUC(mdata, bootstrap=5000, subj_list=None, network_list=None, msr_list=['cc'], prop_thr_list=[0,.5,1], positive_only=True, update=False):
+    study_df = get_cohort_graph_msr(mdata, network_list=network_list, prop_thr_list=prop_thr_list, msr_list=msr_list, update=update, positive_only=True)
+    msr_dict = {msr:['mean','std','max','min'] for msr in study_df.columns if (msr not in ['group', name_id_col, group_id_col, 'network', 'rois','prop_thr']) and any(m in msr for m in msr_list)}
+    agg_df = study_df.groupby([name_id_col,'network']).agg(msr_dict)
 
+    for network in set(study_df['network']):
+        for msr in msr_dict.keys():
+            print(msr.upper())
+            prmt_rslts = pd.DataFrame() # for permutation results
+            tmp = study_df[study_df['network'] == network]
+            tmp.drop_duplicates(inplace=True)
+            groups = list(set(tmp[group_id_col]))
+            auc_dict = {}
+            for g,group in enumerate(groups):
+                group_mean = []
+                for subj in set(tmp.loc[tmp[group_id_col]==group,name_id_col]):
+                    group_mean.append(auc_helper(tmp.loc[(tmp[group_id_col]==group) & (tmp[name_id_col]==subj),:],'prop_thr',msr))
+                auc_dict[g] = np.mean(np.array(group_mean))
+                print(f'Avg AUC for {group}={np.mean(np.array(group_mean))}')
+            auc_diff = auc_dict[0]-auc_dict[1]
+            size_grp2 = len(set(tmp.loc[tmp[group_id_col]==groups[1],name_id_col]))
+
+            print(f'Group 1 has {len(set(tmp.loc[tmp[group_id_col]==groups[0],name_id_col]))} people.')
+            print(f'Group 2 has {size_grp2} people.')
+
+            for c in tqdm(range(1,bootstrap), bar_format='{desc:<5.5}{percentage:3.0f}%|{bar:10}{r_bar}'):
+                permute_tmp_grp2 = random.sample(set(tmp[name_id_col]), size_grp2)
+                permute_tmp_grp1 = [subj for subj in set(tmp[name_id_col]) if subj not in permute_tmp_grp2]
+                if c % 500 == 0:
+                    print(permute_tmp_grp2)
+                group_mean = []
+                for g, group in enumerate([permute_tmp_grp1, permute_tmp_grp2]) :
+                    for subj in group:
+                        try:
+                            group_mean.append(auc_helper(tmp.loc[tmp[name_id_col]==subj,:],'prop_thr',msr))
+                        except Exception as e:
+                            print(f'{subj} failed')
+                            print(e)
+                    prmt_rslts.loc[c,'test'] = c
+                    prmt_rslts.loc[c,'auc_grp'+str(g+1)] = np.mean(np.array(group_mean))
+                    #print(f'Group {g} mean = {np.mean(np.array(group_mean))}')
+
+            prmt_rslts['auc_diff'] = prmt_rslts['auc_grp1'] - prmt_rslts['auc_grp2']
+            prmt_rslts = prmt_rslts.sort_values('auc_diff').reset_index()
+            print(f"The experimental AUC difference, {auc_diff.round(3)}, is {prmt_rslts.loc[prmt_rslts['auc_diff'] >= auc_diff].index[0]/bootstrap} through the boostrapped results.")
+#            print(prmt_rslts.index(prmt_rslts['test']=='experimental').tolist())
+
+            fig,ax = plt.subplots()
+            sns.histplot(prmt_rslts, x='auc_diff', kde=True)
+            plt.axvline(auc_diff, color='r',linewidth=5)
+            plt.title(f'{network}:{msr}')
+            plt.show()
+
+def auc_helper(individ_df,x_axis, y_axis):
+    individ_df = individ_df.groupby(x_axis).agg({y_axis:'mean'}).reset_index()
+    x = individ_df.index.values
+    y = individ_df[y_axis]
+    return metrics.auc(x,y)
 
 def plot_range_of_thresholds(mdata, network_list, prop_thr_list=None, msr_list=["cc"]):
     """Test and plot a range of thresholds to see how thresholds may affect hypothesis testing between two groups."""
