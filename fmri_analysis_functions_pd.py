@@ -97,7 +97,7 @@ def get_parcel_dict(mdata, network_name=None, inverse=False):
         print(f'Search "{network_name}" returned these ROIs:\n{parcel_dict}')
     return parcel_dict
 
-def create_conn_df(mdata, abs_thr=None, prop_thr=None, triu=False):
+def create_conn_df(mdata, abs_thr=None, prop_thr=0, triu=False):
     """"Create the full, filterable connectivity matrix. Add subject id and group info"""
     subj_ix = mdata['Z'].shape[-1]
     x, subj_dict, group_dict = get_subj_df_data(subjects_file)
@@ -121,7 +121,7 @@ def create_conn_df(mdata, abs_thr=None, prop_thr=None, triu=False):
             tmp[tmp == -0] = 0
             abs_thr_dict[subj_dict[s]] = np.count_nonzero(tmp)
 
-        if prop_thr:
+        if prop_thr != 0:
             #Second, proportionally threshold the matrix. May be used in combination with the absolutely thresholded values
             try:
                 tmp = bct.threshold_proportional(tmp, prop_thr, copy=False)
@@ -146,17 +146,14 @@ def create_conn_df(mdata, abs_thr=None, prop_thr=None, triu=False):
     return conn_df
 
 
-def get_network_matrix(mdata, network_name=None, subj_list=None, abs_thr=None, prop_thr=None, triu=False, wb_norm=True):
+def get_network_matrix(mdata, network_name=None, subj_list=None, abs_thr=None, prop_thr=0, triu=False, wb_norm=True):
     """Provides the overarching connectivity for all participants as a searchable dataframe. No group assignments or covariates are included by this method."""
     parcel_dict = get_parcel_dict(mdata, network_name=network_name)
 
     # Apply filters to the connectivity dataframe
     conn_df = create_conn_df(mdata, abs_thr, prop_thr, triu)
     if wb_norm:
-        l1=conn_df.columns.tolist()
         conn_df = _normalize(conn_df)
-        l2=conn_df.columns.tolist()
-        print(f'After normalization these columns differ: {set(l1).difference(l2)}') # sanity check
 
     if network_name:
         if abs_thr:
@@ -179,7 +176,7 @@ def get_network_matrix(mdata, network_name=None, subj_list=None, abs_thr=None, p
     return conn_df
 
 
-def get_cohort_network_matrices(mdata, network_name, group, mean=False, abs_thr=None, prop_thr=None, triu=False):
+def get_cohort_network_matrices(mdata, network_name, group, mean=False, abs_thr=None, prop_thr=0, triu=False):
     ''' Get the matrices for a cohort of patients in a given network. '''
     if debug:
         print('get_cohort_network_matrices')
@@ -286,7 +283,7 @@ def describe_cohort_networks(mdata, network_name, group_1, group_2, name_1=None,
     print(f'{t_test_results}')
 
 def _lowercase(input_list):
-    return [el.lower() for el in input_list]
+    return [str(el).lower() for el in input_list]
 
 def _normalize(df):
     rois = list(set(df.index))
@@ -297,7 +294,7 @@ def _normalize(df):
     df[rois] = (mat - mat.min())/(mat.max()-mat.min()) # Since the scaling is (0,1), there is no need to multiply by anything else
     return df
 
-def get_cohort_graph_msr(mdata, network_list, prop_thr_list=None, msr_list=['cc'], update=False, positive_only=True, indvd_norm=False):
+def get_cohort_graph_msr(mdata, network_list, prop_thr_list=[0], msr_list=['cc'], update=False, positive_only=True, indvd_norm=False):
     """
     Core function for calculating the graph measure based on various specifications.
     Inputs:
@@ -319,20 +316,19 @@ def get_cohort_graph_msr(mdata, network_list, prop_thr_list=None, msr_list=['cc'
 
     # This chunk of code saves time by loading a previously created file and isolating which pieces are missing given the current specifications.
     if op.isfile(study_df_file) and op.getsize(study_df_file) > 0 and update==False:
+        print('Reading in previously calculated values.')
         study_df = pd.read_csv(study_df_file)
         study_df = study_df.rename({'Unnamed: 0':'rois'}, axis=1)
         study_df = study_df.drop(columns=[col for col in study_df.columns if 'Unnamed' in col])
         cols = _lowercase(study_df.columns)
         network_list = _lowercase(network_list)
         avlbl_networks = _lowercase(set(study_df['network']))
-        if not any(el in msr_list for el in cols):
+        if not all(msr in msr_list for msr in cols):
             print('Missing measures.')
             update = True
-        if [p for p in prop_thr_list if p not in set(study_df['prop_thr'])]:
-            print('Missing thresholds.')
+        if 'prop_thr' not in study_df.columns or [p for p in prop_thr_list if p not in set(study_df['prop_thr'])] :
             update = True
         if [n for n in network_list if n not in avlbl_networks]:
-            print(f'Missing network(s):{[n for n in network_list if n not in avlbl_networks]}')
             update = True
     elif not op.isfile(study_df_file) or not op.getsize(study_df_file) > 0:
         print('File was empty. Re-creating.')
@@ -340,61 +336,75 @@ def get_cohort_graph_msr(mdata, network_list, prop_thr_list=None, msr_list=['cc'
 
     if update == True:
         if op.isfile(study_df_file) and op.getsize(study_df_file) > 0:
-            study_df = pd.read_csv(study_df_file)
-            study_df = study_df.rename({'Unnamed: 0':'rois'}, axis=1)
+            if 'study_df' not in locals():
+                study_df = pd.read_csv(study_df_file)
+                study_df = study_df.rename({'Unnamed: 0':'rois'}, axis=1)
             idx = False # Avoids having multiple "Unnamed columns in the csv"
-            prop_thr_list = [p for p in prop_thr_list if p not in list(set(study_df['prop_thr']))]
-            network_list = [n for n in network_list if n not in list(set(study_df['network']))]
+            cols = _lowercase(study_df.columns)
+            updated_msr_list = [msr for msr in msr_list if msr not in cols]
+            if not updated_msr_list:
+                if 'prop_thr' in study_df.columns:
+                    prop_thr_list = [p for p in prop_thr_list if p not in list(set(study_df['prop_thr']))]
+                network_list = [n for n in network_list if n not in list(set(study_df['network']))]
+                updated_msr_list = msr_list
+            msr_list = updated_msr_list
         else:
             study_df = pd.DataFrame(columns=['group','network','fc','prop_thr'] + msr_list)
             idx = True
 
         if network_list or prop_thr_list:
-            print(f'Finding or updating {network_list}\n{prop_thr_list}')
+            print(f'Finding or updating {network_list} at {prop_thr_list}')
             for prop_thr in prop_thr_list:
                 for network in network_list:
                     tmp = roiLevel_graph_msrs(mdata, network, msr_list=msr_list, positive_only=positive_only, prop_thr=prop_thr, indvd_norm=indvd_norm)
                     if (len(study_df.columns) < len(tmp.columns) and study_df.shape[0] == 0):
                         study_df = pd.DataFrame(columns=tmp.columns)
+                    if idx == False:
+                        tmp.reset_index(inplace=True)
+                        tmp.rename({'index':'rois'}, axis=1, inplace=True)
                     study_df = pd.concat([study_df,tmp])
         study_df = study_df.dropna(axis=1,how='all')
         study_df = study_df.drop_duplicates()
-        study_df.sort_values([group_id_col, name_id_col], inplace=True)
+        #study_df.sort_values([group_id_col, name_id_col], inplace=True)
 
         study_df.to_csv(study_df_file, index=idx)
     return study_df
 
-
-def roiLevel_graph_msrs(mdata, network, msr_list=['cc'], positive_only=True, prop_thr=None, indvd_norm=False):
-    """Individual graph measures are calculated and returned as a dataframe."""
-    if indvd_norm:
+def indvd_normalization(mdata, network_name=None, prop_thr=0):
+        parcel_dict = get_parcel_dict(mdata, network_name=network_name)
+        rois = list(parcel_dict.keys())
         df = get_network_matrix(mdata, prop_thr=prop_thr, wb_norm=False)
         df = df.groupby([name_id_col]).apply(_normalize)
-        if network:
-            parcel_dict = get_parcel_dict(mdata, network_name=None)
-            cols = [col for col in df.columns if col in ([name_id_col, group_id_col] + list(parcel_dict.keys()))]
-            network_df = df[cols][df.index.isin(parcel_dict.keys())]
-    else:
-        network_df = get_network_matrix(mdata, network_name=network, prop_thr=prop_thr)
+        cols = [col for col in df.columns if col in ([name_id_col, group_id_col] + rois)]
+        return df[cols][df.index.isin(rois)]
 
-    graph_df = pd.DataFrame()
+def roiLevel_graph_msrs(mdata, network_name, msr_list=['cc'], positive_only=True, prop_thr=0, indvd_norm=False):
+    """Individual graph measures are calculated and returned as a dataframe."""
+    parcel_dict = get_parcel_dict(mdata, network_name=network_name)
+    rois = list(parcel_dict.keys())
+
+    if indvd_norm:
+        network_df = indvd_normalization(mdata, network_name=network_name, prop_thr=prop_thr)
+    else:
+        network_df = get_network_matrix(mdata, network_name=network_name, prop_thr=prop_thr)
+
+    graph_df = pd.DataFrame(index=rois)
+    ## TODO: parallelize subject loop
     for subj in set(network_df[name_id_col]):
         tmp = pd.DataFrame(index=rois)
         mat = network_df.loc[network_df[name_id_col]==subj,rois].to_numpy(na_value=0)
         for msr in _lowercase(msr_list):
             if positive_only == True:
-                mat = mat*(mat > 0)
-                if not group_norm:
-                    scaler = preprocessing.MinMaxScaler()
-                    mat = scaler.fit_transform(mat)
                 if 'cc' in msr:
                     tmp[msr]  = bct.clustering_coef_wu(mat).tolist()
-                    tmp[msr+'_sk_norm_minmax'] = bct.clustering_coef_wu(mat).tolist()
+                    tmp[msr+'_norm_minmax'] = bct.clustering_coef_wu(mat).tolist()
                 elif 'mod' in msr:
-                    tmp[msr+'louvain_sk_norm_minmax'] = bct.community_louvain(mat)[1]
-                    tmp[msr+'deterministic_sk_norm_minmax'] = bct.modularity_und(mat)[1]
+                    tmp[msr+'louvain_norm_minmax'] = bct.community_louvain(mat)[1]
+                    tmp[msr+'deterministic_norm_minmax'] = bct.modularity_und(mat)[1]
                 elif 'local' in msr:
-                    tmp[msr+'_sk_norm_minmax'] = bct.efficiency_wei(mat,local=True)
+                    tmp[msr+'_norm_minmax'] = bct.efficiency_wei(mat,local=True)
+                elif 'global' in msr:
+                    tmp[msr+'_norm_minmax'] = bct.efficiency_wei(mat)
                 elif 'rich' in msr:
                     deg = np.sum((mat != 0), axis=0)
                     ix = sorted(deg, reverse=True)
@@ -407,29 +417,29 @@ def roiLevel_graph_msrs(mdata, network, msr_list=['cc'], positive_only=True, pro
                             c +=1
                         else:
                             rc_final.append(np.nan)
-                    tmp[msr+'_sk_norm_minmax'] = rc_final
+                    tmp[msr+'_norm_minmax'] = rc_final
                 elif 'between' in msr :
-                    tmp[msr+'_sk_norm_minmax'] = bct.betweenness_wei(mat)
+                    tmp[msr+'_norm_minmax'] = bct.betweenness_wei(mat)
                 elif 'eigen' in msr:
-                    tmp[msr+'_sk_norm_minmax'] = bct.eigenvector_centrality_und(mat)
+                    tmp[msr+'_norm_minmax'] = bct.eigenvector_centrality_und(mat)
                 elif 'path' in msr:
                     D = bct.distance_wei(bct.invert(mat))
-                    tmp[msr+'_sk_norm_minmax'] = bct.charpath(bct.autofix(D[0]))[0]
+                    tmp[msr+'_norm_minmax'] = bct.charpath(bct.autofix(D[0]))[0]
             else:
                 tmp[msr+'_pos'] = bct.clustering_coef_wu_sign(mat)[0].tolist()
                 tmp[msr+'_neg'] = bct.clustering_coef_wu_sign(mat)[-1].tolist()
         tmp[name_id_col]  = network_df.loc[network_df[name_id_col]==subj, name_id_col]
         tmp[group_id_col] = network_df.loc[network_df[name_id_col]==subj, group_id_col]
-        tmp['network'] = network
+        tmp['network'] = network_name
         tmp['prop_thr'] = prop_thr
-        tmp['fc'] = network_df[rois].mean(axis=0)
-        tmp['fc_sk_norm_minmax'] = np.mean(mat,axis=0).tolist()
+        tmp['fc'] = network_df.loc[network_df[name_id_col]==subj,rois].mean(axis=0)
+        tmp['fc_norm_minmax'] = np.mean(mat,axis=0).tolist()
         graph_df = pd.concat([graph_df,tmp])
 
     return graph_df
 
 
-def assess_summaries_and_graph_calcs(mdata,subj_list=None, network_list=None, msr_list=['cc'], prop_thr_list=None, positive_only=True):
+def assess_summaries_and_graph_calcs(mdata,subj_list=None, network_list=None, msr_list=['cc'], prop_thr_list=[0], positive_only=True):
     study_df = get_cohort_graph_msr(mdata, network_list=network_list, prop_thr_list=prop_thr_list, msr_list=msr_list, update=False, positive_only=True)
     study_df = study_df.dropna(how='all',axis=1)
     msr_dict = {msr:['mean','std','max','min'] for msr in study_df.columns if msr not in ['group', name_id_col, group_id_col, 'network', 'rois','prop_thr']}
@@ -459,6 +469,16 @@ def assess_summaries_and_graph_calcs(mdata,subj_list=None, network_list=None, ms
 
     return study_df #, plot_df
 
+def calculate_outliers(df,msr):
+    mu = df[msr].mean()
+    sigma = tmp[msr].std()
+    lower,upper = mu - 3*sigma, mu + 3*sigma
+    outliers = [x for x in df[msr] if x < lower or x > upper]
+    print(f'Group 1 has {len(set(df.loc[df[group_id_col]==groups[0],name_id_col]))} people.')
+    print(f'Group 2 has {len(set(df.loc[df[group_id_col]==groups[1],name_id_col]))} people.')
+    print(f'{len(outliers)} outliers.')
+
+
 def calculate_AUC(mdata, bootstrap=5000, subj_list=None, network_list=None, msr_list=['cc'], prop_thr_list=[0,.5,1], positive_only=True, update=False, group_norm=False):
     study_df = get_cohort_graph_msr(mdata, network_list=network_list, prop_thr_list=prop_thr_list, msr_list=msr_list, update=update, positive_only=True, group_norm=group_norm)
     msr_dict = {msr:['mean','std','max','min'] for msr in study_df.columns if (msr not in ['group', name_id_col, group_id_col, 'network', 'rois','prop_thr']) and any(m in msr for m in msr_list)}
@@ -473,13 +493,7 @@ def calculate_AUC(mdata, bootstrap=5000, subj_list=None, network_list=None, msr_
             tmp = tmp.drop_duplicates()
             groups = list(set(tmp[group_id_col]))
             if 'norm' not in msr:
-                mu = tmp[msr].mean()
-                sigma = tmp[msr].std()
-                lower,upper = mu - 3*sigma, mu + 3*sigma
-                outliers = [x for x in tmp[msr] if x < lower or x > upper]
-                print(f'Group 1 has {len(set(tmp.loc[tmp[group_id_col]==groups[0],name_id_col]))} people.')
-                print(f'Group 2 has {len(set(tmp.loc[tmp[group_id_col]==groups[1],name_id_col]))} people.')
-                print(f'{len(outliers)} outliers.')
+                calculate_outliers(tmp,msr)
             else:
                 auc_dict = {}
                 for g,group in enumerate(groups):
@@ -534,7 +548,7 @@ def auc_helper(individ_df,x_axis, y_axis):
     y = individ_df[y_axis]
     return metrics.auc(x,y)
 
-def plot_range_of_thresholds(mdata, network_list, prop_thr_list=None, msr_list=["cc"]):
+def plot_range_of_thresholds(mdata, network_list, prop_thr_list=[0], msr_list=["cc"]):
     """Test and plot a range of thresholds to see how thresholds may affect hypothesis testing between two groups."""
     if not isinstance(msr_list,list):
         msr_list = [msr_list]
@@ -556,7 +570,7 @@ def plot_range_of_thresholds(mdata, network_list, prop_thr_list=None, msr_list=[
             plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
             plt.show()
 
-def plot_range_of_thresholds_individs(mdata, network_list, prop_thr_list=None, msr_list=['cc']):
+def plot_range_of_thresholds_individs(mdata, network_list, prop_thr_list=[0], msr_list=['cc']):
     study_df = get_cohort_graph_msr(mdata, network_list, prop_thr_list=prop_thr_list)
     msrs_to_agg = {col:['mean','std','count'] for col in study_df.columns if msr for msr_list in col }
 
@@ -575,7 +589,7 @@ def plot_range_of_thresholds_individs(mdata, network_list, prop_thr_list=None, m
             plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
             plt.show()
 
-def scores_by_network(mdata, network_list, msr_list, study_df=None, prop_thr_list=None, positive_only=False):
+def scores_by_network(mdata, network_list, msr_list, study_df=None, prop_thr_list=[0], positive_only=False):
     if study_df.empty:
         study_df = get_cohort_graph_msr(mdata, network_list, prop_thr_list=prop_thr_list, msr_list = msr_list, positive_only=positive_only)
     groups = list(set(study_df[group_id_col]))
