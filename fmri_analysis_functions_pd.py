@@ -8,7 +8,8 @@ v0.2 (BMS) Adapted fmri_analysis_functions for pandas
 from scipy.io import loadmat
 import scipy.stats
 import matplotlib.pyplot as plt
-import os.path as op
+import os
+from glob import glob
 import numpy as np
 import fnmatch, random, time
 from matplotlib import colors
@@ -21,15 +22,17 @@ import bct
 from collections import OrderedDict, defaultdict
 from datetime import datetime
 from tqdm import tqdm
+import multiprocessing
+import itertools
 
 
-with open(op.join(op.dirname(op.realpath(__file__)),'directory_defs.json')) as f:
+with open(os.path.join(os.path.dirname(os.path.realpath(__file__)),'directory_defs.json')) as f:
     defs = json.load(f)
     conn_dir = defs['conn_dir']
     main_dir = defs['main_dir']
-data_dir = op.join(conn_dir)
+data_dir = os.path.join(conn_dir)
 conn_file = 'resultsROI_Condition001.mat'
-subjects_file =  op.join(main_dir,'eses_subjects_202008.csv')
+subjects_file =  os.path.join(main_dir,'eses_subjects_202008.csv')
 
 name_id_col = "BK_name"
 group_id_col = "group"
@@ -40,7 +43,7 @@ dt = datetime.today().strftime('%Y%m')
 
 def load_mat(data_dir, conn_file):
     """Loading and reloading the module is much quicker with loading the matrix as its own method. Call first, so that there is data, though."""
-    mdata = loadmat(op.join(data_dir, conn_file))
+    mdata = loadmat(os.path.join(data_dir, conn_file))
     rois = mdata['names']
     rois = [roi[0].replace('hcp_atlas.','') for r_array in rois for roi in r_array]
     return mdata, rois
@@ -76,13 +79,18 @@ def get_network_parcels(mdata, network_name):
 
 def get_parcel_dict(mdata, network_name=None, inverse=False):
     """Alternate method to get ROI indices and names."""
-    parcel_names = [str[0] for str in mdata['names'][0]]
+    try:
+        parcel_names = [str[0] for str in mdata['names'][0]]
+    except:
+        print(f'Issue in get_parcel_dict(mdata,network_name={network_name}, inverse={inverse})')
+        print(mdata['names'])
+
     parcel_dict = OrderedDict()
 #    if network_name:
 #        print(f'Selecting ROIs belonging to the {network_name} network.\n')
     for p,parcel in enumerate(parcel_names):
         parcel = parcel.replace('hcp_atlas.','') # Clean the names
-        if network_name:
+        if network_name and ('whole' not in network_name):
             if network_name.lower() in parcel.lower():
                 parcel_dict[parcel] = p
             elif debug:
@@ -306,16 +314,16 @@ def get_cohort_graph_msr(mdata, network_list, prop_thr_list=[0], msr_list=['cc']
 
         update = Overwrite any previously compiled data file
 
-        indvd_norm = Option to normalize a person (at the whole brain level), similar to SPM scheme to ensure "baseline-corrected" comparisons.
+        indvd_norm = Option to normalize a person (at the whole brain level), similar to SPM scheme to ensure "baseline-corrected" comparisons, rather than normalizing across the entire population.
     """
 
     if indvd_norm:
-        study_df_file = op.join(data_dir,dt+'_graph_msr_indvdNormed.csv')
+        study_df_file = os.path.join(data_dir,dt+'_graph_msr_indvdNormed.csv')
     else:
-        study_df_file = op.join(data_dir,dt+'_graph_msr.csv')
+        study_df_file = os.path.join(data_dir,dt+'_graph_msr.csv')
 
     # This chunk of code saves time by loading a previously created file and isolating which pieces are missing given the current specifications.
-    if op.isfile(study_df_file) and op.getsize(study_df_file) > 0 and update==False:
+    if os.path.isfile(study_df_file) and os.path.getsize(study_df_file) > 2 and update==False:
         print('Reading in previously calculated values.')
         study_df = pd.read_csv(study_df_file)
         study_df = study_df.rename({'Unnamed: 0':'rois'}, axis=1)
@@ -330,16 +338,16 @@ def get_cohort_graph_msr(mdata, network_list, prop_thr_list=[0], msr_list=['cc']
             update = True
         if [n for n in network_list if n not in avlbl_networks]:
             update = True
-    elif not op.isfile(study_df_file) or not op.getsize(study_df_file) > 0:
+
+    elif not os.path.isfile(study_df_file) or not os.path.getsize(study_df_file) > 0:
         print('File was empty. Re-creating.')
         update=True
 
     if update == True:
-        if op.isfile(study_df_file) and op.getsize(study_df_file) > 0:
+        if os.path.isfile(study_df_file) and os.path.getsize(study_df_file) > 2:
             if 'study_df' not in locals():
                 study_df = pd.read_csv(study_df_file)
                 study_df = study_df.rename({'Unnamed: 0':'rois'}, axis=1)
-            idx = False # Avoids having multiple "Unnamed columns in the csv"
             cols = _lowercase(study_df.columns)
             updated_msr_list = [msr for msr in msr_list if msr not in cols]
             if not updated_msr_list:
@@ -350,24 +358,54 @@ def get_cohort_graph_msr(mdata, network_list, prop_thr_list=[0], msr_list=['cc']
             msr_list = updated_msr_list
         else:
             study_df = pd.DataFrame(columns=['group','network','fc','prop_thr'] + msr_list)
-            idx = True
 
         if network_list or prop_thr_list:
             print(f'Finding or updating {network_list} at {prop_thr_list}')
-            for prop_thr in prop_thr_list:
-                for network in network_list:
-                    tmp = roiLevel_graph_msrs(mdata, network, msr_list=msr_list, positive_only=positive_only, prop_thr=prop_thr, indvd_norm=indvd_norm)
+            jobs = []
+            limit_cores = 24
+            num_jobs = len(prop_thr_list)*len(network_list)
+            if num_jobs > limit_cores:
+                print(f'Define logic for too many processes ({num_jobs})')
+            else:
+                for prop_thr in prop_thr_list:
+                   for network in network_list:
+                        in_args = [mdata, network]
+                        in_kwargs = {'msr_list':msr_list, 'positive_only':positive_only, 'prop_thr':prop_thr, 'indvd_norm':indvd_norm}
+                        service = multiprocessing.Process(name='Calc graph measures', target=roiLevel_graph_msrs, args=(in_args), kwargs = in_kwargs)
+                        jobs.append(service)
+                        service.start()
+                service.join() # Pause signal until the analyses are completed. However, it doesn't work if the whole_brain is being calculated, since the processes for the networks are immeasureably quicker.
+
+                possible_files = glob(os.path.join(data_dir, 'interim_*.csv'))
+                while len(possible_files) < num_jobs:
+                    if len(possible_files) > 0:
+                        print('holding')
+                        time.sleep(90)
+                    possible_files = glob(os.path.join(data_dir, 'interim_*.csv'))
+
+                saved_dfs = [f for f in possible_files if any(n in f for n in network_list)]
+                for tmp in saved_dfs:
+                    tmp = pd.read_csv(tmp)
+                    tmp = tmp.rename({'Unnamed: 0':'rois'}, axis=1)
                     if (len(study_df.columns) < len(tmp.columns) and study_df.shape[0] == 0):
-                        study_df = pd.DataFrame(columns=tmp.columns)
-                    if idx == False:
+                        study_df = pd.DataFrame(columns=set(tmp.columns))
+                    if 'rois' not in tmp.columns:
+                        print(tmp.columns)
                         tmp.reset_index(inplace=True)
                         tmp.rename({'index':'rois'}, axis=1, inplace=True)
-                    study_df = pd.concat([study_df,tmp])
-        study_df = study_df.dropna(axis=1,how='all')
+                    try:
+                        study_df = pd.concat([study_df,tmp])
+                        # for fname in possible_files:
+                        #     if os.path.isfile(fname):
+                        #         os.remove(fname)
+                    except:
+                        print(f'Study DF: {study_df.columns}')
+                        print(f'New DF: {tmp.columns}')
+        study_df = study_df.dropna(axis=1,how='all',subset=['fc','network'])
         study_df = study_df.drop_duplicates()
         #study_df.sort_values([group_id_col, name_id_col], inplace=True)
 
-        study_df.to_csv(study_df_file, index=idx)
+        study_df.to_csv(study_df_file, index=False)
     return study_df
 
 def indvd_normalization(mdata, network_name=None, prop_thr=0):
@@ -382,62 +420,98 @@ def roiLevel_graph_msrs(mdata, network_name, msr_list=['cc'], positive_only=True
     """Individual graph measures are calculated and returned as a dataframe."""
     parcel_dict = get_parcel_dict(mdata, network_name=network_name)
     rois = list(parcel_dict.keys())
-
-    if indvd_norm:
-        network_df = indvd_normalization(mdata, network_name=network_name, prop_thr=prop_thr)
+    if indvd_norm == False:
+        norm='pop'
     else:
-        network_df = get_network_matrix(mdata, network_name=network_name, prop_thr=prop_thr)
+        norm='indvd'
+    prop_name = str(prop_thr).split('.')[-1]
+    graph_df_file = os.path.join(data_dir,'interim_' + network_name + '_' + norm + prop_name + '.csv')
 
-    graph_df = pd.DataFrame(index=rois)
-    ## TODO: parallelize subject loop
-    for subj in set(network_df[name_id_col]):
-        tmp = pd.DataFrame(index=rois)
-        mat = network_df.loc[network_df[name_id_col]==subj,rois].to_numpy(na_value=0)
-        for msr in _lowercase(msr_list):
-            if positive_only == True:
-                if 'cc' in msr:
-                    tmp[msr]  = bct.clustering_coef_wu(mat).tolist()
-                    tmp[msr+'_norm_minmax'] = bct.clustering_coef_wu(mat).tolist()
-                elif 'mod' in msr:
-                    tmp[msr+'louvain_norm_minmax'] = bct.community_louvain(mat)[1]
-                    tmp[msr+'deterministic_norm_minmax'] = bct.modularity_und(mat)[1]
-                elif 'local' in msr:
-                    tmp[msr+'_norm_minmax'] = bct.efficiency_wei(mat,local=True)
-                elif 'global' in msr:
-                    tmp[msr+'_norm_minmax'] = bct.efficiency_wei(mat)
-                elif 'rich' in msr:
-                    deg = np.sum((mat != 0), axis=0)
-                    ix = sorted(deg, reverse=True)
-                    rc_values = bct.rich_club_wu(mat).tolist()
-                    c = 0
-                    rc_final = []
-                    for d in deg:
-                        if d > ix[np.max(deg)]:
-                            rc_final.append(rc_values[c])
-                            c +=1
-                        else:
-                            rc_final.append(np.nan)
-                    tmp[msr+'_norm_minmax'] = rc_final
-                elif 'between' in msr :
-                    tmp[msr+'_norm_minmax'] = bct.betweenness_wei(mat)
-                elif 'eigen' in msr:
-                    tmp[msr+'_norm_minmax'] = bct.eigenvector_centrality_und(mat)
-                elif 'path' in msr:
-                    D = bct.distance_wei(bct.invert(mat))
-                    tmp[msr+'_norm_minmax'] = bct.charpath(bct.autofix(D[0]))[0]
+    if not os.path.isfile(graph_df_file):
+        if indvd_norm:
+            network_df = indvd_normalization(mdata, network_name=network_name, prop_thr=prop_thr)
+        else:
+            network_df = get_network_matrix(mdata, network_name=network_name, prop_thr=prop_thr)
+
+        graph_df = pd.DataFrame(index=rois)
+        if not network_name:
+            network_name='whole_brain'
+
+        for subj in set(network_df[name_id_col]):
+            tmp = pd.DataFrame(index=rois)
+            print(f'Creating numpy matrix: {subj}')
+            mat = network_df.loc[network_df[name_id_col]==subj,rois].to_numpy(na_value=0)
+            for msr in _lowercase(msr_list):
+                print(f'Calculating {msr}')
+                if positive_only == True:
+                    if 'cc' in msr:
+                        tmp[msr+'_norm_minmax'] = bct.clustering_coef_wu(mat).tolist()
+                    elif 'mod' in msr:
+                        # Deprecation warning for ragged arrays seems to be related to modularity calculations.
+                        tmp[msr+'louvain_norm_minmax'] = bct.community_louvain(mat)[1]
+                        tmp[msr+'deterministic_norm_minmax'] = bct.modularity_und(mat)[1]
+                    elif 'local' in msr:
+                        tmp[msr+'_norm_minmax'] = bct.efficiency_wei(mat,local=True)
+                    elif 'global' in msr:
+                        tmp[msr+'_norm_minmax'] = bct.efficiency_wei(mat)
+                    elif 'rich' in msr:
+                        deg = np.sum((mat != 0), axis=0)
+                        ix = sorted(deg, reverse=True)
+                        rc_values = bct.rich_club_wu(mat).tolist()
+                        c = 0
+                        rc_final = []
+                        for d in deg:
+                            if d > ix[np.max(deg)]:
+                                rc_final.append(rc_values[c])
+                                c +=1
+                            else:
+                                rc_final.append(np.nan)
+                        tmp[msr+'_norm_minmax'] = rc_final
+                    elif 'between' in msr :
+                        tmp[msr+'_norm_minmax'] = bct.betweenness_wei(mat)
+                    elif 'eigen' in msr:
+                        tmp[msr+'_norm_minmax'] = bct.eigenvector_centrality_und(mat)
+                    elif 'path' in msr:
+                        D = bct.distance_wei(bct.invert(mat))
+                        tmp[msr+'_norm_minmax'] = bct.charpath(bct.autofix(D[0]))[0]
+                else:
+                    tmp[msr+'_pos'] = bct.clustering_coef_wu_sign(mat)[0].tolist()
+                    tmp[msr+'_neg'] = bct.clustering_coef_wu_sign(mat)[-1].tolist()
+            tmp[name_id_col]  = network_df.loc[network_df[name_id_col]==subj, name_id_col]
+            tmp[group_id_col] = network_df.loc[network_df[name_id_col]==subj, group_id_col]
+            tmp['network'] = network_name
+            tmp['prop_thr'] = prop_thr
+            tmp['fc'] = network_df.loc[network_df[name_id_col]==subj,rois].mean(axis=0)
+            tmp = tmp.dropna(how='all', subset=['fc','network'])
+            if tmp.empty:
+                print(f'Not able to collect graph measures for {network_name} at {prop_thr}')
             else:
-                tmp[msr+'_pos'] = bct.clustering_coef_wu_sign(mat)[0].tolist()
-                tmp[msr+'_neg'] = bct.clustering_coef_wu_sign(mat)[-1].tolist()
-        tmp[name_id_col]  = network_df.loc[network_df[name_id_col]==subj, name_id_col]
-        tmp[group_id_col] = network_df.loc[network_df[name_id_col]==subj, group_id_col]
-        tmp['network'] = network_name
-        tmp['prop_thr'] = prop_thr
-        tmp['fc'] = network_df.loc[network_df[name_id_col]==subj,rois].mean(axis=0)
-        tmp['fc_norm_minmax'] = np.mean(mat,axis=0).tolist()
-        graph_df = pd.concat([graph_df,tmp])
+                try:
+                    graph_df = pd.concat([graph_df,tmp])
+                except:
+                    print(f'Graph DF: {graph_df.columns}')
+                    print(f'Added DF: {tmp.columns}')
+        graph_df.reset_index(inplace=True)
+        graph_df.rename({'index':'rois'}, axis=1, inplace=True)
+        graph_df.to_csv(graph_df_file,index=False)
 
     return graph_df
 
+
+def compare_network_to_wb(mdata, network_list, msr_list, study_df=None, prop_thr_list=[0], positive_only=False):
+    if study_df.empty:
+        study_df = get_cohort_graph_msr(mdata, network_list, prop_thr_list=prop_thr_list, msr_list = msr_list, positive_only=positive_only)
+    groups = list(set(study_df[group_id_col]))
+    normed_msr_dict = {msr:['mean','std','max','min'] for msr in study_df.columns if (msr not in ['group', name_id_col, group_id_col, 'network', 'rois','prop_thr']) and ('norm' in msr)}
+
+    result_dict = defaultdict(dict)
+    for network in network_list:
+        if network not in study_df['network'].unique():
+            print(f'Need to rebuild the df as {network} does not exist in the the current one.')
+            study_df = get_cohort_graph_msr(mdata, network_list, prop_thr_list=prop_thr_list, msr_list = msr_list, update = True, positive_only=positive_only)
+        results = study_df.groupby(['network','prop_thr','group']).agg(normed_msr_dict)
+            #result_dict[msr][network] =
+    return result_dict
 
 def assess_summaries_and_graph_calcs(mdata,subj_list=None, network_list=None, msr_list=['cc'], prop_thr_list=[0], positive_only=True):
     study_df = get_cohort_graph_msr(mdata, network_list=network_list, prop_thr_list=prop_thr_list, msr_list=msr_list, update=False, positive_only=True)
@@ -505,8 +579,8 @@ def calculate_AUC(mdata, bootstrap=5000, subj_list=None, network_list=None, msr_
                 auc_diff = auc_dict[0]-auc_dict[1]
                 size_grp2 = len(set(tmp.loc[tmp[group_id_col]==groups[1],name_id_col]))
 
-                permutation_file = op.join(data_dir, dt+'_'+msr+'_'+network+'.csv')
-                if op.isfile(permutation_file) and op.getsize(permutation_file) > 0:
+                permutation_file = os.path.join(data_dir, dt+'_'+msr+'_'+network+'.csv')
+                if os.path.isfile(permutation_file) and os.path.getsize(permutation_file) > 0:
                     prmt_rslts = pd.read_csv(permutation_file)
                 else:
                     for c in tqdm(range(1,bootstrap), bar_format='{desc:<5.5}{percentage:3.0f}%|{bar:10}{r_bar}'):
