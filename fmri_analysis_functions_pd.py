@@ -311,7 +311,6 @@ def get_cohort_graph_msr(mdata, network_list, prop_thr_list=[0], msr_list=['cc']
         network_list = strs defining which networks to examine
 
         msr_list = strs stating which graph measures to calculate. Intended to match logical substrings of common measures. More thoroughly defined in roiLevel_graph_msrs.
-
         update = Overwrite any previously compiled data file
 
         indvd_norm = Option to normalize a person (at the whole brain level), similar to SPM scheme to ensure "baseline-corrected" comparisons, rather than normalizing across the entire population.
@@ -381,6 +380,7 @@ def get_cohort_graph_msr(mdata, network_list, prop_thr_list=[0], msr_list=['cc']
                 else:
                     norm='indvd'
                 possible_files = glob(os.path.join(data_dir, 'interim_*'+norm+'?.csv'))
+
                 while len(possible_files) < num_jobs:
                     if len(possible_files) > 0:
                         print('holding')
@@ -390,6 +390,7 @@ def get_cohort_graph_msr(mdata, network_list, prop_thr_list=[0], msr_list=['cc']
 
                 for t, tmp in enumerate(saved_dfs):
                     print(f'{tmp} is file number {t}\n')
+
                     tmp = pd.read_csv(tmp)
                     tmp = tmp.rename({'Unnamed: 0':'rois'}, axis=1)
                     if (len(study_df.columns) < len(tmp.columns) and study_df.shape[0] == 0):
@@ -411,9 +412,6 @@ def get_cohort_graph_msr(mdata, network_list, prop_thr_list=[0], msr_list=['cc']
         study_df = study_df.dropna(axis=1, how='all') # In case there is an empty column
         #(study_df.sort_values([group_id_col, name_id_col], inplace=True))
         study_df = study_df.drop_duplicates()
-
-
-
         study_df.to_csv(study_df_file, index=False)
     return study_df
 
@@ -507,6 +505,22 @@ def roiLevel_graph_msrs(mdata, network_name, msr_list=['cc'], positive_only=True
         graph_df.to_csv(graph_df_file,index=False)
 
     return graph_df
+
+
+def compare_network_to_wb(mdata, network_list, msr_list, study_df=None, prop_thr_list=[0], positive_only=False):
+    if study_df.empty:
+        study_df = get_cohort_graph_msr(mdata, network_list, prop_thr_list=prop_thr_list, msr_list = msr_list, positive_only=positive_only)
+    groups = list(set(study_df[group_id_col]))
+    normed_msr_dict = {msr:['mean','std','max','min'] for msr in study_df.columns if (msr not in ['group', name_id_col, group_id_col, 'network', 'rois','prop_thr']) and ('norm' in msr)}
+
+    result_dict = defaultdict(dict)
+    for network in network_list:
+        if network not in study_df['network'].unique():
+            print(f'Need to rebuild the df as {network} does not exist in the the current one.')
+            study_df = get_cohort_graph_msr(mdata, network_list, prop_thr_list=prop_thr_list, msr_list = msr_list, update = True, positive_only=positive_only)
+        results = study_df.groupby(['network','prop_thr','group']).agg(normed_msr_dict)
+            #result_dict[msr][network] =
+    return result_dict
 
 
 def compare_network_to_wb(mdata, network_list, msr_list, study_df=None, prop_thr_list=[0], positive_only=False):
