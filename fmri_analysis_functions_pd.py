@@ -142,7 +142,7 @@ def create_conn_df(mdata, abs_thr=None, prop_thr=0, triu=False):
 
         tmp_df = pd.DataFrame(data=tmp, index = rois, columns=rois)
         tmp_df = tmp_df*sign_mask
-        tmp_df = tmp_df.replace([-0,np.nan],0)
+        tmp_df = tmp_df.replace({-0:np.nan}) # Make the negative zeros become nan
         tmp_df[name_id_col] = subj_dict[s]
         conn_df = pd.concat([conn_df,tmp_df])
 
@@ -300,6 +300,7 @@ def _normalize(df):
     mat = mat*(mat>0)
     np.fill_diagonal(mat,0) # BCT compatibility
     df[rois] = (mat - mat.min())/(mat.max()-mat.min()) # Since the scaling is (0,1), there is no need to multiply by anything else
+    df[rois] = df[rois].replace({0:np.nan})
     return df
 
 def create_cohort_graph_msr(mdata, network_list, prop_thr_list=[0], msr_list=['cc'], update=False, positive_only=True, indvd_norm=False):
