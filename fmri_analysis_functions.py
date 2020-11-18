@@ -16,19 +16,20 @@ from matplotlib.pyplot import figure
 import pandas as pd
 from matplotlib import cm
 import json
+import thresholding_and_normalizing as tan
 
-with open(op.join(op.realpath(__file__),'directory_defs.json') as f:
+with open(op.join(op.dirname(op.realpath(__file__)),'directory_defs.json')) as f:
     defs = json.load(f)
     conn_dir = defs['conn_dir']
+    conn_file = defs['conn_file']
+    subjects_file = defs['subjects_file']
 
-data_dir = op.join(conn_dir,'conn_project01_results')
-file = 'resultsROI_Condition001.mat'
-subject_file = op.join(conn_dir,'eses_subjects_202008.csv')
+# subject_file = op.join(conn_dir,'eses_subjects_202008.csv')
 
-mdata = loadmat(op.join(data_dir, file))
-subj_data = pd.read_csv(subject_file)
+subj_data = pd.read_csv(op.join(conn_dir, subjects_file))
 eses_indices = [i for i, x in enumerate(list(subj_data['group'])) if x == 'eses']
 hc_indices = [i for i, x in enumerate(list(subj_data['group'])) if x == 'hc']
+
 
 def get_network_parcels(conn_data, network_name, subj_idx):
     parcel_names = [str[0] for str in conn_data['names'][0]]
@@ -50,7 +51,7 @@ def get_cohort_network_matrices(conn_data, network_name, subj_idx, mean=False):
     ''' Get the matrices for a cohort of patients in a given network. '''
     cohort_matrices = []  # need to collect all the matrices to add
     for subj in subj_idx:
-        cohort_matrices.append(get_network_matrix(mdata, network_name, subj))
+        cohort_matrices.append(get_network_matrix(conn_data, network_name, subj))
     cohort_matrices = np.asarray(cohort_matrices)
     if mean is True:
         return np.nanmean(cohort_matrices, axis=0)
@@ -88,7 +89,8 @@ def plot_cohort_network_matrix(conn_data, network_name, subj_idx_list):
     plt.show()
 
 
-def plot_cohort_comparison(conn_data, network_name, subj_idx_list_1, subj_idx_list_2, vmin=None, vmax=None):
+def plot_cohort_comparison(network_name, subj_idx_list_1, subj_idx_list_2, vmin=None, vmax=None, conn_data=None):
+    conn_data = tan.get_mdata() if conn_data is None else conn_data
     mean_matrix_1 = get_cohort_network_matrices(conn_data, network_name, subj_idx_list_1, mean=True)  # need to collect all the matrices to add
     mean_matrix_2 = get_cohort_network_matrices(conn_data, network_name, subj_idx_list_2, mean=True)
     vmin = np.min([np.nanmin(mean_matrix_1), np.nanmin(mean_matrix_2)]) if vmin is None else vmin
@@ -136,7 +138,7 @@ def get_subject_scores(subject_file, measure):
     return scores
 
 
-def plot_score_by_network(subject_file, measure, conn_data, network, drop=[]]):
+def plot_score_by_network(subject_file, measure, conn_data, network, drop=[]):
     scores = get_subject_scores(subject_file, measure)
     for idx in drop:
         scores.pop(idx, None)
