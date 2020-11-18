@@ -41,10 +41,11 @@ def get_network_parcels(conn_data, network_name, subj_idx):
     return network_parcels
 
 
-def get_network_matrix(conn_data, network_name, subj_idx):
+def get_network_matrix(network_name, subj_idx, conn_data=None):
+    conn_data = tan.get_mdata() if conn_data is None else conn_data
     parcels = get_network_parcels(conn_data, network_name, subj_idx)
     indices = list(parcels.values())
-    return conn_data['Z'][:, :, subj_idx][np.ix_(indices, indices)]
+    return conn_data[:, :, subj_idx][np.ix_(indices, indices)]
 
 
 def get_cohort_network_matrices(conn_data, network_name, subj_idx, mean=False):
