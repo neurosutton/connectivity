@@ -31,9 +31,10 @@ eses_indices = [i for i, x in enumerate(list(subj_data['group'])) if x == 'eses'
 hc_indices = [i for i, x in enumerate(list(subj_data['group'])) if x == 'hc']
 
 
-def get_network_parcels(conn_data, network_name, subj_idx):
-    parcel_names = [str[0] for str in conn_data['names'][0]]
-    parcels = {k:v for v,k in enumerate([str[0] for str in conn_data['names'][0]])}
+def get_network_parcels(network_name, subj_idx, mdata=None):
+    mdata = tan.get_mdata() if mdata is None else mdata
+    parcel_names = [str[0] for str in mdata['names'][0]]
+    parcels = {k:v for v,k in enumerate([str[0] for str in mdata['names'][0]])}
     pattern = 'hcp_atlas.' + network_name + '*'
     matching = fnmatch.filter(parcels.keys(), pattern)
     network_parcels = {k:v for k,v in parcels.items() if k in matching}
@@ -41,18 +42,21 @@ def get_network_parcels(conn_data, network_name, subj_idx):
     return network_parcels
 
 
-def get_network_matrix(network_name, subj_idx, conn_data=None):
-    conn_data = tan.get_mdata() if conn_data is None else conn_data
-    parcels = get_network_parcels(conn_data, network_name, subj_idx)
+def get_network_matrix(network_name, subj_idx, conn_data=None, mdata=None):
+    conn_data = tan.get_conn_data() if conn_data is None else conn_data
+    parcels = get_network_parcels(network_name, subj_idx, mdata=mdata)
     indices = list(parcels.values())
-    return conn_data[:, :, subj_idx][np.ix_(indices, indices)]
+    matrix = conn_data[:, :, subj_idx][np.ix_(indices, indices)]
+    return matrix.copy()
 
 
-def get_cohort_network_matrices(conn_data, network_name, subj_idx, mean=False):
+def get_cohort_network_matrices(network_name, subj_idx, mean=False, conn_data=None, prop_thr=None):
+    conn_data = tan.get_conn_data() if conn_data is None else conn_data
     ''' Get the matrices for a cohort of patients in a given network. '''
     cohort_matrices = []  # need to collect all the matrices to add
     for subj in subj_idx:
-        cohort_matrices.append(get_network_matrix(conn_data, network_name, subj))
+        matrix = get_network_matrix(network_name, subj, conn_data=conn_data, prop_thr=prop_thr)
+        cohort_matrices.append(matrix)
     cohort_matrices = np.asarray(cohort_matrices)
     if mean is True:
         return np.nanmean(cohort_matrices, axis=0)
@@ -90,14 +94,14 @@ def plot_cohort_network_matrix(conn_data, network_name, subj_idx_list):
     plt.show()
 
 
-def plot_cohort_comparison(network_name, subj_idx_list_1, subj_idx_list_2, vmin=None, vmax=None, conn_data=None):
-    conn_data = tan.get_mdata() if conn_data is None else conn_data
-    mean_matrix_1 = get_cohort_network_matrices(conn_data, network_name, subj_idx_list_1, mean=True)  # need to collect all the matrices to add
-    mean_matrix_2 = get_cohort_network_matrices(conn_data, network_name, subj_idx_list_2, mean=True)
+def plot_cohort_comparison(network_name, subj_idx_list_1, subj_idx_list_2, vmin=None, vmax=None, conn_data=None, mdata=None):
+    conn_data = tan.get_conn_data() if conn_data is None else conn_data
+    mean_matrix_1 = get_cohort_network_matrices(network_name, subj_idx_list_1, mean=True, conn_data=conn_data)
+    mean_matrix_2 = get_cohort_network_matrices(network_name, subj_idx_list_2, mean=True, conn_data=conn_data)
     vmin = np.min([np.nanmin(mean_matrix_1), np.nanmin(mean_matrix_2)]) if vmin is None else vmin
     vmax = np.max([np.nanmax(mean_matrix_1), np.nanmax(mean_matrix_2)]) if vmax is None else vmax
     boundary = np.max([np.absolute(vmin), np.absolute(vmax)])
-    parcels = get_network_parcels(conn_data, network_name, subj_idx_list_1[0])
+    parcels = get_network_parcels(network_name, subj_idx_list_1[0], mdata=mdata)
     indices = list(parcels.values())
     fig, axs = plt.subplots(1, 2, figsize=(8, 6), dpi=180)
     cmap = plt.get_cmap('Spectral')
@@ -117,12 +121,10 @@ def plot_cohort_comparison(network_name, subj_idx_list_1, subj_idx_list_2, vmin=
     plt.show()
 
 
-def describe_cohort_networks(conn_data, network_name, subj_idx_list_1, subj_idx_list_2, name_1=None, name_2=None):
-    matrix_1 = get_cohort_network_matrices(conn_data, network_name, subj_idx_list_1, mean=False)
-    matrix_2 = get_cohort_network_matrices(conn_data, network_name, subj_idx_list_2, mean=False)
-    # Need to mask out the upper triangle of all of these.
-    for m in matrix_1:
-        m[np.triu_indices(m.shape[0], k=0)] = np.nan
+def describe_cohort_networks(network_name, subj_idx_list_1, subj_idx_list_2, conn_data=None, prop_thr=None):
+    conn_data = tan.get_conn_data() if conn_data is None else conn_data
+    matrix_1 = get_cohort_network_matrices(network_name, subj_idx_list_1, mean=False, conn_data=conn_data, prop_thr=prop_thr)
+    matrix_2 = get_cohort_network_matrices(network_name, subj_idx_list_2, mean=False, conn_data=conn_data), prop_thr=prop_thr
     t_test_results = scipy.stats.ttest_ind(matrix_1, matrix_2, axis=None, nan_policy='omit')
     print(f'Shapes: {matrix_1.shape=} | {matrix_2.shape=}')
     print(f'Means: {np.nanmean(matrix_1)=} | {np.nanmean(matrix_2)=}')
