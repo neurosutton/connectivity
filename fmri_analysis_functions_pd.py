@@ -184,7 +184,7 @@ def get_network_matrix(mdata, network_name=None, subj_list=None, abs_thr=None, p
     return conn_df
 
 
-def get_cohort_network_matrices(mdata, network_name, group, mean=False, abs_thr=None, prop_thr=0, triu=False):
+def get_cohort_network_matrices(mdata, network_name, group, mean=False, abs_thr=None, prop_thr=0, triu=False, wb_norm=True):
     ''' Get the matrices for a cohort of patients in a given network. '''
     if debug:
         print('get_cohort_network_matrices')
@@ -278,9 +278,9 @@ def plot_cohort_comparison(mdata, network_name, group_1, group_2, vmin=None, vma
     plt.show()
 
 
-def describe_cohort_networks(mdata, network_name, group_1, group_2, name_1=None, name_2=None):
-    matrix_1 = get_cohort_network_matrices(mdata, network_name, group_1, mean=False, triu = True)
-    matrix_2 = get_cohort_network_matrices(mdata, network_name, group_2, mean=False, triu = True)
+def describe_cohort_networks(mdata, network_name, group_1, group_2, name_1=None, name_2=None, wb_norm=True):
+    matrix_1 = get_cohort_network_matrices(mdata, network_name, group_1, mean=False, triu = True, wb_norm=wb_norm)
+    matrix_2 = get_cohort_network_matrices(mdata, network_name, group_2, mean=False, triu = True, wb_norm = wb_norm)
     if debug:
         print(matrix_1, matrix_2)
     # Need to mask out the upper triangle of all of these.
