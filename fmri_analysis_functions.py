@@ -17,6 +17,7 @@ import pandas as pd
 from matplotlib import cm
 import json
 import thresholding_and_normalizing as tan
+import seaborn as sns
 
 with open(op.join(op.dirname(op.realpath(__file__)),'directory_defs.json')) as f:
     defs = json.load(f)
@@ -43,6 +44,7 @@ def get_network_parcels(network_name, subj_idx, mdata=None):
 
 
 def get_network_matrix(network_name, subj_idx, conn_data=None, mdata=None, prop_thr=None):
+    prop_thr is None if prop_thr == 0 else prop_thr
     conn_data = tan.get_conn_data() if conn_data is None else conn_data
     parcels = get_network_parcels(network_name, subj_idx, mdata=mdata)
     indices = list(parcels.values())
@@ -138,7 +140,7 @@ def describe_cohort_networks(network_name, subj_idx_list_1, subj_idx_list_2, con
     print(f'StDev: {np.nanstd(matrix_1)=} | {np.nanstd(matrix_2)=}')
     print(f'{t_test_results=}')
 
-
+'''
 def get_cohort_comparison_over_thresholds(network_name, subj_idx_list_1, subj_idx_list_2, thr_range=None, thr_increment=None, conn_data=None, subject_level=False):
     conn_data = tan.get_conn_data() if conn_data is None else conn_data
     thr_increment = 0.1 if thr_increment is None else thr_increment
@@ -160,12 +162,60 @@ def get_cohort_comparison_over_thresholds(network_name, subj_idx_list_1, subj_id
     comp_df['g2sd'] = comp_data['g2sd']
     comp_df['p'] = comp_data['p']
     return comp_df
+'''
 
-
-def plot_cohort_comparison_over_thresholds(network_name, subj_idx_list_1, subj_idx_list_2, thr_range=None, thr_increment=None, conn_data=None, subject_level=False):
+def get_cohort_comparison_over_thresholds(network_name, group_indices, group_names=None, thr_range=None,
+                                          thr_increment=None, conn_data=None, subject_level=False,
+                                          plot=False):
     conn_data = tan.get_conn_data() if conn_data is None else conn_data
-    thr_increment = 10 if thr_increment is None else thr_increment
-    thr_range = np.arange(0., 1.001, thr_increment) if thr_range is None else thr_range
+    thr_increment = 0.1 if thr_increment is None else thr_increment
+    thr_range = np.arange(0., 1, thr_increment) if thr_range is None else thr_range
+    group_names = ['1', '2'] if group_names is None else group_names
+    comp_df = pd.DataFrame(columns=['threshold', 'group', 'connectivity'])
+    df_idx = 0
+    for value in thr_range:
+        matrix_1 = get_cohort_network_matrices(network_name, group_indices[0], subject_level=subject_level, conn_data=conn_data, prop_thr=value)
+        matrix_2 = get_cohort_network_matrices(network_name, group_indices[1], subject_level=subject_level, conn_data=conn_data, prop_thr=value)
+        for conn in matrix_1.flatten():
+            if not np.isnan(conn):
+                comp_df.loc[df_idx] = [value, group_names[0], conn]
+                df_idx = df_idx + 1
+        for conn in matrix_2.flatten():
+            if not np.isnan(conn):
+                comp_df.loc[df_idx] = [value, group_names[1], conn]
+                df_idx = df_idx + 1
+    comp_df = comp_df.round(decimals={'threshold': 2})  # fixes a potential rounding error in np.arange
+    if plot:
+        plot_cohort_comparison_over_thresholds(network_name, comp_df, group_names)
+    return comp_df
+
+
+def plot_cohort_comparison_over_thresholds(network_name, comparison_df, group_names):
+    ''' Plot group differences in connectivity strength over a range of thresholds.
+
+        Parameters
+        ----------
+        network_name    : str, don't include "network"
+        comparison_df   : pandas.Dataframe, output from get_cohort_over_thresholds()
+        group_names     : list, should include two str items with the group names
+
+        STILL NEEDS ADDRESSED
+        ---------------------
+        1. add * markers for significance testing above the error bars
+        - The significance testing at a given thresh can be done like this (cdf = comparison_df):
+        g1 = cdf[cdf['group'] == group_names[0]][cdf['threshold']==thresh]['connectivity']
+        g2 = cdf[cdf['group'] == group_names[1]][cdf['threshold']==thresh]['connectivity']
+        ttest_ind(g1, g2)
+        - So this needs to loop over each threshold, calculate the p value, and then place the
+          asterix in the right position
+    '''
+    fig, ax = plt.subplots()
+    sns.lineplot(data=comparison_df, x='threshold', y='connectivity', hue='group', marker='.',
+                 ci=95, err_style='bars', alpha=0.8, err_kws={'capsize':5}, linestyle=':')
+    plt.title(f'Group Differences in {network_name} Network')
+    ax.set_xlabel('Proportional Threshold')
+    ax.set_ylabel('Connectivity Strength')
+    plt.show()
 
 
 def get_subject_scores(subject_file, measure):
