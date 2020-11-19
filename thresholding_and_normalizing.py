@@ -51,7 +51,6 @@ def get_prop_thr_value(threshold, conn_data=None):
     sorted_values = get_sorted_values(conn_data=conn_data)
     edge_count = len(sorted_values)
     position = ceil(edge_count * threshold)
-    print(position)
     return sorted_values[position]
 
 
