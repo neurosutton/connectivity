@@ -25,6 +25,7 @@ from tqdm import tqdm
 import multiprocessing
 import itertools
 
+test=False
 
 with open(os.path.join(os.path.dirname(os.path.realpath(__file__)),'directory_defs.json')) as f:
     defs = json.load(f)
@@ -160,8 +161,14 @@ def get_network_matrix(mdata, network_name=None, subj_list=None, abs_thr=None, p
 
     # Apply filters to the connectivity dataframe
     conn_df = create_conn_df(mdata, abs_thr, prop_thr, triu)
-    if wb_norm:
+    if wb_norm == True:
+        if test:
+            print(f'Matrix mean before normalization = ')
+            _mean_matrix(conn_df)
         conn_df = _normalize(conn_df)
+        if test:
+            print(f'Matrix mean after normalization = ')
+            _mean_matrix(conn_df)
 
     if network_name:
         if abs_thr:
@@ -190,7 +197,7 @@ def get_cohort_network_matrices(mdata, network_name, group, mean=False, abs_thr=
         print('get_cohort_network_matrices')
     parcel_dict = get_parcel_dict(mdata, network_name=None)
     rois = list(parcel_dict.keys())
-    cohort_df = get_network_matrix(mdata,network_name, abs_thr = abs_thr, prop_thr=prop_thr)
+    cohort_df = get_network_matrix(mdata,network_name, abs_thr = abs_thr, prop_thr=prop_thr, wb_norm=wb_norm)
     cohort_df = cohort_df.loc[cohort_df[group_id_col]==group,:]
     drop_cols = [col for col in cohort_df.columns if col not in rois]
     cohort_df.drop(columns = drop_cols, inplace = True)
@@ -278,9 +285,9 @@ def plot_cohort_comparison(mdata, network_name, group_1, group_2, vmin=None, vma
     plt.show()
 
 
-def describe_cohort_networks(mdata, network_name, group_1, group_2, name_1=None, name_2=None, wb_norm=True):
-    matrix_1 = get_cohort_network_matrices(mdata, network_name, group_1, mean=False, triu = True, wb_norm=wb_norm)
-    matrix_2 = get_cohort_network_matrices(mdata, network_name, group_2, mean=False, triu = True, wb_norm = wb_norm)
+def describe_cohort_networks(mdata, network_name, group_1, group_2, prop_thr = 0, wb_norm=True):
+    matrix_1 = get_cohort_network_matrices(mdata, network_name, group_1, mean=False, triu = True, prop_thr = prop_thr, wb_norm=wb_norm)
+    matrix_2 = get_cohort_network_matrices(mdata, network_name, group_2, mean=False, triu = True, prop_thr = prop_thr, wb_norm=wb_norm)
     if debug:
         print(matrix_1, matrix_2)
     # Need to mask out the upper triangle of all of these.
@@ -302,6 +309,9 @@ def _normalize(df):
     df[rois] = (mat - mat.min())/(mat.max()-mat.min()) # Since the scaling is (0,1), there is no need to multiply by anything else
     df[rois] = df[rois].replace({0:np.nan})
     return df
+
+def _mean_matrix(df):
+    print(df[set(df.index)].mean().mean())
 
 def create_cohort_graph_msr(mdata, network_list, prop_thr_list=[0], msr_list=['cc'], update=False, positive_only=True, indvd_norm=False):
     """
