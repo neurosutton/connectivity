@@ -55,7 +55,7 @@ def get_network_matrix(network_name, subj_idx, conn_data=None, mdata=None, prop_
     return matrix
 
 
-def get_cohort_network_matrices(network_name, subj_idx, mean=False, conn_data=None, prop_thr=None):
+def get_cohort_network_matrices(network_name, subj_idx, mean=False, conn_data=None, prop_thr=None, subject_level=False):
     conn_data = tan.get_conn_data() if conn_data is None else conn_data
     ''' Get the matrices for a cohort of patients in a given network. '''
     cohort_matrices = []  # need to collect all the matrices to add
@@ -65,6 +65,8 @@ def get_cohort_network_matrices(network_name, subj_idx, mean=False, conn_data=No
     cohort_matrices = np.asarray(cohort_matrices)
     if mean is True:
         return np.nanmean(cohort_matrices, axis=0)
+    elif subject_level is True:
+        return np.nanmean(cohort_matrices, axis=(1, 2))
     else:
         return cohort_matrices
 
@@ -99,7 +101,7 @@ def plot_cohort_network_matrix(conn_data, network_name, subj_idx_list):
     plt.show()
 
 
-def plot_cohort_comparison(network_name, subj_idx_list_1, subj_idx_list_2, prop_thr=None, vmin=None, vmax=None, conn_data=None, mdata=None):
+def plot_cohort_comparison_matrices(network_name, subj_idx_list_1, subj_idx_list_2, prop_thr=None, vmin=None, vmax=None, conn_data=None, mdata=None):
     conn_data = tan.get_conn_data() if conn_data is None else conn_data
     mean_matrix_1 = get_cohort_network_matrices(network_name, subj_idx_list_1, mean=True, conn_data=conn_data, prop_thr=prop_thr)
     mean_matrix_2 = get_cohort_network_matrices(network_name, subj_idx_list_2, mean=True, conn_data=conn_data, prop_thr=prop_thr)
@@ -126,15 +128,44 @@ def plot_cohort_comparison(network_name, subj_idx_list_1, subj_idx_list_2, prop_
     plt.show()
 
 
-def describe_cohort_networks(network_name, subj_idx_list_1, subj_idx_list_2, conn_data=None, prop_thr=None):
+def describe_cohort_networks(network_name, subj_idx_list_1, subj_idx_list_2, conn_data=None, prop_thr=None, subject_level=False):
     conn_data = tan.get_conn_data() if conn_data is None else conn_data
-    matrix_1 = get_cohort_network_matrices(network_name, subj_idx_list_1, mean=False, conn_data=conn_data, prop_thr=prop_thr)
-    matrix_2 = get_cohort_network_matrices(network_name, subj_idx_list_2, mean=False, conn_data=conn_data, prop_thr=prop_thr)
+    matrix_1 = get_cohort_network_matrices(network_name, subj_idx_list_1, subject_level=subject_level, conn_data=conn_data, prop_thr=prop_thr)
+    matrix_2 = get_cohort_network_matrices(network_name, subj_idx_list_2, subject_level=subject_level, conn_data=conn_data, prop_thr=prop_thr)
     t_test_results = scipy.stats.ttest_ind(matrix_1, matrix_2, axis=None, nan_policy='omit')
     print(f'Shapes: {matrix_1.shape=} | {matrix_2.shape=}')
     print(f'Means: {np.nanmean(matrix_1)=} | {np.nanmean(matrix_2)=}')
     print(f'StDev: {np.nanstd(matrix_1)=} | {np.nanstd(matrix_2)=}')
     print(f'{t_test_results=}')
+
+
+def get_cohort_comparison_over_thresholds(network_name, subj_idx_list_1, subj_idx_list_2, thr_range=None, thr_increment=None, conn_data=None, subject_level=False):
+    conn_data = tan.get_conn_data() if conn_data is None else conn_data
+    thr_increment = 0.1 if thr_increment is None else thr_increment
+    thr_range = np.arange(thr_increment, 1, thr_increment) if thr_range is None else thr_range
+    comp_data = {'g1mean': [], 'g2mean': [], 'g1sd': [], 'g2sd': [], 'p': []}
+    for value in thr_range:
+        matrix_1 = get_cohort_network_matrices(network_name, subj_idx_list_1, subject_level=subject_level, conn_data=conn_data, prop_thr=value)
+        matrix_2 = get_cohort_network_matrices(network_name, subj_idx_list_2, subject_level=subject_level, conn_data=conn_data, prop_thr=value)
+        comp_data['g1mean'].append(np.nanmean(matrix_1))
+        comp_data['g2mean'].append(np.nanmean(matrix_2))
+        comp_data['g1sd'].append(np.nanstd(matrix_1))
+        comp_data['g2sd'].append(np.nanstd(matrix_2))
+        comp_data['p'].append(scipy.stats.ttest_ind(matrix_1, matrix_2, axis=None, nan_policy='omit')[1])
+    comp_df = pd.DataFrame()
+    comp_df['threshold'] = thr_range
+    comp_df['g1mean'] = comp_data['g1mean']
+    comp_df['g2mean'] = comp_data['g2mean']
+    comp_df['g1sd'] = comp_data['g1sd']
+    comp_df['g2sd'] = comp_data['g2sd']
+    comp_df['p'] = comp_data['p']
+    return comp_df
+
+
+def plot_cohort_comparison_over_thresholds(network_name, subj_idx_list_1, subj_idx_list_2, thr_range=None, thr_increment=None, conn_data=None, subject_level=False):
+    conn_data = tan.get_conn_data() if conn_data is None else conn_data
+    thr_increment = 10 if thr_increment is None else thr_increment
+    thr_range = np.arange(0., 1.001, thr_increment) if thr_range is None else thr_range
 
 
 def get_subject_scores(subject_file, measure):
