@@ -42,12 +42,17 @@ def get_network_parcels(network_name, subj_idx, mdata=None):
     return network_parcels
 
 
-def get_network_matrix(network_name, subj_idx, conn_data=None, mdata=None):
+def get_network_matrix(network_name, subj_idx, conn_data=None, mdata=None, prop_thr=None):
     conn_data = tan.get_conn_data() if conn_data is None else conn_data
     parcels = get_network_parcels(network_name, subj_idx, mdata=mdata)
     indices = list(parcels.values())
     matrix = conn_data[:, :, subj_idx][np.ix_(indices, indices)]
-    return matrix.copy()
+    if prop_thr:
+        wb_mask = tan.get_prop_thr_edges(threshold=prop_thr)
+        network_mask = wb_mask[np.ix_(indices, indices)]
+        matrix = network_mask * matrix
+        matrix[matrix == 0] = np.nan
+    return matrix
 
 
 def get_cohort_network_matrices(network_name, subj_idx, mean=False, conn_data=None, prop_thr=None):
@@ -94,10 +99,10 @@ def plot_cohort_network_matrix(conn_data, network_name, subj_idx_list):
     plt.show()
 
 
-def plot_cohort_comparison(network_name, subj_idx_list_1, subj_idx_list_2, vmin=None, vmax=None, conn_data=None, mdata=None):
+def plot_cohort_comparison(network_name, subj_idx_list_1, subj_idx_list_2, prop_thr=None, vmin=None, vmax=None, conn_data=None, mdata=None):
     conn_data = tan.get_conn_data() if conn_data is None else conn_data
-    mean_matrix_1 = get_cohort_network_matrices(network_name, subj_idx_list_1, mean=True, conn_data=conn_data)
-    mean_matrix_2 = get_cohort_network_matrices(network_name, subj_idx_list_2, mean=True, conn_data=conn_data)
+    mean_matrix_1 = get_cohort_network_matrices(network_name, subj_idx_list_1, mean=True, conn_data=conn_data, prop_thr=prop_thr)
+    mean_matrix_2 = get_cohort_network_matrices(network_name, subj_idx_list_2, mean=True, conn_data=conn_data, prop_thr=prop_thr)
     vmin = np.min([np.nanmin(mean_matrix_1), np.nanmin(mean_matrix_2)]) if vmin is None else vmin
     vmax = np.max([np.nanmax(mean_matrix_1), np.nanmax(mean_matrix_2)]) if vmax is None else vmax
     boundary = np.max([np.absolute(vmin), np.absolute(vmax)])
@@ -124,7 +129,7 @@ def plot_cohort_comparison(network_name, subj_idx_list_1, subj_idx_list_2, vmin=
 def describe_cohort_networks(network_name, subj_idx_list_1, subj_idx_list_2, conn_data=None, prop_thr=None):
     conn_data = tan.get_conn_data() if conn_data is None else conn_data
     matrix_1 = get_cohort_network_matrices(network_name, subj_idx_list_1, mean=False, conn_data=conn_data, prop_thr=prop_thr)
-    matrix_2 = get_cohort_network_matrices(network_name, subj_idx_list_2, mean=False, conn_data=conn_data), prop_thr=prop_thr
+    matrix_2 = get_cohort_network_matrices(network_name, subj_idx_list_2, mean=False, conn_data=conn_data, prop_thr=prop_thr)
     t_test_results = scipy.stats.ttest_ind(matrix_1, matrix_2, axis=None, nan_policy='omit')
     print(f'Shapes: {matrix_1.shape=} | {matrix_2.shape=}')
     print(f'Means: {np.nanmean(matrix_1)=} | {np.nanmean(matrix_2)=}')
