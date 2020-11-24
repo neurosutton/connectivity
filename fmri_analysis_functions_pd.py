@@ -25,7 +25,6 @@ from tqdm import tqdm
 import multiprocessing
 import itertools
 
-test=False
 
 with open(os.path.join(os.path.dirname(os.path.realpath(__file__)),'directory_defs.json')) as f:
     defs = json.load(f)
@@ -100,7 +99,7 @@ def get_parcel_dict(mdata, network_name=None, inverse=False):
                 pass
         else:
             parcel_dict[parcel] = p
-    if inverse == True:
+    if inverse:
         parcel_dict = {v:k for k,v in parcel_dict.items()}
     if debug:
         print(f'Search "{network_name}" returned these ROIs:\n{parcel_dict}')
@@ -161,7 +160,7 @@ def get_network_matrix(mdata, network_name=None, subj_list=None, abs_thr=None, p
 
     # Apply filters to the connectivity dataframe
     conn_df = create_conn_df(mdata, abs_thr, prop_thr, triu)
-    if wb_norm == True:
+    if wb_norm:
         if test:
             print(f'Matrix mean before normalization = ')
             _mean_matrix(conn_df)
@@ -204,7 +203,7 @@ def get_cohort_network_matrices(mdata, network_name, group, mean=False, abs_thr=
     cols = cohort_df.columns
     print(f'After group filter, matrix size is {cohort_df.shape}')
     if mean is True:
-        if debug == True:
+        if debug:
             print(cohort_df.groupby(level=0).mean().reindex(cols))
         return cohort_df.groupby(level=0).mean().reindex(cols)
         #return np.nanmean(cohort_df.to_numpy(), axis=0) # This flattened the array and didn't seem to return the means by ROI
@@ -293,9 +292,28 @@ def describe_cohort_networks(mdata, network_name, group_1, group_2, prop_thr = 0
     # Need to mask out the upper triangle of all of these.
     t_test_results = scipy.stats.ttest_ind(matrix_1, matrix_2, axis=None, nan_policy='omit')
     print(f'Shapes: {matrix_1.shape} | {matrix_2.shape}')
-    print(f'Means: {np.nanmean(matrix_1)} | {np.nanmean(matrix_2)}')
-    print(f'StDev: {np.nanstd(matrix_1)} | {np.nanstd(matrix_2)}')
+    print(f'Means: {round(np.nanmean(matrix_1),5)} | {round(np.nanmean(matrix_2),5)}')
+    print(f'StDev: {round(np.nanstd(matrix_1),5)} | {round(np.nanstd(matrix_2),5)}')
     print(f'{t_test_results}')
+
+def describe_cohort_graph_msrs(mdata, network_name, group_col = group_id_col, msr_list = ['fc'], prop_thr = 0, wb_norm=True):
+    if wb_norm:
+        study_df_file = os.path.join(data_dir,dt+'_graph_msr_indvdNormed.csv')
+    else:
+        study_df_file = os.path.join(data_dir,dt+'_graph_msr.csv')
+
+    df = pd.DataFrame(pd.read_csv(study_df_file))
+    msr_dict={msr:['mean','std','count'] for msr in msr_list}
+    result=df.loc[(df['network']==network_name) & (df['prop_thr']==prop_thr),:].groupby(group_id_col).agg(msr_dict).round(2).T.unstack()
+    print(result)
+    groups = list(set(df[group_col]))
+    for msr in msr_dict.keys():
+        grp1=df.loc[(df[group_col]==groups[0]),msr].dropna()
+        grp2=df.loc[(df[group_col]==groups[1]),msr].dropna()
+        result.loc[msr,('stats','t_score')] = round(scipy.stats.ttest_ind(grp1,grp2)[0],5)
+        result.loc[msr,('stats','pvalue')] = round(scipy.stats.ttest_ind(grp1,grp2)[-1],5)
+    display(result)
+
 
 def _lowercase(input_list):
     return [str(el).lower() for el in input_list]
@@ -344,7 +362,7 @@ def create_cohort_graph_msr(mdata, network_list, prop_thr_list=[0], msr_list=['c
         if not all(msr in msr_list for msr in cols):
             print('Missing measures.')
             update = True
-        if 'prop_thr' not in study_df.columns or [p for p in prop_thr_list if p not in set(study_df['prop_thr'])] :
+        if 'prop_thr' not in study_df.columns or [p for p in prop_thr_list if p not in set(study_df['prop_thr'])]:
             update = True
         if [n for n in network_list if n not in avlbl_networks]:
             update = True
@@ -353,7 +371,7 @@ def create_cohort_graph_msr(mdata, network_list, prop_thr_list=[0], msr_list=['c
         print('File was empty. Re-creating.')
         update=True
 
-    if update == True:
+    if update:
         if os.path.isfile(study_df_file) and os.path.getsize(study_df_file) > 2:
             if 'study_df' not in locals():
                 study_df = pd.read_csv(study_df_file)
@@ -395,7 +413,8 @@ def create_cohort_graph_msr(mdata, network_list, prop_thr_list=[0], msr_list=['c
                 if 'fc' in msr_list:
                     for prop_thr in prop_thr_list:
                        for network in network_list:
-                           recalc_mean_fc(mdata, network, prop_thr=prop_thr, indvd_norm=indvd_norm)
+                           tmp = recalc_mean_fc(mdata, network, prop_thr=prop_thr, indvd_norm=indvd_norm)
+                           print(tmp.head(10))
                 possible_files = glob(os.path.join(data_dir, 'interim_*'+norm+'?.csv'))
 
                 while len(possible_files) < num_jobs:
@@ -453,7 +472,7 @@ def recalc_mean_fc(mdata, network_name, prop_thr=0, indvd_norm=False):
     graph_df_file = os.path.join(data_dir,'interim_' + network_name.lower() + '_' + norm + prop_name + '.csv')
     graph_df = pd.DataFrame(pd.read_csv(graph_df_file))
 
-    if indvd_norm == True:
+    if indvd_norm:
         network_df = indvd_normalization(mdata, network_name=network_name, prop_thr=prop_thr)
     else:
         network_df = get_network_matrix(mdata, network_name=network_name, prop_thr=prop_thr)
@@ -461,8 +480,17 @@ def recalc_mean_fc(mdata, network_name, prop_thr=0, indvd_norm=False):
     if not network_name:
         network_name='whole_brain'
 
+    add_df = pd.DataFrame(index=rois)
     for subj in set(network_df[name_id_col]):
-        graph_df.loc[graph_df[name_id_col]==subj,'fc'] = network_df.loc[network_df[name_id_col]==subj,rois].mean(axis=0)
+        tmp = pd.DataFrame(index=rois)
+        tmp['fc'] = network_df.loc[network_df[name_id_col]==subj,rois].mean(axis=0)
+        add_df = pd.concat([add_df,tmp])
+        add_df.dropna(subset=['fc'],inplace=True)
+        add_df[name_id_col] = subj
+    add_df['network'] = network_name
+    add_df.reset_index(inplace=True)
+    add_df.rename({'index':'rois'}, axis=1, inplace=True)
+    graph_df = graph_df.merge(add_df, how='left', on=[name_id_col,'network','rois'])
     graph_df.to_csv(graph_df_file,index=False)
 
     return graph_df
@@ -482,7 +510,7 @@ def roiLevel_graph_msrs(mdata, network_name, msr_list=['cc'], positive_only=True
     if os.path.isfile(graph_df_file):
         graph_df = pd.DataFrame(pd.read_csv(graph_df_file))
     else:
-        if indvd_norm == True:
+        if indvd_norm:
             network_df = indvd_normalization(mdata, network_name=network_name, prop_thr=prop_thr)
         else:
             network_df = get_network_matrix(mdata, network_name=network_name, prop_thr=prop_thr)
@@ -497,7 +525,7 @@ def roiLevel_graph_msrs(mdata, network_name, msr_list=['cc'], positive_only=True
             mat = network_df.loc[network_df[name_id_col]==subj,rois].to_numpy(na_value=0)
             for msr in _lowercase(msr_list):
                 print(f'Calculating {msr}')
-                if positive_only == True:
+                if positive_only:
                     if 'cc' in msr:
                         tmp[msr+'_norm_minmax'] = bct.clustering_coef_wu(mat).tolist()
                     elif 'mod' in msr:
@@ -521,7 +549,7 @@ def roiLevel_graph_msrs(mdata, network_name, msr_list=['cc'], positive_only=True
                             else:
                                 rc_final.append(np.nan)
                         tmp[msr+'_norm_minmax'] = rc_final
-                    elif 'between' in msr :
+                    elif 'between' in msr:
                         tmp[msr+'_norm_minmax'] = bct.betweenness_wei(mat)
                     elif 'eigen' in msr:
                         tmp[msr+'_norm_minmax'] = bct.eigenvector_centrality_und(mat)
@@ -657,7 +685,7 @@ def calculate_AUC(mdata, bootstrap=5000, subj_list=None, network_list=None, msr_
         #                if c % 500 == 0:
         #                    print(permute_tmp_grp2)
                         group_mean = []
-                        for g, group in enumerate([permute_tmp_grp1, permute_tmp_grp2]) :
+                        for g, group in enumerate([permute_tmp_grp1, permute_tmp_grp2]):
                             for subj in group:
                                 try:
                                     group_mean.append(auc_helper(tmp.loc[tmp[name_id_col]==subj,:],'prop_thr',msr))
@@ -773,13 +801,13 @@ def plot_correl_matrix(corr,correl_type='beta'):
         annot   = False
         cmap    = "coolwarm"
 
-    elif correl_type == 'beta' :
+    elif correl_type == 'beta':
         vmin    = -0.5
         vmax    = 1
         annot   = False #True
         cmap    = "viridis" #"RdBu_r"
 
-    elif correl_type == 'p' :
+    elif correl_type == 'p':
         vmin    = 0
         vmax    = 0.1
         annot   = False
