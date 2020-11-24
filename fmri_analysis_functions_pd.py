@@ -204,7 +204,7 @@ def get_cohort_network_matrices(mdata, network_name, group, mean=False, abs_thr=
     cols = cohort_df.columns
     print(f'After group filter, matrix size is {cohort_df.shape}')
     if mean is True:
-        if debug:
+        if debug == True:
             print(cohort_df.groupby(level=0).mean().reindex(cols))
         return cohort_df.groupby(level=0).mean().reindex(cols)
         #return np.nanmean(cohort_df.to_numpy(), axis=0) # This flattened the array and didn't seem to return the means by ROI
@@ -366,6 +366,7 @@ def create_cohort_graph_msr(mdata, network_list, prop_thr_list=[0], msr_list=['c
                 network_list = [n for n in network_list if n not in list(set(study_df['network']))]
                 updated_msr_list = msr_list
             msr_list = updated_msr_list
+            print(f'Updated measures to calculate: {msr_list}')
         else:
             study_df = pd.DataFrame(columns=['group','network','fc','prop_thr'] + msr_list)
 
@@ -390,6 +391,11 @@ def create_cohort_graph_msr(mdata, network_list, prop_thr_list=[0], msr_list=['c
                     norm='pop'
                 else:
                     norm='indvd'
+
+                if 'fc' in msr_list:
+                    for prop_thr in prop_thr_list:
+                       for network in network_list:
+                           recalc_mean_fc(mdata, network, prop_thr=prop_thr, indvd_norm=indvd_norm)
                 possible_files = glob(os.path.join(data_dir, 'interim_*'+norm+'?.csv'))
 
                 while len(possible_files) < num_jobs:
@@ -417,6 +423,7 @@ def create_cohort_graph_msr(mdata, network_list, prop_thr_list=[0], msr_list=['c
                         #         os.remove(fname)
 
                     except:
+                        print('Concatenation error (create_cohort_graph_msr). Columns do not match.')
                         print(f'Study DF: {study_df.columns}')
                         print(f'New DF: {tmp.columns}')
         study_df = study_df.dropna(axis=0,how='all',subset=['fc','network'])
@@ -434,6 +441,33 @@ def indvd_normalization(mdata, network_name=None, prop_thr=0):
         cols = [col for col in df.columns if col in ([name_id_col, group_id_col] + rois)]
         return df[cols][df.index.isin(rois)]
 
+def recalc_mean_fc(mdata, network_name, prop_thr=0, indvd_norm=False):
+    print('Recalculating the mean strength.')
+    parcel_dict = get_parcel_dict(mdata, network_name=network_name)
+    rois = list(parcel_dict.keys())
+    if indvd_norm == False:
+        norm='pop'
+    else:
+        norm='indvd'
+    prop_name = str(prop_thr).split('.')[-1]
+    graph_df_file = os.path.join(data_dir,'interim_' + network_name.lower() + '_' + norm + prop_name + '.csv')
+    graph_df = pd.DataFrame(pd.read_csv(graph_df_file))
+
+    if indvd_norm == True:
+        network_df = indvd_normalization(mdata, network_name=network_name, prop_thr=prop_thr)
+    else:
+        network_df = get_network_matrix(mdata, network_name=network_name, prop_thr=prop_thr)
+
+    if not network_name:
+        network_name='whole_brain'
+
+    for subj in set(network_df[name_id_col]):
+        graph_df.loc[graph_df[name_id_col]==subj,'fc'] = network_df.loc[network_df[name_id_col]==subj,rois].mean(axis=0)
+    graph_df.to_csv(graph_df_file,index=False)
+
+    return graph_df
+
+
 def roiLevel_graph_msrs(mdata, network_name, msr_list=['cc'], positive_only=True, prop_thr=0, indvd_norm=False):
     """Individual graph measures are calculated and returned as a dataframe."""
     parcel_dict = get_parcel_dict(mdata, network_name=network_name)
@@ -448,7 +482,7 @@ def roiLevel_graph_msrs(mdata, network_name, msr_list=['cc'], positive_only=True
     if os.path.isfile(graph_df_file):
         graph_df = pd.DataFrame(pd.read_csv(graph_df_file))
     else:
-        if indvd_norm:
+        if indvd_norm == True:
             network_df = indvd_normalization(mdata, network_name=network_name, prop_thr=prop_thr)
         else:
             network_df = get_network_matrix(mdata, network_name=network_name, prop_thr=prop_thr)
