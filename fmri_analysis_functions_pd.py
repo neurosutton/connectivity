@@ -161,13 +161,7 @@ def get_network_matrix(mdata, network_name=None, subj_list=None, abs_thr=None, p
     # Apply filters to the connectivity dataframe
     conn_df = create_conn_df(mdata, abs_thr, prop_thr, triu)
     if wb_norm:
-        if test:
-            print(f'Matrix mean before normalization = ')
-            _mean_matrix(conn_df)
         conn_df = _normalize(conn_df)
-        if test:
-            print(f'Matrix mean after normalization = ')
-            _mean_matrix(conn_df)
 
     if network_name:
         if abs_thr:
@@ -190,7 +184,7 @@ def get_network_matrix(mdata, network_name=None, subj_list=None, abs_thr=None, p
     return conn_df
 
 
-def get_cohort_network_matrices(mdata, network_name, group, mean=False, abs_thr=None, prop_thr=0, triu=False, wb_norm=True):
+def get_cohort_network_matrices(mdata, network_name, group, mean=False, abs_thr=None, prop_thr=0, triu=False, wb_norm=True, subject_level=False):
     ''' Get the matrices for a cohort of patients in a given network. '''
     if debug:
         print('get_cohort_network_matrices')
@@ -207,6 +201,8 @@ def get_cohort_network_matrices(mdata, network_name, group, mean=False, abs_thr=
             print(cohort_df.groupby(level=0).mean().reindex(cols))
         return cohort_df.groupby(level=0).mean().reindex(cols)
         #return np.nanmean(cohort_df.to_numpy(), axis=0) # This flattened the array and didn't seem to return the means by ROI
+    elif subject_level:
+        return cohort_df.groupby(name_id_col,level=0).mean().reindex(cols)
     else:
         return cohort_df
 
@@ -314,6 +310,51 @@ def describe_cohort_graph_msrs(mdata, network_name, group_col = group_id_col, ms
         result.loc[msr,('stats','pvalue')] = round(scipy.stats.ttest_ind(grp1,grp2)[-1],5)
     display(result)
 
+
+def get_cohort_comparison_over_thresholds(mdata,network_name, group_indices, group_names=None, thr_range=None,
+                                          thr_increment=None, subject_level=False,
+                                          plot=False):
+    thr_increment = 0.1 if thr_increment is None else thr_increment
+    thr_range = np.arange(0., 1, thr_increment) if thr_range is None else thr_range
+    comp_df = pd.DataFrame(columns=['threshold', 'group', 'connectivity'])
+    df_idx = 0
+    for thr in thr_range:
+        df = get_cohort_network_matrices(mdata, network_name, group, mean=False, prop_thr=thr, triu=False, wb_norm=True, subject_level=subject_level)
+        for group in set(df[group_id_col]):
+            comp_df = pd.concat([comp_df, [thr,group,df.loc[df[group_id_col]==group,'fc'].mean()])
+    comp_df = comp_df.round(decimals={'threshold': 2})  # fixes a potential rounding error in np.arange
+    group_names = set(comp_df['group'])
+    if plot:
+        plot_cohort_comparison_over_thresholds(network_name, comp_df, group_names)
+    return comp_df
+
+
+def plot_cohort_comparison_over_thresholds(network_name, comparison_df, group_names):
+    ''' Plot group differences in connectivity strength over a range of thresholds.
+
+        Parameters
+        ----------
+        network_name    : str, don't include "network"
+        comparison_df   : pandas.Dataframe, output from get_cohort_over_thresholds()
+        group_names     : list, should include two str items with the group names
+
+        STILL NEEDS ADDRESSED
+        ---------------------
+        1. add * markers for significance testing above the error bars
+        - The significance testing at a given thresh can be done like this (cdf = comparison_df):
+        g1 = cdf[cdf['group'] == group_names[0]][cdf['threshold']==thresh]['connectivity']
+        g2 = cdf[cdf['group'] == group_names[1]][cdf['threshold']==thresh]['connectivity']
+        ttest_ind(g1, g2)
+        - So this needs to loop over each threshold, calculate the p value, and then place the
+          asterix in the right position
+    '''
+    fig, ax = plt.subplots()
+    sns.lineplot(data=comparison_df, x='threshold', y='connectivity', hue='group', marker='.',
+                 ci=95, err_style='bars', alpha=0.8, err_kws={'capsize':5}, linestyle=':')
+    plt.title(f'Group Differences in {network_name} Network')
+    ax.set_xlabel('Proportional Threshold')
+    ax.set_ylabel('Connectivity Strength')
+    plt.show()
 
 def _lowercase(input_list):
     return [str(el).lower() for el in input_list]
@@ -445,7 +486,7 @@ def create_cohort_graph_msr(mdata, network_list, prop_thr_list=[0], msr_list=['c
                         print('Concatenation error (create_cohort_graph_msr). Columns do not match.')
                         print(f'Study DF: {study_df.columns}')
                         print(f'New DF: {tmp.columns}')
-        study_df = study_df.dropna(axis=0,how='all',subset=['fc','network'])
+        study_df = study_df.dropna(axis=0, subset=['fc','network'])
         study_df = study_df.dropna(axis=1, how='all') # In case there is an empty column
         #(study_df.sort_values([group_id_col, name_id_col], inplace=True))
         study_df = study_df.drop_duplicates()
@@ -469,28 +510,32 @@ def recalc_mean_fc(mdata, network_name, prop_thr=0, indvd_norm=False):
     else:
         norm='indvd'
     prop_name = str(prop_thr).split('.')[-1]
+    if not network_name or network_name == 'brain':
+        network_name='whole_brain'
     graph_df_file = os.path.join(data_dir,'interim_' + network_name.lower() + '_' + norm + prop_name + '.csv')
     graph_df = pd.DataFrame(pd.read_csv(graph_df_file))
+    try:
+        cols = [col for col in graph_df.columns if 'fc' in col]
+        graph_df = graph_df.drop(columns=cols)
+    except:
+        print(f'issue with {cols}')
 
     if indvd_norm:
         network_df = indvd_normalization(mdata, network_name=network_name, prop_thr=prop_thr)
     else:
         network_df = get_network_matrix(mdata, network_name=network_name, prop_thr=prop_thr)
 
-    if not network_name:
-        network_name='whole_brain'
-
-    add_df = pd.DataFrame(index=rois)
+    add_df = pd.DataFrame(index=rois, columns=['fc'])
     for subj in set(network_df[name_id_col]):
         tmp = pd.DataFrame(index=rois)
         tmp['fc'] = network_df.loc[network_df[name_id_col]==subj,rois].mean(axis=0)
+        tmp[name_id_col] = subj
         add_df = pd.concat([add_df,tmp])
-        add_df.dropna(subset=['fc'],inplace=True)
-        add_df[name_id_col] = subj
+        add_df.dropna(axis=0, subset=['fc'],inplace=True)
     add_df['network'] = network_name
     add_df.reset_index(inplace=True)
     add_df.rename({'index':'rois'}, axis=1, inplace=True)
-    graph_df = graph_df.merge(add_df, how='left', on=[name_id_col,'network','rois'])
+    graph_df = graph_df.merge(add_df, how='left', on=[name_id_col,'network','rois'],copy=False)
     graph_df.to_csv(graph_df_file,index=False)
 
     return graph_df
