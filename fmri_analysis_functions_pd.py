@@ -110,7 +110,7 @@ def create_conn_df(mdata, abs_thr=None, prop_thr=0, triu=False):
     subj_ix = mdata['Z'].shape[-1]
     x, subj_dict, group_dict = get_subj_df_data(nonimaging_subjectlevel_data)
     if debug:
-        print('Getting the whole connectivity matrix, so get_parcel_dict will return all ROIs intentionally.')
+        print('Getting the whole connectivity matrix. get_parcel_dict will return all ROIs intentionally.')
     parcel_dict = get_parcel_dict(mdata, network_name=None)
     rois = list(parcel_dict.keys())
     col_names = [name_id_col] + rois # Use the subj column to be able to search and filter by specific participants
@@ -137,20 +137,17 @@ def create_conn_df(mdata, abs_thr=None, prop_thr=0, triu=False):
             except Exception as E:
                 print(f'Exception thrown from create_conn_df:\n{E}') # Likely that the threshold input is not a float
 
-        if triu==True:
+        if triu:
             tmp[np.triu_indices(tmp.shape[0], k=0)] = np.nan
 
         tmp_df = pd.DataFrame(data=tmp, index = rois, columns=rois)
         tmp_df = tmp_df*sign_mask
+        # IS THE FOLLOWING LINE STILL PRODUCING ERRORS?
         tmp_df = tmp_df.replace({-0:np.nan}) # Make the negative zeros become nan
         tmp_df[name_id_col] = subj_dict[s]
         conn_df = pd.concat([conn_df,tmp_df])
 
     conn_df[group_id_col] = conn_df[name_id_col].map(group_dict)
-    if abs_thr_dict:
-        conn_df['abs_thr_cxns'] = conn_df[name_id_col].map(abs_thr_dict)
-    if debug:
-        print(f'create_conn_df columns: {conn_df.columns}\nIndex: {conn_df.index}')
     return conn_df
 
 
@@ -164,10 +161,8 @@ def get_network_matrix(mdata, network_name=None, subj_list=None, abs_thr=None, p
         conn_df = _normalize(conn_df)
 
     if network_name:
-        if abs_thr:
-            cols = [col for col in conn_df.columns if col in ([name_id_col, group_id_col,'abs_thr_cxns'] + list(parcel_dict.keys()))]
-        else:
-            cols = [col for col in conn_df.columns if col in ([name_id_col, group_id_col] + list(parcel_dict.keys()))]
+        # Limits the df to the chosen network
+        cols = [col for col in conn_df.columns if col in ([name_id_col, group_id_col] + list(parcel_dict.keys()))]
         conn_df = conn_df[cols][conn_df.index.isin(parcel_dict.keys())]
 
     if subj_list:
@@ -195,7 +190,9 @@ def get_cohort_network_matrices(mdata, network_name, group, mean=False, abs_thr=
     drop_cols = [col for col in cohort_df.columns if col not in rois]
     cohort_df.drop(columns = drop_cols, inplace = True)
     cols = cohort_df.columns
-    print(f'After group filter, matrix size is {cohort_df.shape}')
+    #print(f'After group filter, matrix size is {cohort_df.shape}')
+
+    # ARE THE FOLLOWING LINES PRODUCING different results than Josh's np version?
     if mean is True:
         if debug:
             print(cohort_df.groupby(level=0).mean().reindex(cols))
@@ -311,18 +308,22 @@ def describe_cohort_graph_msrs(mdata, network_name, group_col = group_id_col, ms
     display(result)
 
 
-def get_cohort_comparison_over_thresholds(mdata,network_name, group_indices, group_names=None, thr_range=None,
-                                          thr_increment=None, subject_level=False,
-                                          plot=False):
+def get_cohort_comparison_over_thresholds(mdata,network_name,groups, group_names=None, wb_norm=False, thr_range=None,                                           thr_increment=None, subject_level=False,                               plot=False):
     thr_increment = 0.1 if thr_increment is None else thr_increment
     thr_range = np.arange(0., 1, thr_increment) if thr_range is None else thr_range
-    comp_df = pd.DataFrame(columns=['threshold', 'group', 'connectivity'])
-    df_idx = 0
+    #comp_df = pd.DataFrame(columns=['threshold', 'group', 'connectivity'])
+    rows = []
+    print('Building connectivity matrices')
     for thr in thr_range:
-        df = get_cohort_network_matrices(mdata, network_name, group, mean=False, prop_thr=thr, triu=False, wb_norm=True, subject_level=subject_level)
-        for group in set(df[group_id_col]):
-            comp_df = pd.concat([comp_df, [thr,group,df.loc[df[group_id_col]==group,'fc'].mean()])
+        for group in groups:
+            if subject_level:
+                network_value = get_cohort_network_matrices(mdata, network_name, group, mean=False, prop_thr=thr, triu=False, wb_norm=wb_norm, subject_level=subject_level)
+            else:
+                network_value = get_cohort_network_matrices(mdata, network_name, group, mean=True, prop_thr=thr, triu=False, wb_norm=wb_norm)
+            rows.append({'threshold':thr,'group':group,'connectivity':network_value.mean().values[-1]})
+    comp_df = pd.DataFrame(rows, columns=['threshold', 'group', 'connectivity'])
     comp_df = comp_df.round(decimals={'threshold': 2})  # fixes a potential rounding error in np.arange
+    print(comp_df)
     group_names = set(comp_df['group'])
     if plot:
         plot_cohort_comparison_over_thresholds(network_name, comp_df, group_names)
@@ -330,7 +331,7 @@ def get_cohort_comparison_over_thresholds(mdata,network_name, group_indices, gro
 
 
 def plot_cohort_comparison_over_thresholds(network_name, comparison_df, group_names):
-    ''' Plot group differences in connectivity strength over a range of thresholds.
+    """ Plot group differences in connectivity strength over a range of thresholds.
 
         Parameters
         ----------
@@ -347,7 +348,7 @@ def plot_cohort_comparison_over_thresholds(network_name, comparison_df, group_na
         ttest_ind(g1, g2)
         - So this needs to loop over each threshold, calculate the p value, and then place the
           asterix in the right position
-    '''
+    """
     fig, ax = plt.subplots()
     sns.lineplot(data=comparison_df, x='threshold', y='connectivity', hue='group', marker='.',
                  ci=95, err_style='bars', alpha=0.8, err_kws={'capsize':5}, linestyle=':')
