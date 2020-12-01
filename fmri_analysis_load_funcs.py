@@ -17,6 +17,8 @@ from scipy.io import loadmat
 
 
 class config():
+    """Provides a single mechanism to pass shared variables around.
+    Initial calls to the method should supply the filepath to the definitions file with all the group info, filepaths to directories, etc. in it."""
     def __init__(self,__def_path__=None):
         if __def_path__:
             self.__def_path__ = __def_path__
@@ -50,6 +52,11 @@ def load_config():
         cfg = pickle.load(f)
      return cfg
 
+
+def get_mdata():
+    return loadmat(op.join(config.conn_dir, config.conn_file))
+
+
 def load_mat(proj_dir, conn_file):
     """Loading and reloading the module is much quicker with loading the matrix as its own method. Call first, so that there is data, though."""
     mdata = loadmat(os.path.join(proj_dir, conn_file))
@@ -58,8 +65,21 @@ def load_mat(proj_dir, conn_file):
     return mdata, rois
 
 
-def get_network_parcels(mdata, network_name):
+def get_conn_data(mdata=None, conn_dir=conn_dir, conn_file=conn_file, roi_count=None, clear_triu=True):
+    mdata = get_mdata(conn_dir=conn_dir, conn_file=conn_file) if mdata is None else mdata
+    roi_count = mdata['Z'].shape[0] if roi_count is None else roi_count
+    conn_data = mdata['Z'][:roi_count, :roi_count, :]
+    if clear_triu is False:
+        return conn_data
+    else:
+        for subject in range(conn_data.shape[2]):
+            conn_data[:, :, subject][np.triu_indices(conn_data.shape[0], 0)] = np.nan
+    return conn_data
+
+def get_network_parcels(network_name, subj_idx=None, mdata=None):
     """Returns parcel names and indices with HCP remaining in the name and indexed to work with numpy-based functions."""
+    subj_idx = 0 if subj_idx is None else subj_idx
+    mdata = tan.get_mdata() if mdata is None else mdata
     parcel_names = [str[0] for str in mdata['names'][0]]
     parcels = {k:v for v,k in enumerate([str[0] for str in mdata['names'][0]])}
     pattern = 'hcp_atlas.' + network_name + '*'
@@ -67,32 +87,6 @@ def get_network_parcels(mdata, network_name):
     network_parcels = {k:v for k,v in parcels.items() if k in matching}
     indices = [parcels.get(key) for key in matching]
     return network_parcels
-
-
-def get_parcel_dict(mdata, network_name=None, inverse=False):
-    """Alternate method to get ROI indices and names."""
-    try:
-        parcel_names = [str[0] for str in mdata['names'][0]]
-    except:
-        print(f'Issue in get_parcel_dict(mdata,network_name={network_name}, inverse={inverse})')
-        print(mdata['names'])
-
-    parcel_dict = OrderedDict()
-#    if network_name:
-#        print(f'Selecting ROIs belonging to the {network_name} network.\n')
-    for p,parcel in enumerate(parcel_names):
-        parcel = parcel.replace('hcp_atlas.','') # Clean the names
-        if network_name and ('whole' not in network_name):
-            if network_name.lower() in parcel.lower():
-                parcel_dict[parcel] = p
-            else:
-                pass
-                #print(f'Did not find {network_name.lower()} in {parcel.lower()}')
-        else:
-            parcel_dict[parcel] = p
-    if inverse:
-        parcel_dict = {v:k for k,v in parcel_dict.items()}
-    return parcel_dict
 
 def get_subj_df_data(nonimaging_subjectlevel_data):
     """Primarily for reading in demographic and neuropsychological data."""

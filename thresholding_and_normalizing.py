@@ -12,27 +12,13 @@ import numpy as np
 from math import ceil, floor
 
 
-with open(op.join(op.dirname(op.realpath(__file__)),'directory_defs.json')) as f:
-    defs = json.load(f)
-    conn_dir = defs['conn_dir']
-    conn_file = defs['conn_file']
+import fmri_analysis_load_funcs as faload
 
-# subjects_file =  op.join(conn_dir, 'eses_subjects_202008.csv')
+config = faload.load_config()
 
-def get_mdata(conn_dir=conn_dir, conn_file=conn_file):
-    return loadmat(op.join(conn_dir, conn_file))
-
-
-def get_conn_data(mdata=None, conn_dir=conn_dir, conn_file=conn_file, roi_count=None, clear_triu=True):
-    mdata = get_mdata(conn_dir=conn_dir, conn_file=conn_file) if mdata is None else mdata
-    roi_count = mdata['Z'].shape[0] if roi_count is None else roi_count
-    conn_data = mdata['Z'][:roi_count, :roi_count, :]
-    if clear_triu is False:
-        return conn_data
-    else:
-        for subject in range(conn_data.shape[2]):
-            conn_data[:, :, subject][np.triu_indices(conn_data.shape[0], 0)] = np.nan
-    return conn_data
+# Moved to load_funcs:
+# get_mdata
+# get_conn_data
 
 
 def get_mean_conn_data(mdata=None, conn_dir=conn_dir, conn_file=conn_file, roi_count=None, clear_triu=True):
@@ -55,6 +41,14 @@ def get_prop_thr_value(threshold, exclude_negatives=False, conn_data=None):
     position = ceil(edge_count * threshold)
     return sorted_values[position]
 
+def get_proportional_threshold_mask(network_name, prop_thr, subj_idx=None, conn_data=None,
+                                    mdata=None, exclude_negatives=False):
+    # conn_data = tan.get_conn_data() if conn_data is None else conn_data
+    parcels = get_network_parcels(network_name, subj_idx=subj_idx, mdata=mdata)
+    indices = list(parcels.values())
+    wb_mask = tan.get_prop_thr_edges(threshold=prop_thr, exclude_negatives=exclude_negatives)
+    network_mask = wb_mask[np.ix_(indices, indices)]
+    return network_mask
 
 def get_prop_thr_edges(threshold, exclude_negatives=False, conn_data=None):
     if conn_data is None:
@@ -64,6 +58,7 @@ def get_prop_thr_edges(threshold, exclude_negatives=False, conn_data=None):
     prop_thr_edges[prop_thr_edges >= thr_value] = 1
     prop_thr_edges[prop_thr_edges < thr_value] = 0
     return prop_thr_edges
+
 
 
 def drop_negatives(matrix):
