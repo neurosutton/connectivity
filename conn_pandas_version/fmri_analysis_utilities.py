@@ -33,10 +33,14 @@ def _abs_val_thr(df, prop_thr):
     df.loc[df[rois, rois]] = df1
     return df
 
-def _threshold(array, prop_thr):
+def _threshold(df, prop_thr):
+    # Broken for the way that Josh would like to threshold the population mean first and then apply a mask of the same edges to each of the individual matrices.
+    if len(set(df[config.name_id_col])) > 1:
+        for s in set(df[config.name_id_col]):
+
     if not isinstance(array, np.ndarray):
         array = array.to_numpy(na_value=0)
-    return bct.threshold_proportional(array, prop_thr, copy=False)
+    return
 
 def _triu(df):
     rois = list(set(df.index))
