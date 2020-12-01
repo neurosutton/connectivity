@@ -2,5 +2,5 @@
 directory_defs.json
 *.pyc
 directory_defs*
-user_notes_bctpy*
+user_notes_*
 .spyproject*

@@ -3,11 +3,11 @@ import pandas as pd
 import numpy as np
 import fmri_analysis_load_funcs as faload
 
-name_id_col, group_id_col, data_dir, conn_dir = faload.study_logistics()
+config = faload.config()
 
 def filter_conn_df_network(df, rois):
     # Limits the df to the chosen network
-    cols = [col for col in df.columns if col in ([name_id_col, group_id_col] + rois)]
+    cols = [col for col in df.columns if col in ([config.name_id_col, config.group_id_col] + rois)]
     conn_df = df[cols][df.index.isin(rois)]
     return conn_df
 
@@ -19,7 +19,7 @@ def filter_conn_df_subjects(df, subj_list):
     if isinstance(subj_list[0], int):
         conn_df = df.iloc[subj_list,:] # Compatibility with numpy logic
     else:
-        conn_df = df.loc[conn_df[name_id_col].isin(subj_list),:]
+        conn_df = df.loc[conn_df[config.name_id_col].isin(subj_list),:]
     return conn_df
 
 def _abs_val_thr(df, prop_thr):
@@ -31,6 +31,7 @@ def _abs_val_thr(df, prop_thr):
     df1 = df1*sign_mask
     df1 = df1.replace({-0:np.nan})
     df.loc[df[rois, rois]] = df1
+    return df
 
 def _threshold(array, prop_thr):
     if not isinstance(array, np.ndarray):
@@ -40,10 +41,10 @@ def _threshold(array, prop_thr):
 def _triu(df):
     rois = set(df.index)
     if set(df[name_id_col]) > 1:
-        for s in set(df[name_id_col]):
-            tmp = df.loc[[name_id_col,rois]]
+        for s in set(df[config.name_id_col]):
+            tmp = df.loc[[config.name_id_col,rois]]
             tmp[np.triu_indices(tmp.shape[0], k=0)] = np.nan
-            df.loc[[name_id_col,rois]] = tmp
+            df.loc[[config.name_id_col,rois]] = tmp
     else:
         tmp = df.loc[df[:,rois]]
         tmp[np.triu_indices(tmp.shape[0], k=0)] = np.nan

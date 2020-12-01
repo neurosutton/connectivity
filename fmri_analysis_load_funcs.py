@@ -40,8 +40,12 @@ debug = ''
 
 dt = datetime.today().strftime('%Y%m')
 
-def study_logistics():
-    return name_id_col, group_id_col, data_dir, conn_dir
+class config(name_id_col, group_id_col, data_dir, conn_dir, dt):
+    self.name_id_col = name_id_col
+    self.group_id_col = group_id_col
+    self.data_dir = data_dir
+    self.conn_dir = self.conn_dir
+    self.date = dt
 
 def load_mat(data_dir, conn_file):
     """Loading and reloading the module is much quicker with loading the matrix as its own method. Call first, so that there is data, though."""
