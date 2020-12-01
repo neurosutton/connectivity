@@ -8,39 +8,51 @@ v0.3 (BMS) Adapted fmri_analysis_functions for pandas
 import os
 from glob import glob
 import numpy as np
-import fnmatch, random, time
+import fnmatch, random, time, pickle
 import pandas as pd
 import json
 from collections import OrderedDict, defaultdict
 from datetime import datetime
+from scipy.io import loadmat
 
 
-with open(os.path.join(os.path.dirname(os.path.realpath(__file__)),'directory_defs.json')) as f:
-    defs = json.load(f)
-    conn_dir = defs['conn_dir']
-    main_dir = defs['main_dir']
-data_dir = os.path.join(conn_dir)
-conn_file = 'resultsROI_Condition001.mat'
-nonimaging_subjectlevel_data =  os.path.join(main_dir,'eses_subjects_202008.csv')
+class config():
+    def __init__(self,__def_path__=None):
+        if __def_path__:
+            self.__def_path__ = __def_path__
+        with open(os.path.join(self.__def_path__,'directory_defs.json')) as f:
+            defs = json.load(f)
+            self.conn_dir = defs['conn_dir']
+            self.main_dir = defs['main_dir']
+            self.atlas_dir = defs['atlas_dir']
+            self.proj_dir = defs['data_dir']
+            global pkl_file
+            pkl_file =  os.path.join(self.proj_dir,'vars.pkl')
+            
+        self.conn_file = 'resultsROI_Condition001.mat'
+        self.nonimaging_subjectlevel_data =  os.path.join(self.main_dir,'eses_subjects_202008.csv')
 
-name_id_col = "BK_name"
-group_id_col = "group"
-msr_dict = {'cc':"clustering coefficienct", 'pl':"path length",'ms':"mean strength", 'mod':"modularity", 'le':"local efficiency"}
-debug = ''
+        self.name_id_col = "BK_name"
+        self.group_id_col = "group"
+        self.msr_dict = {'cc':"clustering coefficienct", 'pl':"path length",'ms':"mean strength", 'mod':"modularity", 'le':"local efficiency"}
+        self.debug = ''
 
-dt = datetime.today().strftime('%Y%m')
+        self.date = datetime.today().strftime('%Y%m')
+        self.mdata,x = load_mat(self.proj_dir, os.path.join(self.conn_dir,self.conn_file))
+        self.prep_pickle()
+     
+    def prep_pickle(self):
+         with open(pkl_file,'wb') as f:
+            pickle.dump(self,f)
 
-class config(name_id_col, group_id_col, data_dir, conn_dir, dt):
-    self.name_id_col = name_id_col
-    self.group_id_col = group_id_col
-    self.data_dir = data_dir
-    self.conn_dir = self.conn_dir
-    self.date = dt
-    self.mdata,x = load_mat(self.data_dir, os.path.join(self.conn_dir,conn_file))
+def load_config():
+     with open(pkl_file, 'rb') as f:
+        cfg = pickle.load(f)
+     return cfg
 
-def load_mat(data_dir, conn_file):
+def load_mat(proj_dir, conn_file):
     """Loading and reloading the module is much quicker with loading the matrix as its own method. Call first, so that there is data, though."""
-    mdata = loadmat(os.path.join(data_dir, conn_file))
+    mdata = loadmat(os.path.join(proj_dir, conn_file))
     rois = mdata['names']
     rois = [roi[0].replace('hcp_atlas.','') for r_array in rois for roi in r_array]
     return mdata, rois
@@ -73,14 +85,19 @@ def get_parcel_dict(mdata, network_name=None, inverse=False):
         if network_name and ('whole' not in network_name):
             if network_name.lower() in parcel.lower():
                 parcel_dict[parcel] = p
-            elif debug:
-                print(f'Did not find {network_name} in {parcel}')
             else:
                 pass
+                #print(f'Did not find {network_name.lower()} in {parcel.lower()}')
         else:
             parcel_dict[parcel] = p
     if inverse:
         parcel_dict = {v:k for k,v in parcel_dict.items()}
-    if debug:
-        print(f'Search "{network_name}" returned these ROIs:\n{parcel_dict}')
     return parcel_dict
+
+def get_subj_df_data(nonimaging_subjectlevel_data):
+    """Primarily for reading in demographic and neuropsychological data."""
+    cfg = load_config()
+    subj_df = pd.DataFrame(pd.read_csv(nonimaging_subjectlevel_data))
+    subj_dict = {k:v for k,v in enumerate(subj_df[cfg.name_id_col])}
+    group_dict = dict(zip(subj_df[cfg.name_id_col], subj_df[cfg.group_id_col]))
+    return subj_df, subj_dict, group_dict

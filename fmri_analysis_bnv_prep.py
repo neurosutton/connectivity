@@ -11,10 +11,10 @@ import fmri_analysis_utilities as utils
 import fmri_analysis_matrices as fam
 import fmri_analysis_load_funcs as faload
 
-config = faload.config()
+config = faload.load_config()
 
 class bnv_analysis():
-    def __init__(self, network=None, label_file=os.path.join(data_dir,'masks/hcpmmp1_expanded_labels.csv'), group=None, atlas_label="SuttonLabel", subject_list=None, prop_thr=0):
+    def __init__(self, network=None, label_file=os.path.join(config.atlas_dir,'hcpmmp1_expanded_labels.csv'), group=None, atlas_label="SuttonLabel", subject_list=None, prop_thr=0):
         self.network = network
         self.group = group #Filtered group for the node values
         self.atlas_label = atlas_label
@@ -59,7 +59,7 @@ class bnv_analysis():
             out_df = out_df.apply(lambda x: x.str.strip() if x.dtype=="object" else x)
             out_df = out_df[['x','y','z',msr_of_int,'size','rois']]
             out_df.drop_duplicates(inplace=True)
-            out_df.to_csv(op.join(config.conn_dir,str(config.date)+ '_' + self.network + '_' + self.prop_thr '_bnv.node'),header=False, index=False,sep='\t')
+            out_df.to_csv(op.join(config.conn_dir,str(config.date)+ '_' + self.network + '_' + self.prop_thr + '_bnv.node'),header=False, index=False,sep='\t')
         else:
             print(f'Please validate that you are using the correct data by running {self.clean_data}')
 
@@ -73,10 +73,9 @@ class bnv_analysis():
         else:
             print(f'Please validate that you are using the correct data by running {self.clean_data}')
 
-if __name__ == "__main__":
-    m = bnv_analysis()
-    m.clean_labels()
-    m.load_data()
-    m.clean_data()
-    m.make_node_file()
-    m.make_edge_file()
+    def run_bnv_prep(self):
+        self.clean_labels()
+        self.load_data()
+        self.clean_data()
+        self.make_node_file()
+        self.make_edge_file()

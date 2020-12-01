@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import fmri_analysis_load_funcs as faload
 
-config = faload.config()
+config = faload.load_config()
 
 def filter_conn_df_network(df, rois):
     # Limits the df to the chosen network
@@ -39,12 +39,13 @@ def _threshold(array, prop_thr):
     return bct.threshold_proportional(array, prop_thr, copy=False)
 
 def _triu(df):
-    rois = set(df.index)
-    if set(df[name_id_col]) > 1:
+    rois = list(set(df.index))
+    if len(set(df[config.name_id_col])) > 1:
         for s in set(df[config.name_id_col]):
-            tmp = df.loc[[config.name_id_col,rois]]
+            cols = [config.name_id_col] + rois
+            tmp = df.loc[df[config.name_id_col]==s,[cols]]
             tmp[np.triu_indices(tmp.shape[0], k=0)] = np.nan
-            df.loc[[config.name_id_col,rois]] = tmp
+            df.loc[df[config.name_id_col]==s,cols] = tmp
     else:
         tmp = df.loc[df[:,rois]]
         tmp[np.triu_indices(tmp.shape[0], k=0)] = np.nan

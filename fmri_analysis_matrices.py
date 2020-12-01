@@ -18,10 +18,10 @@ import itertools
 import fmri_analysis_utilities as utils
 import fmri_analysis_load_funcs as faload
 
-config = faload.config()
+config = faload.load_config()
 
 class analysis():
-    def __init__(network_name, mdata=None, prop_thr=0, subject_list=None, triu=True,  wb_norm=False, abs_val=False):
+    def __init__(self,network_name, mdata=None, prop_thr=0, subject_list=None, triu=True,  wb_norm=False, abs_val=False):
         if mdata:
             self.mdata = mdata
         else:
@@ -38,23 +38,25 @@ class analysis():
     def create_master_conn_df(self):
         """"Create the full, filterable connectivity matrix with subject id and group info."""
         subj_ix = self.mdata['Z'].shape[-1]
+        x, subj_dict, group_dict = faload.get_subj_df_data(config.nonimaging_subjectlevel_data)
         all_rois = faload.get_parcel_dict(self.mdata, network_name=None) # For the master df, get ALL the rois, not just the network-specific ones. Filter later.
-        col_names = [config.name_id_col] + self.rois # Use the subj column to be able to search and filter by specific participants
+        col_names = [config.name_id_col] + list(all_rois.keys()) # Use the subj column to be able to search and filter by specific participants
         master_conn_df = pd.DataFrame(columns = col_names)
         data_dfs = []
         for s in range(0, subj_ix):
-            tmp_df = pd.DataFrame(mdata['Z'][:,:mdata['Z'].shape[0],s], index = all_rois, columns = all_rois)
+            tmp_df = pd.DataFrame(self.mdata['Z'][:,:self.mdata['Z'].shape[0],s], index = all_rois, columns = all_rois)
             tmp_df[config.name_id_col] = subj_dict[s]
             data_dfs.append(tmp_df)
         master_conn_df = pd.concat(data_dfs)
-        self.master_conn_df = master_conn_df.reset_index(inplace=True)
+        self.master_conn_df = master_conn_df.reset_index()
 
         if self.wb_norm:
-            self.master_conn_df = utils._normalize(self.master_conn_df)
-        self.curr_df = self.create_master_conn_df
+            self.master_conn_df = utils._normalize(self.master_conn_df)       
+        setattr(self,'curr_df', master_conn_df.reset_index())
 
     def produce_matrix(self):
-        if not self.curr_df:
+        if not hasattr(self,'curr_df'):
+            print('Creating the master df')
             self.create_master_conn_df()
         if self.network:
             if not self.rois == set(self.curr_df.index):
