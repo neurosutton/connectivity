@@ -46,6 +46,7 @@ class config(name_id_col, group_id_col, data_dir, conn_dir, dt):
     self.data_dir = data_dir
     self.conn_dir = self.conn_dir
     self.date = dt
+    self.mdata,x = load_mat(self.data_dir, os.path.join(self.conn_dir,conn_file))
 
 def load_mat(data_dir, conn_file):
     """Loading and reloading the module is much quicker with loading the matrix as its own method. Call first, so that there is data, though."""

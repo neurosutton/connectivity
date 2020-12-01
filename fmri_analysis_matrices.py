@@ -18,11 +18,14 @@ import itertools
 import fmri_analysis_utilities as utils
 import fmri_analysis_load_funcs as faload
 
-name_id_col, group_id_col, data_dir, conn_dir = faload.study_logistics()
+config = faload.config()
 
 class analysis():
-    def __init__(mdata, network_name, prop_thr=0, subject_list=None, triu=True,  wb_norm=False, abs_val=False):
-        self.mdata = mdata
+    def __init__(network_name, mdata=None, prop_thr=0, subject_list=None, triu=True,  wb_norm=False, abs_val=False):
+        if mdata:
+            self.mdata = mdata
+        else:
+            self.mdata = config.mdata
         self.network = network_name
         self.prop_thr = prop_thr
         self.subject_list = subject_list
@@ -35,13 +38,13 @@ class analysis():
     def create_master_conn_df(self):
         """"Create the full, filterable connectivity matrix with subject id and group info."""
         subj_ix = self.mdata['Z'].shape[-1]
-        all_rois = faload.get_parcel_dict(self.mdata, network_name=None)
-        col_names = [self.name_id_col] + self.rois # Use the subj column to be able to search and filter by specific participants
+        all_rois = faload.get_parcel_dict(self.mdata, network_name=None) # For the master df, get ALL the rois, not just the network-specific ones. Filter later.
+        col_names = [config.name_id_col] + self.rois # Use the subj column to be able to search and filter by specific participants
         master_conn_df = pd.DataFrame(columns = col_names)
         data_dfs = []
         for s in range(0, subj_ix):
             tmp_df = pd.DataFrame(mdata['Z'][:,:mdata['Z'].shape[0],s], index = all_rois, columns = all_rois)
-            tmp_df[self.name_id_col] = subj_dict[s]
+            tmp_df[config.name_id_col] = subj_dict[s]
             data_dfs.append(tmp_df)
         master_conn_df = pd.concat(data_dfs)
         self.master_conn_df = master_conn_df.reset_index(inplace=True)
@@ -51,11 +54,13 @@ class analysis():
         self.curr_df = self.create_master_conn_df
 
     def produce_matrix(self):
+        if not self.curr_df:
+            self.create_master_conn_df()
         if self.network:
             if not self.rois == set(self.curr_df.index):
                 self.curr_df = utils.filter_conn_df_network(self.curr_df,self.rois)
         if self.subject_list:
-            if not self.subject_list == set(self.curr_df[name_id_col]):
+            if not self.subject_list == set(self.curr_df[config.name_id_col]):
                 self.curr_df = utils.filter_conn_df_subjects(self.curr_df,self.subject_list)
         if self.prop_thr:
             if self.abs_val:
@@ -75,4 +80,6 @@ class analysis():
         rois = faload.get_parcel_dict(self.mdata, network_name=network)
         setattr(self,'network',network)
         setattr(self,'rois',rois)
-        return self.produce_matrix()    
+        return self.produce_matrix()
+
+# TODO make a separate module to calculate graph metrics. The output may be appended to the master df.
