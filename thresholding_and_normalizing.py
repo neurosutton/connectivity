@@ -22,13 +22,13 @@ config = faload.load_config()
 
 
 def get_mean_conn_data(mdata=None, conn_dir=conn_dir, conn_file=conn_file, roi_count=None, clear_triu=True):
-    conn_data = get_conn_data(mdata=mdata, conn_dir=conn_dir, conn_file=conn_file, roi_count=roi_count, clear_triu=clear_triu)
+    conn_data = faload.load_conn_data(mdata=mdata, roi_count=roi_count, clear_triu=clear_triu)
     return np.nanmean(conn_data, axis=2)
 
 
-def get_sorted_values(conn_data=None, mdata=None, conn_dir=conn_dir, conn_file=conn_file, roi_count=None, clear_triu=True):
+def get_sorted_values(conn_data=None, mdata=None, roi_count=None, clear_triu=True):
     if conn_data is None:
-        conn_data = get_mean_conn_data(mdata=mdata, conn_dir=conn_dir, conn_file=conn_file, roi_count=roi_count, clear_triu=clear_triu)
+        conn_data = get_mean_conn_data(mdata=mdata, roi_count=roi_count, clear_triu=clear_triu)
     return np.sort(conn_data[~np.isnan(conn_data)].flatten())
 
 
@@ -38,8 +38,8 @@ def get_prop_thr_value(threshold, exclude_negatives=False, conn_data=None):
     if exclude_negatives:
         sorted_values = sorted_values[sorted_values >= 0]
     edge_count = len(sorted_values)
-    position = ceil(edge_count * threshold)
-    return sorted_values[position]
+    thr_ix = ceil(edge_count * threshold)
+    return sorted_values[thr_ix]
 
 def get_proportional_threshold_mask(network_name, prop_thr, subj_idx=None, conn_data=None,
                                     mdata=None, exclude_negatives=False):
