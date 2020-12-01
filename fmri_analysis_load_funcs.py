@@ -2,28 +2,18 @@
 Functions to explore connectivity matrices generated through CONN.
 
 Date: August 2020
-@author: Josh Bear, MD
-v0.2 (BMS) Adapted fmri_analysis_functions for pandas
+@author: Brianne Sutton, PhD from Josh Bear, MD
+v0.3 (BMS) Adapted fmri_analysis_functions for pandas
 """
-from scipy.io import loadmat
-import scipy.stats
-import matplotlib.pyplot as plt
 import os
 from glob import glob
 import numpy as np
 import fnmatch, random, time
-from matplotlib import colors
-from matplotlib.pyplot import figure
 import pandas as pd
-import seaborn as sns
-from matplotlib import cm
 import json
-import bct
 from collections import OrderedDict, defaultdict
 from datetime import datetime
-from tqdm import tqdm
-import multiprocessing
-import itertools
+
 
 with open(os.path.join(os.path.dirname(os.path.realpath(__file__)),'directory_defs.json')) as f:
     defs = json.load(f)
