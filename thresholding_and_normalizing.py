@@ -46,19 +46,26 @@ def get_sorted_values(conn_data=None, mdata=None, conn_dir=conn_dir, conn_file=c
     return np.sort(conn_data[~np.isnan(conn_data)].flatten())
 
 
-def get_prop_thr_value(threshold, conn_data=None):
+def get_prop_thr_value(threshold, exclude_negatives=False, conn_data=None):
     conn_data = get_mean_conn_data() if conn_data is None else conn_data
     sorted_values = get_sorted_values(conn_data=conn_data)
+    if exclude_negatives:
+        sorted_values = sorted_values[sorted_values >= 0]
     edge_count = len(sorted_values)
     position = ceil(edge_count * threshold)
     return sorted_values[position]
 
 
-def get_prop_thr_edges(threshold, conn_data=None):
+def get_prop_thr_edges(threshold, exclude_negatives=False, conn_data=None):
     if conn_data is None:
         conn_data = get_mean_conn_data()
-    thr_value = get_prop_thr_value(threshold=threshold)
+    thr_value = get_prop_thr_value(threshold=threshold, exclude_negatives=exclude_negatives)
     prop_thr_edges = conn_data.copy()
     prop_thr_edges[prop_thr_edges >= thr_value] = 1
     prop_thr_edges[prop_thr_edges < thr_value] = 0
     return prop_thr_edges
+
+
+def drop_negatives(matrix):
+    matrix[matrix < 0] = np.nan
+    return matrix

@@ -18,6 +18,8 @@ from matplotlib import cm
 import json
 import thresholding_and_normalizing as tan
 import seaborn as sns
+from scipy.stats import pearsonr
+
 
 with open(op.join(op.dirname(op.realpath(__file__)),'directory_defs.json')) as f:
     defs = json.load(f)
@@ -32,7 +34,8 @@ eses_indices = [i for i, x in enumerate(list(subj_data['group'])) if x == 'eses'
 hc_indices = [i for i, x in enumerate(list(subj_data['group'])) if x == 'hc']
 
 
-def get_network_parcels(network_name, subj_idx, mdata=None):
+def get_network_parcels(network_name, subj_idx=None, mdata=None):
+    subj_idx = 0 if subj_idx is None else subj_idx
     mdata = tan.get_mdata() if mdata is None else mdata
     parcel_names = [str[0] for str in mdata['names'][0]]
     parcels = {k:v for v,k in enumerate([str[0] for str in mdata['names'][0]])}
@@ -43,26 +46,50 @@ def get_network_parcels(network_name, subj_idx, mdata=None):
     return network_parcels
 
 
-def get_network_matrix(network_name, subj_idx, conn_data=None, mdata=None, prop_thr=None):
+def get_network_matrix(network_name, subj_idx, conn_data=None, mdata=None, prop_thr=None, network_mask=None,
+                       exclude_negatives=False, normalize=False):
+    '''
+    Adding a normalize, which can call different types.
+        - 'self' will divide by own whole brain mean connectivity
+    '''
     prop_thr is None if prop_thr == 0 else prop_thr
     conn_data = tan.get_conn_data() if conn_data is None else conn_data
     parcels = get_network_parcels(network_name, subj_idx, mdata=mdata)
     indices = list(parcels.values())
     matrix = conn_data[:, :, subj_idx][np.ix_(indices, indices)]
-    if prop_thr:
-        wb_mask = tan.get_prop_thr_edges(threshold=prop_thr)
-        network_mask = wb_mask[np.ix_(indices, indices)]
+    if prop_thr or network_mask is not None:
+        if prop_thr:
+            network_mask = get_proportional_threshold_mask(network_name=network_name,
+                                                           prop_thr=prop_thr, conn_data=conn_data,
+                                                           mdata=mdata, exclude_negatives=exclude_negatives)
         matrix = network_mask * matrix
         matrix[matrix == 0] = np.nan
+    if normalize is not False:
+        # for start, will just assume it's 'self'
+        self_norm_value = np.nanmean(tan.drop_negatives(conn_data[:, :, subj_idx]))
+        matrix = matrix / np.absolute(self_norm_value)
     return matrix
 
 
-def get_cohort_network_matrices(network_name, subj_idx, mean=False, conn_data=None, prop_thr=None, subject_level=False):
+def get_proportional_threshold_mask(network_name, prop_thr, subj_idx=None, conn_data=None,
+                                    mdata=None, exclude_negatives=False):
+    # conn_data = tan.get_conn_data() if conn_data is None else conn_data
+    parcels = get_network_parcels(network_name, subj_idx=subj_idx, mdata=mdata)
+    indices = list(parcels.values())
+    wb_mask = tan.get_prop_thr_edges(threshold=prop_thr, exclude_negatives=exclude_negatives)
+    network_mask = wb_mask[np.ix_(indices, indices)]
+    return network_mask
+
+
+def get_cohort_network_matrices(network_name, subj_idx, mean=False, conn_data=None, prop_thr=None,
+                                subject_level=False, network_mask=None, exclude_negatives=False):
     conn_data = tan.get_conn_data() if conn_data is None else conn_data
     ''' Get the matrices for a cohort of patients in a given network. '''
     cohort_matrices = []  # need to collect all the matrices to add
     for subj in subj_idx:
-        matrix = get_network_matrix(network_name, subj, conn_data=conn_data, prop_thr=prop_thr)
+        matrix = get_network_matrix(network_name, subj, conn_data=conn_data,
+                                    prop_thr=prop_thr, network_mask=network_mask,
+                                    exclude_negatives=exclude_negatives)
         cohort_matrices.append(matrix)
     cohort_matrices = np.asarray(cohort_matrices)
     if mean is True:
@@ -140,33 +167,10 @@ def describe_cohort_networks(network_name, subj_idx_list_1, subj_idx_list_2, con
     print(f'StDev: {np.nanstd(matrix_1)=} | {np.nanstd(matrix_2)=}')
     print(f'{t_test_results=}')
 
-'''
-def get_cohort_comparison_over_thresholds(network_name, subj_idx_list_1, subj_idx_list_2, thr_range=None, thr_increment=None, conn_data=None, subject_level=False):
-    conn_data = tan.get_conn_data() if conn_data is None else conn_data
-    thr_increment = 0.1 if thr_increment is None else thr_increment
-    thr_range = np.arange(thr_increment, 1, thr_increment) if thr_range is None else thr_range
-    comp_data = {'g1mean': [], 'g2mean': [], 'g1sd': [], 'g2sd': [], 'p': []}
-    for value in thr_range:
-        matrix_1 = get_cohort_network_matrices(network_name, subj_idx_list_1, subject_level=subject_level, conn_data=conn_data, prop_thr=value)
-        matrix_2 = get_cohort_network_matrices(network_name, subj_idx_list_2, subject_level=subject_level, conn_data=conn_data, prop_thr=value)
-        comp_data['g1mean'].append(np.nanmean(matrix_1))
-        comp_data['g2mean'].append(np.nanmean(matrix_2))
-        comp_data['g1sd'].append(np.nanstd(matrix_1))
-        comp_data['g2sd'].append(np.nanstd(matrix_2))
-        comp_data['p'].append(scipy.stats.ttest_ind(matrix_1, matrix_2, axis=None, nan_policy='omit')[1])
-    comp_df = pd.DataFrame()
-    comp_df['threshold'] = thr_range
-    comp_df['g1mean'] = comp_data['g1mean']
-    comp_df['g2mean'] = comp_data['g2mean']
-    comp_df['g1sd'] = comp_data['g1sd']
-    comp_df['g2sd'] = comp_data['g2sd']
-    comp_df['p'] = comp_data['p']
-    return comp_df
-'''
 
 def get_cohort_comparison_over_thresholds(network_name, group_indices, group_names=None, thr_range=None,
                                           thr_increment=None, conn_data=None, subject_level=False,
-                                          plot=False):
+                                          plot=False, exclude_negatives=False):
     conn_data = tan.get_conn_data() if conn_data is None else conn_data
     thr_increment = 0.1 if thr_increment is None else thr_increment
     thr_range = np.arange(0., 1, thr_increment) if thr_range is None else thr_range
@@ -174,8 +178,11 @@ def get_cohort_comparison_over_thresholds(network_name, group_indices, group_nam
     comp_df = pd.DataFrame(columns=['threshold', 'group', 'connectivity'])
     df_idx = 0
     for value in thr_range:
-        matrix_1 = get_cohort_network_matrices(network_name, group_indices[0], subject_level=subject_level, conn_data=conn_data, prop_thr=value)
-        matrix_2 = get_cohort_network_matrices(network_name, group_indices[1], subject_level=subject_level, conn_data=conn_data, prop_thr=value)
+        network_mask = get_proportional_threshold_mask(network_name, value, exclude_negatives=exclude_negatives)
+        matrix_1 = get_cohort_network_matrices(network_name, group_indices[0], subject_level=subject_level,
+                                               conn_data=conn_data, network_mask=network_mask)
+        matrix_2 = get_cohort_network_matrices(network_name, group_indices[1], subject_level=subject_level,
+                                               conn_data=conn_data, network_mask=network_mask)
         for conn in matrix_1.flatten():
             if not np.isnan(conn):
                 comp_df.loc[df_idx] = [value, group_names[0], conn]
@@ -218,21 +225,34 @@ def plot_cohort_comparison_over_thresholds(network_name, comparison_df, group_na
     plt.show()
 
 
-def get_subject_scores(subject_file, measure):
-    subj_data = pd.read_csv(subject_file)
+def get_subject_scores(measure):
     scores = {}
+    scores_df = pd.DataFrame(columns=['index', 'subject', measure])
+
     for row in subj_data.index:
         if not np.isnan(float(subj_data[subj_data.index == row][measure])):
-            scores[row] = float(subj_data[subj_data.index == row][measure])
-    return scores
+            scores_df.loc[len(scores_df)] = [row,
+                                             str(subj_data[subj_data.index == row]['subject'].values[0]),
+                                             float(subj_data[subj_data.index == row][measure])]
+            # scores[row] = float(subj_data[subj_data.index == row][measure])
+    return scores_df
 
 
-def plot_score_by_network(subject_file, measure, conn_data, network, drop=[]):
-    scores = get_subject_scores(subject_file, measure)
+def plot_score_by_network(measure, network, drop=[], conn_data=None, prop_thr=None, network_mask=None,
+                          exclude_negatives=False, stats=False):
+    conn_data = tan.get_conn_data() if conn_data is None else conn_data
+    scores_df = get_subject_scores(measure)
+    conn_values = []
     for idx in drop:
-        scores.pop(idx, None)
-    for subj in scores.keys():
-        m = get_network_matrix(conn_data, network, subj)
+        scores_df = scores_df[scores_df['index'] != idx]
+    for subj in scores_df['index']:
+        m = get_network_matrix(network, subj, conn_data=conn_data, prop_thr=prop_thr,
+                               network_mask=network_mask, exclude_negatives=exclude_negatives)
         m[np.triu_indices(m.shape[0], k=0)] = np.nan
-        plt.scatter(np.nanmean(m), scores[subj])
-    plt.show()
+        conn_values.append(np.nanmean(m))
+
+    scores_df['connectivity'] = conn_values
+    sns.scatterplot(data=scores_df, x='connectivity', y=measure)
+    if stats is True:
+        print(pearsonr(scores_df['connectivity'], scores_df[measure]))
+    return scores_df
