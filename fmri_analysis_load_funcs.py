@@ -15,6 +15,7 @@ from collections import OrderedDict, defaultdict
 from datetime import datetime
 from scipy.io import loadmat
 
+import fmri_analysis_utilities as utils
 
 class config():
     """Provides a single mechanism to pass shared variables around.
@@ -40,7 +41,7 @@ class config():
         self.nonimaging_subjectlevel_data =  os.path.join(self.main_dir,'eses_subjects_202008.csv')
         get_subj_df_data(self.nonimaging_subjectlevel_data)
 
-        self.mdata,x = load_mat(self.proj_dir, os.path.join(self.conn_dir,self.conn_file))
+        self.mdata = load_mdata(self.proj_dir, os.path.join(self.conn_dir,self.conn_file))
         self.conn_data  = load_conn_data(mdata=self.mdata)
         self.prep_pickle()
      
@@ -54,14 +55,23 @@ def load_config():
      return cfg
 
 
-def load_mdata():
+def load_mdata(conn_dir=None, conn_file=None):
     """Loading and reloading the module is much quicker with loading the matrix as its own method. Call first, so that there is data, though."""
-    return loadmat(op.join(config.conn_dir, config.conn_file))
+    if not conn_dir:
+        cfg = load_config()
+        conn_dir = cfg.conn_dir
+        conn_file = cfg.conn_file
+    return loadmat(os.path.join(conn_dir, conn_file))
 
 
 def load_conn_data(mdata=None, roi_count=None, clear_triu=True):
-    if not mdata:
-        mdata = config.mdata
+    """Foundational method to transform the MATLAB matrices to numpy matrices.
+    Output:
+    mdata loaded in the config object; dictionary of arrays in line with MATLAB data structures.
+    conn_data: Just the connectivity matrices extracted from mdata; square matrix excludes the regressors and atlas-based values that CONN adds to the right side of the matrix
+    """
+    cfg = load_config()
+    mdata = cfg.mdata if mdata is None else mdata
     roi_count = mdata['Z'].shape[0] if roi_count is None else roi_count
     conn_data = mdata['Z'][:roi_count, :roi_count, :]
     if clear_triu is False:
@@ -71,26 +81,30 @@ def load_conn_data(mdata=None, roi_count=None, clear_triu=True):
             conn_data[:, :, subject][np.triu_indices(conn_data.shape[0], 0)] = np.nan
     return conn_data
 
-def load_network_parcels(network_name, subj_idx=None, mdata=None):
-    """Returns parcel names and indices with HCP remaining in the name and indexed to work with numpy-based functions."""
-    subj_idx = 0 if subj_idx is None else subj_idx
-    mdata = load_mdata() if mdata is None else mdata
-    parcel_names = [str[0] for str in mdata['names'][0]]
-    parcels = {k:v for v,k in enumerate([str[0] for str in mdata['names'][0]])}
-    pattern = 'hcp_atlas.' + network_name + '*'
+def load_network_parcels(network_name, mdata=None):
+    """Returns parcel names and indices with HCP remaining in the name and indexed to work with numpy-based functions.
+    Output: {atlas_name.roi: numpy index of ROI}
+    """
+    cfg = load_config()
+    mdata = cfg.mdata if mdata is None else mdata
+    parcel_names = [str[0].lower() for str in mdata['names'][0]]
+    parcels = {k:v for v,k in enumerate(parcel_names)}
+    pattern = 'hcp_atlas.' + network_name.lower() + '*'
     matching = fnmatch.filter(parcels.keys(), pattern)
     network_parcels = {k:v for k,v in parcels.items() if k in matching}
-    indices = [parcels.get(key) for key in matching]
+    #indices = [parcels.get(key) for key in matching] #Unused?
     return network_parcels
 
-def get_subj_df_data(nonimaging_subjectlevel_data):
+def get_subj_df_data(nonimaging_subjectlevel_data=None):
     """Primarily for reading in demographic and neuropsychological data."""
     cfg = load_config()
+    nonimaging_subjectlevel_data = cfg.nonimaging_subjectlevel_data if nonimaging_subjectlevel_data is None else nonimaging_subjectlevel_data
     subj_df = pd.DataFrame(pd.read_csv(nonimaging_subjectlevel_data))
+    subj_df = utils.filter_df(subj_df)
     subj_dict = {k:v for k,v in enumerate(subj_df[cfg.name_id_col])}
     group_dict = dict(zip(subj_df[cfg.name_id_col], subj_df[cfg.group_id_col]))
-    grp1_indices = [i for i, x in enumerate(list(subj_data[cfg.group_id_col])) if x == cfg.group1]
-    grp2_indices = [i for i, x in enumerate(list(subj_data[cfg.group_id_col])) if x == cfg.group2]
+    grp1_indices = [i for i, x in enumerate(list(subj_df[cfg.group_id_col])) if x == cfg.group1]
+    grp2_indices = [i for i, x in enumerate(list(subj_df[cfg.group_id_col])) if x == cfg.group2]
     setattr(cfg,'group1_indices',grp1_indices)
     setattr(cfg,'group2_indices',grp2_indices)
     return subj_df, subj_dict, group_dict
