@@ -21,7 +21,7 @@ config = faload.load_config()
 # get_conn_data
 
 
-def get_mean_conn_data(mdata=None, conn_dir=conn_dir, conn_file=conn_file, roi_count=None, clear_triu=True):
+def get_mean_conn_data(mdata=None, roi_count=None, clear_triu=True):
     conn_data = faload.load_conn_data(mdata=mdata, roi_count=roi_count, clear_triu=clear_triu)
     return np.nanmean(conn_data, axis=2)
 
@@ -44,7 +44,7 @@ def get_prop_thr_value(threshold, exclude_negatives=False, conn_data=None):
 def get_proportional_threshold_mask(network_name, prop_thr, subj_idx=None, conn_data=None,
                                     mdata=None, exclude_negatives=False):
     # conn_data = tan.get_conn_data() if conn_data is None else conn_data
-    parcels = get_network_parcels(network_name, subj_idx=subj_idx, mdata=mdata)
+    parcels = faload.load_network_parcels(network_name, subj_idx=subj_idx, mdata=mdata)
     indices = list(parcels.values())
     wb_mask = tan.get_prop_thr_edges(threshold=prop_thr, exclude_negatives=exclude_negatives)
     network_mask = wb_mask[np.ix_(indices, indices)]

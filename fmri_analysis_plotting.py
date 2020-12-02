@@ -45,8 +45,11 @@ def plot_cohort_comparison_over_thresholds(network_name, comparison_df, group_na
     ax.set_ylabel('Connectivity Strength')
     plt.show()
 
-    def plot_network_matrix(conn_data, network_name, subj_idx):
-    parcels = get_network_parcels(conn_data, network_name, subj_idx)
+def plot_network_matrix(network_name, subj_idx, conn_data=None):
+    if not conn_data:
+        cfg = faload.load_config()
+        conn_data = cfg.conn_data
+    parcels = faload.load_network_parcels(conn_data, network_name, subj_idx)
     indices = list(parcels.values())
     fig = plt.figure()
     ax = plt.gca()
@@ -82,7 +85,7 @@ def plot_cohort_comparison_matrices(network_name, subj_idx_list_1, subj_idx_list
     vmin = np.min([np.nanmin(mean_matrix_1), np.nanmin(mean_matrix_2)]) if vmin is None else vmin
     vmax = np.max([np.nanmax(mean_matrix_1), np.nanmax(mean_matrix_2)]) if vmax is None else vmax
     boundary = np.max([np.absolute(vmin), np.absolute(vmax)])
-    parcels = get_network_parcels(network_name, subj_idx_list_1[0], mdata=mdata)
+    parcels = faload.load_network_parcels(network_name, subj_idx_list_1[0], mdata=mdata)
     indices = list(parcels.values())
     fig, axs = plt.subplots(1, 2, figsize=(8, 6), dpi=180)
     cmap = plt.get_cmap('Spectral')
