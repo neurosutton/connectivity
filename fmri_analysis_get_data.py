@@ -19,6 +19,7 @@ import fmri_analysis_utilities as utils
 import fmri_analysis_load_funcs as faload
 shared = faload.load_shared()
 import fmri_analysis_plotting as faplot
+import fmri_analysis_manipulations as fam
 
 def test_shared():
     return shared
@@ -106,13 +107,13 @@ def get_network_matrix(network_name, subj_idx, conn_data=None, prop_thr=None, ne
     utils.check_data_loaded()
     prop_thr is None if prop_thr == 0 else prop_thr
     conn_data = shared.conn_data if conn_data is None else conn_data
-    parcels = get.get_network_parcels(network_name)
+    parcels = get_network_parcels(network_name)
     indices = list(parcels.values())
     matrix = conn_data[:, :, subj_idx][np.ix_(indices, indices)]
     if prop_thr or network_mask is not None:
         if prop_thr:
             network_mask = fam.make_proportional_threshold_mask(network_name=network_name,
-                                                           prop_thr=prop_thr, conn_data=conn_data,
+                                                           prop_thr=prop_thr,
                                                            exclude_negatives=exclude_negatives)
         matrix = network_mask * matrix
         matrix[matrix == 0] = np.nan

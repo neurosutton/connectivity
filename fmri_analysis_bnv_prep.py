@@ -13,6 +13,7 @@ import fmri_analysis_load_funcs as faload
 import fmri_analysis_get_data as get
 
 shared = faload.load_shared()
+get.test_shared()
 
 class bnv_analysis():
     def __init__(self, network=None, label_file=os.path.join(shared.atlas_dir,'hcpmmp1_expanded_labels.csv'), group=None, atlas_label="SuttonLabel", subject_list=None, prop_thr=0.7, exclude_negatives=shared.excl_negatives):
@@ -42,7 +43,8 @@ class bnv_analysis():
         dfs = []
         for k in grp_dict.keys():
             indices = shared.__dict__[k.split('.')[-1]+'_indices'] # Flexible solve for group 1 or 2, depending on the group id from analyze
-            df = pd.DataFrame(get.get_cohort_network_matrices(self.network, indices, mean=False, conn_data=None, prop_thr=self.prop_thr, subject_level=False, network_mask=network_mask, exclude_negatives=False))
+            print(indices)
+            df = pd.DataFrame(get.get_cohort_network_matrices(self.network, indices, mean=False, conn_data=None, prop_thr=self.prop_thr, subject_level=False, network_mask=network_mask, exclude_negatives=self.exclude_negatives))
             df['group'] = grp_dict[k]
             dfs.append(df)
         df = pd.concat(dfs)
