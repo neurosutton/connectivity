@@ -5,17 +5,23 @@ Date: December 2020
 @author: Brianne Sutton, PhD from Josh Bear, MD
 v0.3 (BMS) Adapted fmri_analysis_functions for pandas
 """
-
-
+import scipy.stats
+import matplotlib.pyplot as plt
+from matplotlib import colors
+from matplotlib.pyplot import figure
+import pandas as pd
+from matplotlib import cm
+import seaborn as sns
 
 
 import fmri_analysis_load_funcs as faload
 shared = faload.load_shared()
+import fmri_analysis_get_data as get
 
 
 def plot_score_by_network(measure, network, drop=[], conn_data=None, prop_thr=None, network_mask=None,
                           exclude_negatives=False, stats=False):
-    conn_data = tan.get_conn_data() if conn_data is None else conn_data
+    conn_data = get.get_conn_data() if conn_data is None else conn_data
     scores_df = get_subject_scores(measure)
     conn_values = []
     for idx in drop:
@@ -29,7 +35,7 @@ def plot_score_by_network(measure, network, drop=[], conn_data=None, prop_thr=No
     scores_df['connectivity'] = conn_values
     sns.scatterplot(data=scores_df, x='connectivity', y=measure)
     if stats is True:
-        print(pearsonr(scores_df['connectivity'], scores_df[measure]))
+        print(stats.pearsonr(scores_df['connectivity'], scores_df[measure]))
     return scores_df
 
 def plot_cohort_comparison_over_thresholds(network_name, comparison_df, group_names):
@@ -61,8 +67,8 @@ def plot_cohort_comparison_over_thresholds(network_name, comparison_df, group_na
 
 def plot_network_matrix(network_name, subj_idx, conn_data=None):
     if not conn_data:
-        conn_data = cfg.conn_data
-    parcels = faload.load_network_parcels(conn_data, network_name, subj_idx)
+        conn_data = shared.conn_data
+    parcels = get.get_network_parcels(conn_data, network_name, subj_idx)
     indices = list(parcels.values())
     fig = plt.figure()
     ax = plt.gca()
@@ -92,13 +98,13 @@ def plot_cohort_network_matrix(conn_data, network_name, subj_idx_list):
 
 
 def plot_cohort_comparison_matrices(network_name, subj_idx_list_1, subj_idx_list_2, prop_thr=None, vmin=None, vmax=None, conn_data=None, mdata=None):
-    conn_data = tan.get_conn_data() if conn_data is None else conn_data
+    conn_data = get.get_conn_data() if conn_data is None else conn_data
     mean_matrix_1 = get_cohort_network_matrices(network_name, subj_idx_list_1, mean=True, conn_data=conn_data, prop_thr=prop_thr)
     mean_matrix_2 = get_cohort_network_matrices(network_name, subj_idx_list_2, mean=True, conn_data=conn_data, prop_thr=prop_thr)
     vmin = np.min([np.nanmin(mean_matrix_1), np.nanmin(mean_matrix_2)]) if vmin is None else vmin
     vmax = np.max([np.nanmax(mean_matrix_1), np.nanmax(mean_matrix_2)]) if vmax is None else vmax
     boundary = np.max([np.absolute(vmin), np.absolute(vmax)])
-    parcels = faload.load_network_parcels(network_name, subj_idx_list_1[0], mdata=mdata)
+    parcels = get.get_network_parcels(network_name, subj_idx_list_1[0], mdata=mdata)
     indices = list(parcels.values())
     fig, axs = plt.subplots(1, 2, figsize=(8, 6), dpi=180)
     cmap = plt.get_cmap('Spectral')

@@ -22,13 +22,13 @@ from scipy.stats import pearsonr
 
 import fmri_analysis_load_funcs as faload
 
-config = faload.load_config()
+config = get.get_config()
 
 
 
 
 # Moved to load_funcs:
-# faload.load_network_parcels
+# get.get_network_parcels
 
 
 # Moved to thresholding_and_normalizing
@@ -44,8 +44,8 @@ def get_network_matrix(network_name, subj_idx, conn_data=None, mdata=None, prop_
         - 'self' will divide by own whole brain mean connectivity
     '''
     prop_thr is None if prop_thr == 0 else prop_thr
-    conn_data = faload.load_conn_data() if conn_data is None else conn_data
-    parcels = faload.load_network_parcels(network_name, subj_idx, mdata=mdata)
+    conn_data = get.get_conn_data() if conn_data is None else conn_data
+    parcels = get.get_network_parcels(network_name, subj_idx, mdata=mdata)
     indices = list(parcels.values())
     matrix = conn_data[:, :, subj_idx][np.ix_(indices, indices)]
     if prop_thr or network_mask is not None:
@@ -63,7 +63,7 @@ def get_network_matrix(network_name, subj_idx, conn_data=None, mdata=None, prop_
 
 def get_cohort_network_matrices(network_name, subj_idx, mean=False, conn_data=None, prop_thr=None,
                                 subject_level=False, network_mask=None, exclude_negatives=False):
-    conn_data = faload.load_conn_data() if conn_data is None else conn_data
+    conn_data = get.get_conn_data() if conn_data is None else conn_data
     ''' Get the matrices for a cohort of patients in a given network. '''
     cohort_matrices = []  # need to collect all the matrices to add
     for subj in subj_idx:
@@ -81,7 +81,7 @@ def get_cohort_network_matrices(network_name, subj_idx, mean=False, conn_data=No
 
 
 def describe_cohort_networks(network_name, subj_idx_list_1, subj_idx_list_2, conn_data=None, prop_thr=None, subject_level=False):
-    conn_data = faload.load_conn_data() if conn_data is None else conn_data
+    conn_data = get.get_conn_data() if conn_data is None else conn_data
     matrix_1 = get_cohort_network_matrices(network_name, subj_idx_list_1, subject_level=subject_level, conn_data=conn_data, prop_thr=prop_thr)
     matrix_2 = get_cohort_network_matrices(network_name, subj_idx_list_2, subject_level=subject_level, conn_data=conn_data, prop_thr=prop_thr)
     t_test_results = scipy.stats.ttest_ind(matrix_1, matrix_2, axis=None, nan_policy='omit')
@@ -94,7 +94,7 @@ def describe_cohort_networks(network_name, subj_idx_list_1, subj_idx_list_2, con
 def get_cohort_comparison_over_thresholds(network_name, group_indices, group_names=None, thr_range=None,
                                           thr_increment=None, conn_data=None, subject_level=False,
                                           plot=False, exclude_negatives=False):
-    conn_data = faload.load_conn_data() if conn_data is None else conn_data
+    conn_data = get.get_conn_data() if conn_data is None else conn_data
     thr_increment = 0.1 if thr_increment is None else thr_increment
     thr_range = np.arange(0., 1, thr_increment) if thr_range is None else thr_range
     group_names = ['1', '2'] if group_names is None else group_names
