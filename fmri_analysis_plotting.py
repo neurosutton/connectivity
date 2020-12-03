@@ -1,3 +1,17 @@
+"""
+Load data from CONN output and create shared variables for other modules in package.
+
+Date: December 2020
+@author: Brianne Sutton, PhD from Josh Bear, MD
+v0.3 (BMS) Adapted fmri_analysis_functions for pandas
+"""
+
+
+
+
+import fmri_analysis_load_funcs as faload
+shared = faload.load_shared()
+
 
 def plot_score_by_network(measure, network, drop=[], conn_data=None, prop_thr=None, network_mask=None,
                           exclude_negatives=False, stats=False):
@@ -47,7 +61,6 @@ def plot_cohort_comparison_over_thresholds(network_name, comparison_df, group_na
 
 def plot_network_matrix(network_name, subj_idx, conn_data=None):
     if not conn_data:
-        cfg = faload.load_config()
         conn_data = cfg.conn_data
     parcels = faload.load_network_parcels(conn_data, network_name, subj_idx)
     indices = list(parcels.values())
