@@ -16,7 +16,7 @@ from datetime import datetime
 from scipy.io import loadmat
 
 
-class config():
+class shared():
     def __init__(self,__def_path__=None):
         if __def_path__:
             self.__def_path__ = __def_path__
@@ -45,10 +45,10 @@ class config():
          with open(pkl_file,'wb') as f:
             pickle.dump(self,f)
 
-def load_config():
+def load_shared():
      with open(pkl_file, 'rb') as f:
-        cfg = pickle.load(f)
-     return cfg
+        shared = pickle.load(f)
+     return shared
 
 def load_mat(proj_dir, conn_file):
     """Loading and reloading the module is much quicker with loading the matrix as its own method. Call first, so that there is data, though."""
@@ -96,8 +96,8 @@ def get_parcel_dict(mdata, network_name=None, inverse=False):
 
 def get_subj_df_data(nonimaging_subjectlevel_data):
     """Primarily for reading in demographic and neuropsychological data."""
-    cfg = load_config()
+    shared = load_shared()
     subj_df = pd.DataFrame(pd.read_csv(nonimaging_subjectlevel_data))
-    subj_dict = {k:v for k,v in enumerate(subj_df[cfg.name_id_col])}
-    group_dict = dict(zip(subj_df[cfg.name_id_col], subj_df[cfg.group_id_col]))
+    subj_dict = {k:v for k,v in enumerate(subj_df[shared.name_id_col])}
+    group_dict = dict(zip(subj_df[shared.name_id_col], subj_df[shared.group_id_col]))
     return subj_df, subj_dict, group_dict

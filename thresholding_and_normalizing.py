@@ -14,12 +14,14 @@ from math import ceil, floor
 
 import fmri_analysis_load_funcs as faload
 
-config = faload.load_config()
+shared = faload.load_shared()
 
 # Moved to load_funcs:
 # get_mdata
 # get_conn_data
 
+def test_shared_availability():
+    return shared.group_id_col
 
 def get_mean_conn_data(mdata=None, roi_count=None, clear_triu=True):
     conn_data = faload.load_conn_data(mdata=mdata, roi_count=roi_count, clear_triu=clear_triu)
