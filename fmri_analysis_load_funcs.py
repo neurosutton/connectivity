@@ -39,6 +39,7 @@ class shared_variables():
             self.group2 = defs['group2']
         self.nonimaging_subjectlevel_data =  os.path.join(self.main_dir,'eses_subjects_202008.csv')
         self.conn_file = 'resultsROI_Condition001.mat'
+        self.excl_negatives = False
         _pickle(obj=self)
 
 def _pickle(obj):

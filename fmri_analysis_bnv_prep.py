@@ -10,36 +10,39 @@ import os
 import fmri_analysis_utilities as utils
 import fmri_analysis_manipulations as fam
 import fmri_analysis_load_funcs as faload
+import fmri_analysis_get_data as get
 
 shared = faload.load_shared()
 
 class bnv_analysis():
-    def __init__(self, network=None, label_file=os.path.join(shared.atlas_dir,'hcpmmp1_expanded_labels.csv'), group=None, atlas_label="SuttonLabel", subject_list=None, prop_thr=0.7):
+    def __init__(self, network=None, label_file=os.path.join(shared.atlas_dir,'hcpmmp1_expanded_labels.csv'), group=None, atlas_label="SuttonLabel", subject_list=None, prop_thr=0.7, exclude_negatives=shared.excl_negatives):
         self.network = network
         self.group = group #Filtered group for the node values
         self.atlas_label = atlas_label
         self.label_df = pd.DataFrame(pd.read_csv(label_file))
         self.subject_list = subject_list
         self.prop_thr = prop_thr
+        self.exclude_negatives = exclude_negatives
 
     def clean_labels(self):
         """Reduce mismatches and extraneous information from label file, so that the bare minimum needed for BNV is merged."""
         self.label_df = self.label_df[['x','y','z',self.atlas_label]]
 
-    def load_data(self,analyze=[]):
+    def load_summary_data(self,analyze=[]):
         """Allows string input for group comparison"""
         if not analyze:
             grp_dict = {'shared.group1':shared.group1,'shared.group2':shared.group2}
             compare = 'no'
         else:
+            print('Looking for matching groups')
             grp_dict = {k:v for k,v in shared.__dict__.items() if any(x in analyze for x in v)}
             compare = 'yes'
 
-        network_mask = fam.make_proportional_threshold_mask(shared.network, shared.prop_thr, exclude_negatives=exclude_negatives)
+        network_mask = fam.make_proportional_threshold_mask(self.network, self.prop_thr, exclude_negatives=self.exclude_negatives)
         dfs = []
         for k in grp_dict.keys():
             indices = shared.__dict__[k.split('.')[-1]+'_indices'] # Flexible solve for group 1 or 2, depending on the group id from analyze
-            df = pd.DataFrame(get_cohort_network_matrices(shared.network, indices, mean=False, conn_data=None, prop_thr=shared.prop_thr, subject_level=False, network_mask=network_mask, exclude_negatives=False))
+            df = pd.DataFrame(get.get_cohort_network_matrices(self.network, indices, mean=False, conn_data=None, prop_thr=self.prop_thr, subject_level=False, network_mask=network_mask, exclude_negatives=False))
             df['group'] = grp_dict[k]
             dfs.append(df)
         df = pd.concat(dfs)

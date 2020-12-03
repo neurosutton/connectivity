@@ -59,9 +59,12 @@ def get_network_parcels(network_name, mdata=None):
 
     parcel_names = [str[0].lower() for str in mdata['names'][0]]
     parcels = {k:v for v,k in enumerate(parcel_names)}
-    pattern = 'hcp_atlas.' + network_name.lower() + '*'
-    matching = fnmatch.filter(parcels.keys(), pattern)
-    network_parcels = {k:v for k,v in parcels.items() if k in matching}
+    if network_name:
+        pattern = 'hcp_atlas.' + network_name.lower() + '*'
+        matching = fnmatch.filter(parcels.keys(), pattern)
+        network_parcels = {k:v for k,v in parcels.items() if k in matching}
+    else:
+        network_parcels = parcels
     #indices = [parcels.get(key) for key in matching] #Unused?
     return network_parcels
 
