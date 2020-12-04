@@ -34,26 +34,27 @@ class bnv_analysis():
         """Reduce mismatches and extraneous information from label file, so that the bare minimum needed for BNV is merged."""
         self.label_df = self.label_df[['x','y','z',self.atlas_label]]
         self.label_df[self.atlas_label] = self.label_df[self.atlas_label].str.lower()
-
-    def load_summary_data(self,analyze=None):
+   
+    def load_summary_data(self,analyze=None, bnv_node=True):
         """Allows string input for group comparison"""
-        compare='no'
+        compare='no' # Tag for whether to subtract mean df's
         analyze = self.group if analyze is None else analyze
+
         if not analyze:
             grp_dict = {'shared.group1':shared.group1,'shared.group2':shared.group2}
         else:
             print('Looking for matching groups')
             if not isinstance(analyze,list):
                 analyze = [analyze]
-            grp_dict = {k:v for k,v in shared.__dict__.items() if str(v) in analyze}
             if len(analyze) > 1:
-                compare='yes'
+                compare='yes' # more than one group
+            grp_dict = {k:v for k,v in shared.__dict__.items() if str(v) in analyze}
 
         dfs = []
         for k in grp_dict.keys():
             indices = shared.__dict__[k.split('.')[-1]+'_indices'] # Flexible solve for group 1 or 2, depending on the group id from analyze
             print(indices)
-            df = self.get_cohort_bnv_data(indices = indices, mean=True)
+            df = self.get_cohort_bnv_data(indices = indices, mean=bnv_node)
             df['group'] = grp_dict[k]
             dfs.append(df)
         df = pd.concat(dfs)
@@ -62,7 +63,6 @@ class bnv_analysis():
             df = self.calc_diff_df(df.drop(columns=['subj_num']))
         else:
             df = df.groupby('rois').mean().reset_index().rename(columns={'index':'rois'})
-        self.fc_df = df
         return df
 
 
@@ -78,6 +78,8 @@ class bnv_analysis():
             if mean:
                 s = pd.DataFrame(s.groupby('rois').mean().mean(),columns=['fc'])
                 s['subj_num'] = indices[subj]
+            else:
+                s = pd.DataFrame(s.groupby('rois').mean(),columns=['fc'])
         subj_dfs.append(s)
         return pd.concat(subj_dfs)
 
@@ -94,7 +96,7 @@ class bnv_analysis():
 
     def make_node_file(self, msr_of_int='fc', analyze=None):
         analyze = self.group if analyze is None else analyze
-        fc_df = self.fc_df if hasattr(self,'fc_df') else self.load_summary_data(analyze=analyze)
+        fc_df = self.load_summary_data(analyze=analyze, bnv_node=True)
         node_df = fc_df[[msr_of_int] + ['rois']]
         out_df = self.label_df.merge(node_df, left_on = self.atlas_label, right_on = 'rois').drop(columns=([self.atlas_label]))
         out_df['size'] = out_df[msr_of_int]
@@ -110,7 +112,7 @@ class bnv_analysis():
         mdata = get.get_mdata() if mdata is None else mdata
         parcels = get.get_network_parcels(self.network, mdata=mdata)
         indices = list(parcels.values())
-        edges = self.get_cohort_bnv_data()
+        edges = self.load_summary_data(analyze=analyze, bnv_node=False)
         drop_cols = edges.columns.intersection([shared.name_id_col, shared.group_id_col,'rois','subj_num'])
         if len(drop_cols) > 0:
             edges.drop(columns=(drop_cols),inplace=True)
