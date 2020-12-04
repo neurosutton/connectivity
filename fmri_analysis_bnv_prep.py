@@ -31,38 +31,49 @@ class bnv_analysis():
 
     def load_summary_data(self,analyze=[]):
         """Allows string input for group comparison"""
+        compare='no'
         if not analyze:
             grp_dict = {'shared.group1':shared.group1,'shared.group2':shared.group2}
-            compare = 'no'
         else:
             print('Looking for matching groups')
-            grp_dict = {k:v for k,v in shared.__dict__.items() if any(x in analyze for x in v)}
-            compare = 'yes'
+            if not isinstance(analyze,list):
+                analyze = [analyze]
+            grp_dict = {k:v for k,v in shared.__dict__.items() if str(v) in analyze}
+            if len(analyze) > 1:
+                compare='yes'
 
         network_mask = fam.make_proportional_threshold_mask(self.network, self.prop_thr, exclude_negatives=self.exclude_negatives)
+        parcels = get.get_network_parcels(self.network)
         dfs = []
         for k in grp_dict.keys():
             indices = shared.__dict__[k.split('.')[-1]+'_indices'] # Flexible solve for group 1 or 2, depending on the group id from analyze
-            print(indices)
-            df = pd.DataFrame(get.get_cohort_network_matrices(self.network, indices, mean=False, conn_data=None, prop_thr=self.prop_thr, subject_level=False, network_mask=network_mask, exclude_negatives=self.exclude_negatives))
+            data = get.get_cohort_network_matrices(self.network, indices, mean=False, conn_data=None, prop_thr=self.prop_thr, subject_level=False, network_mask=network_mask, exclude_negatives=self.exclude_negatives)
+            subj_dfs =[]
+            for subj in range(0,data.shape[0]):
+                s = pd.DataFrame(data[subj])
+                s['subj_num'] = indices[subj]
+                s['rois'] = list(parcels.keys())
+                subj_dfs.append(s)
+            df = pd.concat(subj_dfs)
             df['group'] = grp_dict[k]
             dfs.append(df)
         df = pd.concat(dfs)
         if compare == 'yes':
-            groups = set(df['group'])
-            df1 = df.loc[df['group']==groups[0],:].drop(subset=['group'])
-            df2 = df.loc[df['group']==groups[1],:].drop(subset=['group'])
-            df =  df1-df2 
-            df['group'] = 'diff'
-        parcels = get.get_network_parcels(network_name)
-        df['rois'] = list(parcels.keys())
+            df = self.calc_diff_df(df)
+        self.fc_df = df
         return df
 
-    #WHAT does load_data output. Is it one value per row for each ROI???
+
+    def calc_diff_df(self, orig_df):
+        groups = list(set(orig_df['group']))
+        df = orig_df.loc[orig_df['group']==groups[0],:].drop(columns=['group'])-orig_df.loc[orig_df['group']==groups[1],:].drop(columns=['group'])
+        df['group'] = 'diff'
+        return df
+
     def make_node_file(self):
 
         if self.check == 'done':      
-            node_df = self.conn_df[[msr_of_int] + ['rois']]
+            node_df = self.fc_df[[msr_of_int] + ['rois']]
             #node_df[msr_of_int] = node_df[msr_of_int].mask(~node_df['rois'].str.lower().str.contains(self.network)) # This seems to be a redundant filter for network ROIs. Might be okay, but need to test
         
             out_df = label_df.merge(node_df, left_on = self.atlas_label, right_on = 'rois').drop(columns=([self.atlas_label]))
