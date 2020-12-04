@@ -11,12 +11,13 @@ import os.path as op
 import json
 import numpy as np
 from math import ceil, floor
+from importlib import reload
 
 
 import fmri_analysis_load_funcs as faload
-shared = faload.load_shared()
 import fmri_analysis_get_data as get
 import fmri_analysis_utilities as utils
+import shared
 
 
 def calc_mean_conn_data(mdata=None, roi_count=None, clear_triu=True):

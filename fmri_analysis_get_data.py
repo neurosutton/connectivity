@@ -17,9 +17,9 @@ from scipy.io import loadmat
 
 import fmri_analysis_utilities as utils
 import fmri_analysis_load_funcs as faload
-shared = faload.load_shared()
 import fmri_analysis_plotting as faplot
 import fmri_analysis_manipulations as fam
+import shared
 
 def test_shared():
     return shared
@@ -30,6 +30,7 @@ def get_mdata(conn_dir=None, conn_file=None):
         conn_dir = shared.conn_dir
         conn_file = shared.conn_file
     shared.mdata = loadmat(os.path.join(conn_dir, conn_file))
+    faload.update_shared(shared)
     return loadmat(os.path.join(conn_dir, conn_file))
 
 
@@ -46,6 +47,7 @@ def get_conn_data(mdata=None, roi_count=None, clear_triu=True):
         for subject in range(conn_data.shape[2]):
             conn_data[:, :, subject][np.triu_indices(conn_data.shape[0], 0)] = np.nan
     shared.conn_data = conn_data
+    faload.update_shared(shared)
     return conn_data
 
 def get_network_parcels(network_name, mdata=None):
@@ -55,13 +57,13 @@ def get_network_parcels(network_name, mdata=None):
     if not hasattr(shared,'mdata'):
         get_mdata()
         get_conn_data()
-        faload._pickle(shared)
+        faload.update_shared(shared)
     mdata = shared.mdata if mdata is None else mdata
 
     parcel_names = [str[0].lower() for str in mdata['names'][0]]
-    parcels = {k:v for v,k in enumerate(parcel_names)}
-    if network_name:
-        pattern = 'hcp_atlas.' + network_name.lower() + '*'
+    parcels = {k.split('.')[-1]:v for v,k in enumerate(parcel_names)}
+    if network_name and network_name is not "wb":
+        pattern = network_name.lower() + '*'
         matching = fnmatch.filter(parcels.keys(), pattern)
         network_parcels = {k:v for k,v in parcels.items() if k in matching}
     else:
@@ -80,7 +82,7 @@ def get_subj_df_data(nonimaging_subjectlevel_data=None):
     grp2_indices = [i for i, x in enumerate(list(subj_df[shared.group_id_col])) if x == shared.group2]
     shared.group1_indices = grp1_indices
     shared.group2_indices = grp2_indices
-    faload._pickle(shared)
+    faload.update_shared(shared)
     return subj_df, subj_dict, group_dict
 
 

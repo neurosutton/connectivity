@@ -15,8 +15,8 @@ import seaborn as sns
 
 
 import fmri_analysis_load_funcs as faload
-shared = faload.load_shared()
 import fmri_analysis_get_data as get
+import shared
 
 
 def plot_score_by_network(measure, network, drop=[], conn_data=None, prop_thr=None, network_mask=None,

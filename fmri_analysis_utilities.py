@@ -1,4 +1,5 @@
 import pandas as pd
+import fmri_analysis_get_data as get
 
 def filter_df(df,criteria={}):
     df.dropna(how='all', inplace=True)
@@ -13,8 +14,7 @@ def drop_negatives(matrix):
     return matrix
 
 def check_data_loaded():
-    import fmri_analysis_load_funcs as faload
-    shared = faload.load_shared()
+    import shared
     if not hasattr(shared,'conn_data'):
-        get_mdata()
-        get_conn_data()
+        get.get_mdata()
+        get.get_conn_data()

@@ -7,31 +7,39 @@ v0.1
 """
 import pandas as pd
 import os
+from importlib import reload
+
 import fmri_analysis_utilities as utils
 import fmri_analysis_manipulations as fam
 import fmri_analysis_load_funcs as faload
 import fmri_analysis_get_data as get
+import shared
 
-shared = faload.load_shared()
-get.test_shared()
 
 class bnv_analysis():
     def __init__(self, network=None, label_file=os.path.join(shared.atlas_dir,'hcpmmp1_expanded_labels.csv'), group=None, atlas_label="SuttonLabel", subject_list=None, prop_thr=0.7, exclude_negatives=shared.excl_negatives):
-        self.network = network
+        self.network = "wb" if network is None else network
         self.group = group #Filtered group for the node values
         self.atlas_label = atlas_label
         self.label_df = pd.DataFrame(pd.read_csv(label_file))
+        self.clean_labels()
         self.subject_list = subject_list
         self.prop_thr = prop_thr
         self.exclude_negatives = exclude_negatives
+        if not hasattr(shared,'group1_indices'):
+            print('finding indices')
+            get.get_subj_df_data()
+            reload(shared)
 
     def clean_labels(self):
         """Reduce mismatches and extraneous information from label file, so that the bare minimum needed for BNV is merged."""
         self.label_df = self.label_df[['x','y','z',self.atlas_label]]
+        self.label_df[self.atlas_label] = self.label_df[self.atlas_label].str.lower()
 
-    def load_summary_data(self,analyze=[]):
+    def load_summary_data(self,analyze=None):
         """Allows string input for group comparison"""
         compare='no'
+        analyze = self.group if analyze is None else analyze
         if not analyze:
             grp_dict = {'shared.group1':shared.group1,'shared.group2':shared.group2}
         else:
@@ -50,49 +58,57 @@ class bnv_analysis():
             data = get.get_cohort_network_matrices(self.network, indices, mean=False, conn_data=None, prop_thr=self.prop_thr, subject_level=False, network_mask=network_mask, exclude_negatives=self.exclude_negatives)
             subj_dfs =[]
             for subj in range(0,data.shape[0]):
-                s = pd.DataFrame(data[subj])
+                s = pd.DataFrame(data[subj], columns=list(parcels.keys()))
                 s['subj_num'] = indices[subj]
                 s['rois'] = list(parcels.keys())
+                s = pd.DataFrame(s.groupby('rois').mean().mean(),columns=['fc'])
+                s['subj_num'] = indices[subj]
                 subj_dfs.append(s)
             df = pd.concat(subj_dfs)
             df['group'] = grp_dict[k]
             dfs.append(df)
         df = pd.concat(dfs)
+        df = df.reset_index().rename(columns={'index':'rois'})
         if compare == 'yes':
-            df = self.calc_diff_df(df)
+            df = self.calc_diff_df(df.drop(columns=['subj_num']))
+        else:
+            df = df.groupby('rois').mean().reset_index().rename(columns={'index':'rois'})
         self.fc_df = df
         return df
 
 
     def calc_diff_df(self, orig_df):
+        """Create a difference dataframe between two groups."""
         groups = list(set(orig_df['group']))
-        df = orig_df.loc[orig_df['group']==groups[0],:].drop(columns=['group'])-orig_df.loc[orig_df['group']==groups[1],:].drop(columns=['group'])
-        df['group'] = 'diff'
+        df1 = orig_df.loc[orig_df['group']==groups[0],:].drop(columns=['group']).groupby('rois').mean()
+        df2=orig_df.loc[orig_df['group']==groups[1],:].drop(columns=['group']).groupby('rois').mean()
+        df = df1-df2
+        df['group'] = groups[0]+'-'+groups[1]
+        df = df.reset_index()
         return df
 
-    def make_node_file(self):
+    def make_node_file(self, msr_of_int='fc', analyze=None):
+        analyze = self.group if analyze is None else analyze
+        fc_df = self.fc_df if hasattr(self,'fc_df') else self.load_summary_data(analyze=analyze)
+        print(fc_df)
+        node_df = fc_df[[msr_of_int] + ['rois']]
+        out_df = self.label_df.merge(node_df, left_on = self.atlas_label, right_on = 'rois').drop(columns=([self.atlas_label]))
+        out_df['size'] = out_df[msr_of_int]
+        out_df = out_df.apply(lambda x: x.str.strip() if x.dtype=="object" else x)
+        out_df = out_df[['x','y','z',msr_of_int,'size','rois']]
+        out_df.drop_duplicates(inplace=True)
+        print(out_df)
+        out_df.to_csv(os.path.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + str(self.prop_thr).split('.')[-1] + '_bnv.node'), header=False, index=False,sep='\t')
 
-        if self.check == 'done':      
-            node_df = self.fc_df[[msr_of_int] + ['rois']]
-            #node_df[msr_of_int] = node_df[msr_of_int].mask(~node_df['rois'].str.lower().str.contains(self.network)) # This seems to be a redundant filter for network ROIs. Might be okay, but need to test
-        
-            out_df = label_df.merge(node_df, left_on = self.atlas_label, right_on = 'rois').drop(columns=([self.atlas_label]))
-            out_df['size'] = out_df[msr_of_int]
-            out_df = out_df.apply(lambda x: x.str.strip() if x.dtype=="object" else x)
-            out_df = out_df[['x','y','z',msr_of_int,'size','rois']]
-            out_df.drop_duplicates(inplace=True)
-            out_df.to_csv(op.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + self.prop_thr + '_bnv.node'),header=False, index=False,sep='\t')
-        else:
-            print(f'Please validate that you are using the correct data by running {self.clean_data}')
 
     def make_edge_file(self, binary=True):        
         parcels = get.get_network_parcels(self.network, mdata=shared.mdata)
         indices = list(parcels.values())
-        edges = self.conn_df
+        edges = self.fc_df if hasattr(self,'fc_df') else self.load_summary_data(analyze=analyze)
         edges.drop(columns=([shared.name_id_col, shared.group_id_col]),inplace=True)
         edges = edges.replace({np.nan:0})
         edges_bin = np.where(edges>.1,1,0)
-        np.savetxt(op.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + self.prop_thr + '_bnv.edge'),edges,delimiter='\t')
+        np.savetxt(os.path.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + str(self.prop_thr).split('.')[-1]  + '_bnv.edge'),edges,delimiter='\t')
 
     def run_bnv_prep(self):
         self.clean_labels()
