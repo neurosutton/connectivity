@@ -6,6 +6,7 @@ Date: December 2020
 v0.1
 """
 import pandas as pd
+import numpy as np
 import os
 from importlib import reload
 
@@ -15,6 +16,7 @@ import fmri_analysis_load_funcs as faload
 import fmri_analysis_get_data as get
 import shared
 
+utils.check_data_loaded()
 
 class bnv_analysis():
     def __init__(self, network=None, label_file=os.path.join(shared.atlas_dir,'hcpmmp1_expanded_labels.csv'), group=None, atlas_label="SuttonLabel", subject_list=None, prop_thr=0.7, exclude_negatives=shared.excl_negatives):
@@ -26,10 +28,7 @@ class bnv_analysis():
         self.subject_list = subject_list
         self.prop_thr = prop_thr
         self.exclude_negatives = exclude_negatives
-        if not hasattr(shared,'group1_indices'):
-            print('finding indices')
-            get.get_subj_df_data()
-            reload(shared)
+
 
     def clean_labels(self):
         """Reduce mismatches and extraneous information from label file, so that the bare minimum needed for BNV is merged."""
@@ -50,21 +49,11 @@ class bnv_analysis():
             if len(analyze) > 1:
                 compare='yes'
 
-        network_mask = fam.make_proportional_threshold_mask(self.network, self.prop_thr, exclude_negatives=self.exclude_negatives)
-        parcels = get.get_network_parcels(self.network)
         dfs = []
         for k in grp_dict.keys():
             indices = shared.__dict__[k.split('.')[-1]+'_indices'] # Flexible solve for group 1 or 2, depending on the group id from analyze
-            data = get.get_cohort_network_matrices(self.network, indices, mean=False, conn_data=None, prop_thr=self.prop_thr, subject_level=False, network_mask=network_mask, exclude_negatives=self.exclude_negatives)
-            subj_dfs =[]
-            for subj in range(0,data.shape[0]):
-                s = pd.DataFrame(data[subj], columns=list(parcels.keys()))
-                s['subj_num'] = indices[subj]
-                s['rois'] = list(parcels.keys())
-                s = pd.DataFrame(s.groupby('rois').mean().mean(),columns=['fc'])
-                s['subj_num'] = indices[subj]
-                subj_dfs.append(s)
-            df = pd.concat(subj_dfs)
+            print(indices)
+            df = self.get_cohort_bnv_data(indices = indices)
             df['group'] = grp_dict[k]
             dfs.append(df)
         df = pd.concat(dfs)
@@ -75,6 +64,21 @@ class bnv_analysis():
             df = df.groupby('rois').mean().reset_index().rename(columns={'index':'rois'})
         self.fc_df = df
         return df
+
+
+    def get_cohort_bnv_data(self, indices=[1]):
+        network_mask = fam.make_proportional_threshold_mask(self.network, self.prop_thr, exclude_negatives=self.exclude_negatives)
+        parcels = get.get_network_parcels(self.network)
+        subj_dfs =[]
+        data = get.get_cohort_network_matrices(self.network, indices, mean=False, conn_data=None, prop_thr=self.prop_thr, subject_level=False, network_mask=network_mask, exclude_negatives=self.exclude_negatives)
+        for subj in range(0,data.shape[0]):
+            s = pd.DataFrame(data[subj], columns=list(parcels.keys()))
+            s['subj_num'] = indices[subj]
+            s['rois'] = list(parcels.keys())
+            s = pd.DataFrame(s.groupby('rois').mean().mean(),columns=['fc'])
+            s['subj_num'] = indices[subj]
+        subj_dfs.append(s)
+        return pd.concat(subj_dfs)
 
 
     def calc_diff_df(self, orig_df):
@@ -101,11 +105,13 @@ class bnv_analysis():
         out_df.to_csv(os.path.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + str(self.prop_thr).split('.')[-1] + '_bnv.node'), header=False, index=False,sep='\t')
 
 
-    def make_edge_file(self, binary=True):        
+    def make_edge_file(self, analyze=None, binary=True): 
+        analyze = self.group if analyze is None else analyze
         parcels = get.get_network_parcels(self.network, mdata=shared.mdata)
         indices = list(parcels.values())
-        edges = self.fc_df if hasattr(self,'fc_df') else self.load_summary_data(analyze=analyze)
-        edges.drop(columns=([shared.name_id_col, shared.group_id_col]),inplace=True)
+        edges = get_cohort_bnv_data()
+        if any(x in [shared.name_id_col, shared.group_id_col] for x in edges.columns):
+            edges.drop(columns=([shared.name_id_col, shared.group_id_col]),inplace=True)
         edges = edges.replace({np.nan:0})
         edges_bin = np.where(edges>.1,1,0)
         np.savetxt(os.path.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + str(self.prop_thr).split('.')[-1]  + '_bnv.edge'),edges,delimiter='\t')

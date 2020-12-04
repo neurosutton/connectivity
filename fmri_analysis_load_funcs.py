@@ -46,23 +46,25 @@ class init_variables():
 
 
 def _pickle(obj):
+
     with open(pkl_file,'w+') as f:
  #       pickle.dump(obj,f)
         for k,v in obj.__dict__.items():
             if ("__") in k :
                 pass
+            elif k in ['mdata','conn_data']:
+                pass
             elif ("[") in str(v):
-                print(v)
                 f.write(f"{k} = {v}\n")
             else:
                 f.write(f"{k} = '{v}'\n")
 
-def load_shared():
+def load_shared(pkl_file):
     try:
-        with open(pkl_file, 'r') as f:
-#            shared = pickle.load(f)
-            shared = f.readlines()
-        return shared
+        with open(pkl_file, 'rb') as f:
+            tmp = pickle.load(f)
+        if hasattr(tmp,'conn_data'):
+            return tmp.mdata, tmp.conn_data
     except NameError:
         print('Error: Please instantiate shared_variables (faload) before importing other modules.')
 

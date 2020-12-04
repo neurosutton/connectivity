@@ -14,6 +14,7 @@ import json
 from collections import OrderedDict, defaultdict
 from datetime import datetime
 from scipy.io import loadmat
+from importlib import reload
 
 import fmri_analysis_utilities as utils
 import fmri_analysis_load_funcs as faload
@@ -24,13 +25,11 @@ import shared
 def test_shared():
     return shared
 
-def get_mdata(conn_dir=None, conn_file=None):
+def get_mdata(conn_dir=shared.conn_dir, conn_file=shared.conn_file):
     """Loading and reloading the module is much quicker with loading the matrix as its own method. Call first, so that there is data, though."""
     if not conn_dir:
-        conn_dir = shared.conn_dir
-        conn_file = shared.conn_file
-    shared.mdata = loadmat(os.path.join(conn_dir, conn_file))
-    faload.update_shared(shared)
+        conn_dir = get_conn_dir
+        conn_file = get_conn_file
     return loadmat(os.path.join(conn_dir, conn_file))
 
 
@@ -40,25 +39,19 @@ def get_conn_data(mdata=None, roi_count=None, clear_triu=True):
     mdata loaded in the shared object; dictionary of arrays in line with MATLAB data structures.
     conn_data: Just the connectivity matrices extracted from mdata; square matrix excludes the regressors and atlas-based values that CONN adds to the right side of the matrix
     """
-    mdata = shared.mdata if mdata is None else mdata
+    mdata = get_mdata() if mdata is None else mdata
     roi_count = mdata['Z'].shape[0] if roi_count is None else roi_count
     conn_data = mdata['Z'][:roi_count, :roi_count, :]
     if clear_triu:
         for subject in range(conn_data.shape[2]):
             conn_data[:, :, subject][np.triu_indices(conn_data.shape[0], 0)] = np.nan
-    shared.conn_data = conn_data
-    faload.update_shared(shared)
     return conn_data
 
 def get_network_parcels(network_name, mdata=None):
     """Returns parcel names and indices with HCP remaining in the name and indexed to work with numpy-based functions.
     Output: {atlas_name.roi: numpy index of ROI}
     """
-    if not hasattr(shared,'mdata'):
-        get_mdata()
-        get_conn_data()
-        faload.update_shared(shared)
-    mdata = shared.mdata if mdata is None else mdata
+    mdata = get_mdata() if mdata is None else mdata
 
     parcel_names = [str[0].lower() for str in mdata['names'][0]]
     parcels = {k.split('.')[-1]:v for v,k in enumerate(parcel_names)}
@@ -100,15 +93,14 @@ def get_subject_scores(measure):
             # scores[row] = float(subj_data[subj_data.index == row][measure])
     return scores_df
 
-def get_network_matrix(network_name, subj_idx, conn_data=None, prop_thr=None, network_mask=None,
-                       exclude_negatives=False, normalize=False):
+def get_network_matrix(network_name, subj_idx, conn_data=None, prop_thr=None, network_mask=None, exclude_negatives=False, normalize=False):
     '''
     Adding a normalize, which can call different types.
         - 'self' will divide by own whole brain mean connectivity
     '''
     utils.check_data_loaded()
     prop_thr is None if prop_thr == 0 else prop_thr
-    conn_data = shared.conn_data if conn_data is None else conn_data
+    conn_data = get_conn_data() if conn_data is None else conn_data
     parcels = get_network_parcels(network_name)
     indices = list(parcels.values())
     matrix = conn_data[:, :, subj_idx][np.ix_(indices, indices)]
@@ -127,13 +119,11 @@ def get_network_matrix(network_name, subj_idx, conn_data=None, prop_thr=None, ne
 
 def get_cohort_network_matrices(network_name, subj_idx, mean=False, conn_data=None, prop_thr=None,
                                 subject_level=False, network_mask=None, exclude_negatives=False):
-    conn_data = shared.conn_data if conn_data is None else conn_data
+    conn_data = get_conn_data() if conn_data is None else conn_data
     ''' Get the matrices for a cohort of patients in a given network. '''
     cohort_matrices = []  # need to collect all the matrices to add
     for subj in subj_idx:
-        matrix = get_network_matrix(network_name, subj, conn_data=conn_data,
-                                    prop_thr=prop_thr, network_mask=network_mask,
-                                    exclude_negatives=exclude_negatives)
+        matrix = get_network_matrix(network_name, subj, conn_data=conn_data, prop_thr=prop_thr, network_mask=network_mask,                                  exclude_negatives=exclude_negatives)
         cohort_matrices.append(matrix)
     cohort_matrices = np.asarray(cohort_matrices)
     if mean is True:
@@ -144,7 +134,7 @@ def get_cohort_network_matrices(network_name, subj_idx, mean=False, conn_data=No
         return cohort_matrices
 
 def get_cohort_comparison_over_thresholds(network_name, group_indices, thr_range=None, thr_increment=None, conn_data=None, subject_level=False, plot=False, exclude_negatives=False):
-    conn_data = shared.conn_data if conn_data is None else conn_data
+    conn_data = get_conn_data() if conn_data is None else conn_data
     thr_increment = 0.1 if thr_increment is None else thr_increment
     thr_range = np.arange(0., 1, thr_increment) if thr_range is None else thr_range
     group_names = [shared.group1, shared.group2]
