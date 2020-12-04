@@ -53,7 +53,7 @@ class bnv_analysis():
         for k in grp_dict.keys():
             indices = shared.__dict__[k.split('.')[-1]+'_indices'] # Flexible solve for group 1 or 2, depending on the group id from analyze
             print(indices)
-            df = self.get_cohort_bnv_data(indices = indices)
+            df = self.get_cohort_bnv_data(indices = indices, mean=True)
             df['group'] = grp_dict[k]
             dfs.append(df)
         df = pd.concat(dfs)
@@ -66,7 +66,7 @@ class bnv_analysis():
         return df
 
 
-    def get_cohort_bnv_data(self, indices=[1]):
+    def get_cohort_bnv_data(self, indices=[1], mean=False):
         network_mask = fam.make_proportional_threshold_mask(self.network, self.prop_thr, exclude_negatives=self.exclude_negatives)
         parcels = get.get_network_parcels(self.network)
         subj_dfs =[]
@@ -75,8 +75,9 @@ class bnv_analysis():
             s = pd.DataFrame(data[subj], columns=list(parcels.keys()))
             s['subj_num'] = indices[subj]
             s['rois'] = list(parcels.keys())
-            s = pd.DataFrame(s.groupby('rois').mean().mean(),columns=['fc'])
-            s['subj_num'] = indices[subj]
+            if mean:
+                s = pd.DataFrame(s.groupby('rois').mean().mean(),columns=['fc'])
+                s['subj_num'] = indices[subj]
         subj_dfs.append(s)
         return pd.concat(subj_dfs)
 
@@ -94,7 +95,6 @@ class bnv_analysis():
     def make_node_file(self, msr_of_int='fc', analyze=None):
         analyze = self.group if analyze is None else analyze
         fc_df = self.fc_df if hasattr(self,'fc_df') else self.load_summary_data(analyze=analyze)
-        print(fc_df)
         node_df = fc_df[[msr_of_int] + ['rois']]
         out_df = self.label_df.merge(node_df, left_on = self.atlas_label, right_on = 'rois').drop(columns=([self.atlas_label]))
         out_df['size'] = out_df[msr_of_int]
@@ -105,20 +105,23 @@ class bnv_analysis():
         out_df.to_csv(os.path.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + str(self.prop_thr).split('.')[-1] + '_bnv.node'), header=False, index=False,sep='\t')
 
 
-    def make_edge_file(self, analyze=None, binary=True): 
+    def make_edge_file(self, analyze=None, mdata=None): 
         analyze = self.group if analyze is None else analyze
-        parcels = get.get_network_parcels(self.network, mdata=shared.mdata)
+        mdata = get.get_mdata() if mdata is None else mdata
+        parcels = get.get_network_parcels(self.network, mdata=mdata)
         indices = list(parcels.values())
-        edges = get_cohort_bnv_data()
-        if any(x in [shared.name_id_col, shared.group_id_col] for x in edges.columns):
-            edges.drop(columns=([shared.name_id_col, shared.group_id_col]),inplace=True)
+        edges = self.get_cohort_bnv_data()
+        drop_cols = edges.columns.intersection([shared.name_id_col, shared.group_id_col,'rois','subj_num'])
+        if len(drop_cols) > 0:
+            edges.drop(columns=(drop_cols),inplace=True)
         edges = edges.replace({np.nan:0})
+        print(edges)
         edges_bin = np.where(edges>.1,1,0)
         np.savetxt(os.path.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + str(self.prop_thr).split('.')[-1]  + '_bnv.edge'),edges,delimiter='\t')
+        np.savetxt(os.path.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + str(self.prop_thr).split('.')[-1]  + '_binary_bnv.edge'),edges_bin,delimiter='\t')
 
     def run_bnv_prep(self):
         self.clean_labels()
-        self.load_data()
-        self.clean_data()
+        self.load_summary_data()
         self.make_node_file()
         self.make_edge_file()
