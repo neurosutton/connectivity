@@ -101,8 +101,8 @@ class bnv_analysis():
         out_df = out_df.apply(lambda x: x.str.strip() if x.dtype=="object" else x)
         out_df = out_df[['x','y','z',msr_of_int,'size','rois']]
         out_df.drop_duplicates(inplace=True)
-        print(out_df)
-        out_df.to_csv(os.path.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + str(self.prop_thr).split('.')[-1] + '_bnv.node'), header=False, index=False,sep='\t')
+        out_df = out_df.replace({np.nan:0})
+        out_df.to_csv(os.path.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + self.group.values + '_' + str(self.prop_thr).split('.')[-1] + '_bnv.node'), header=False, index=False,sep='\t')
 
 
     def make_edge_file(self, analyze=None, mdata=None): 
@@ -115,10 +115,11 @@ class bnv_analysis():
         if len(drop_cols) > 0:
             edges.drop(columns=(drop_cols),inplace=True)
         edges = edges.replace({np.nan:0})
-        print(edges)
+        edges = edges.to_numpy() 
+        edges = edges + edges.T - np.diag(np.diag(edges))
         edges_bin = np.where(edges>.1,1,0)
-        np.savetxt(os.path.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + str(self.prop_thr).split('.')[-1]  + '_bnv.edge'),edges,delimiter='\t')
-        np.savetxt(os.path.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + str(self.prop_thr).split('.')[-1]  + '_binary_bnv.edge'),edges_bin,delimiter='\t')
+        np.savetxt(os.path.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + self.group.values + '_' + str(self.prop_thr).split('.')[-1]  + '_bnv.edge'),edges,delimiter='\t')
+        np.savetxt(os.path.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + self.group.values + '_'+ str(self.prop_thr).split('.')[-1]  + '_binary_bnv.edge'),edges_bin,delimiter='\t')
 
     def run_bnv_prep(self):
         self.clean_labels()
