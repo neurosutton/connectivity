@@ -18,7 +18,7 @@ from scipy.io import loadmat
 
 
 
-class shared_variables():
+class init_variables():
     """Provides a single mechanism to pass shared variables around.
     Initial calls to the method should supply the filepath to the definitions file with all the group info, filepaths to directories, etc. in it."""
     def __init__(self,__def_path__=None):
@@ -32,7 +32,8 @@ class shared_variables():
             self.atlas_dir = defs['atlas_dir']
             self.proj_dir = defs['data_dir']
             global pkl_file
-            pkl_file =  os.path.join(self.proj_dir,'vars.pkl')
+            #pkl_file =  os.path.join(self.proj_dir,'vars.pkl')
+            pkl_file =  os.path.join(self.__def_path__,'shared.py')
             self.name_id_col = defs['name_id_col']
             self.group_id_col = defs['group_id_col']
             self.group1 = defs['group1']
@@ -41,15 +42,33 @@ class shared_variables():
         self.conn_file = 'resultsROI_Condition001.mat'
         self.excl_negatives = False
         _pickle(obj=self)
+    
+
 
 def _pickle(obj):
-    with open(pkl_file,'wb+') as f:
-        pickle.dump(obj,f)
+    with open(pkl_file,'w+') as f:
+ #       pickle.dump(obj,f)
+        for k,v in obj.__dict__.items():
+            if ("__") in k :
+                pass
+            elif ("[") in str(v):
+                print(v)
+                f.write(f"{k} = {v}\n")
+            else:
+                f.write(f"{k} = '{v}'\n")
 
 def load_shared():
     try:
-        with open(pkl_file, 'rb') as f:
-            shared = pickle.load(f)
+        with open(pkl_file, 'r') as f:
+#            shared = pickle.load(f)
+            shared = f.readlines()
         return shared
     except NameError:
         print('Error: Please instantiate shared_variables (faload) before importing other modules.')
+
+def update_shared(obj=None):
+    if obj:
+        _pickle(obj)
+#    global shared
+#    shared = load_shared()
+#    return shared

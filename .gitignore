@@ -4,3 +4,4 @@ directory_defs.json
 directory_defs*
 user_notes_*
 .spyproject*
+shared.py
