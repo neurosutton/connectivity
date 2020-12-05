@@ -58,9 +58,12 @@ class bnv_analysis():
             df['group'] = grp_dict[k]
             dfs.append(df)
         df = pd.concat(dfs)
-        df = df.reset_index().rename(columns={'index':'rois'})
+        if bnv_node:
+            df = df.reset_index().rename(columns={'index':'rois'})
         if compare == 'yes':
-            df = self.calc_diff_df(df.drop(columns=['subj_num']))
+            if 'subj_num' in df.columns:
+                df = df.drop(columns=['subj_num'])
+            df = self.calc_diff_df(df)
         else:
             df = df.groupby('rois').mean().reset_index().rename(columns={'index':'rois'})
         return df
@@ -78,8 +81,6 @@ class bnv_analysis():
             if mean:
                 s = pd.DataFrame(s.groupby('rois').mean().mean(),columns=['fc'])
                 s['subj_num'] = indices[subj]
-            else:
-                s = pd.DataFrame(s.groupby('rois').mean(),columns=['fc'])
         subj_dfs.append(s)
         return pd.concat(subj_dfs)
 
