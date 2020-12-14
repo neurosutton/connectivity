@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import fmri_analysis_get_data as get
 from importlib import reload
 
@@ -19,3 +20,13 @@ def check_data_loaded():
     if not hasattr(shared,'group1_indices'):
         get.get_subj_df_data()
         reload(shared)
+
+def nan_bouncer(x, axis=0):
+    # https://stackoverflow.com/questions/48101388/remove-nans-in-multidimensional-array
+    if axis != 0:
+        x = np.moveaxis(x, axis, 0)
+    mask = np.isnan(x)
+    cut = np.min(np.count_nonzero(mask, axis=0))
+    idx = tuple(np.ogrid[tuple(map(slice, x.shape[1:]))])
+    res = x[(np.argsort(~mask, axis=0, kind='mergesort')[cut:],) + idx] 
+    return res if axis == 0 else np.moveaxis(res, 0, axis)

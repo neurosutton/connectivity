@@ -20,8 +20,8 @@ import fmri_analysis_utilities as utils
 import shared
 
 
-def calc_mean_conn_data(mdata=None, roi_count=None, clear_triu=True):
-    conn_data = get.get_conn_data(mdata=mdata, roi_count=roi_count, clear_triu=clear_triu)
+def calc_mean_conn_data(mdata=None, roi_count=None, clear_triu=True, subset=[]):
+    conn_data = get.get_conn_data(mdata=mdata, roi_count=roi_count, clear_triu=clear_triu, subset=subset)
     return np.nanmean(conn_data, axis=2)
 
 
@@ -42,21 +42,21 @@ def get_prop_thr_value(threshold, exclude_negatives=False, mean_conn_data=None):
     thr_ix = ceil(edge_count * threshold)
     return sorted_values[thr_ix]
 
-def get_prop_thr_edges(threshold, exclude_negatives=False, mean_conn_data=None):
+def get_prop_thr_edges(threshold, exclude_negatives=False, mean_conn_data=None, subset=[]):
     """Create the mask of nodes greater than the proportional threshold on the population-averaged connectivity. The mask will be applied to individuals' matrices."""
     if mean_conn_data is None:
-        mean_conn_data = calc_mean_conn_data()
+        mean_conn_data = calc_mean_conn_data(subset=subset)
     thr_value = get_prop_thr_value(threshold=threshold, exclude_negatives=exclude_negatives)
     prop_thr_edges = mean_conn_data.copy()
     prop_thr_edges[prop_thr_edges >= thr_value] = 1
     prop_thr_edges[prop_thr_edges < thr_value] = 0
     return prop_thr_edges
 
-def make_proportional_threshold_mask(network_name, prop_thr, mdata=None, exclude_negatives=False):
+def make_proportional_threshold_mask(network_name, prop_thr, mdata=None, exclude_negatives=False, subset=[]):
     """Apply population-based, proportional threshold mask to individuals."""
     parcels = get.get_network_parcels(network_name, mdata=mdata)
     indices = list(parcels.values())
-    wb_mask = get_prop_thr_edges(threshold=prop_thr, exclude_negatives=exclude_negatives)
+    wb_mask = get_prop_thr_edges(threshold=prop_thr, exclude_negatives=exclude_negatives, subset=subset)
     network_mask = wb_mask[np.ix_(indices, indices)]
     return network_mask
 

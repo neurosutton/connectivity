@@ -19,7 +19,7 @@ import shared
 utils.check_data_loaded()
 
 class bnv_analysis():
-    def __init__(self, network=None, label_file=os.path.join(shared.atlas_dir,'hcpmmp1_expanded_labels.csv'), group=None, atlas_label="SuttonLabel", subject_list=None, prop_thr=0.7, exclude_negatives=shared.excl_negatives):
+    def __init__(self, network=None, label_file=os.path.join(shared.atlas_dir,'hcpmmp1_expanded_labels.csv'), group=None, atlas_label="SuttonLabel", subject_list=None, prop_thr=0.7, prop_thr_pop='sample',exclude_negatives=shared.excl_negatives):
         self.network = "wb" if network is None else network
         self.group = group #Filtered group for the node values
         self.atlas_label = atlas_label
@@ -28,7 +28,12 @@ class bnv_analysis():
         self.subject_list = subject_list
         self.prop_thr = prop_thr
         self.exclude_negatives = exclude_negatives
-
+        if prop_thr_pop == 'sample':
+           self.prop_thr_pop = []  # Can be 'sample' for the whole popultion or anything else to trigger self.group as the input
+        elif self.subject_list:
+           self.prop_thr_pop = self.subject_list
+        else:
+           self.prop_thr_pop = self.group
 
     def clean_labels(self):
         """Reduce mismatches and extraneous information from label file, so that the bare minimum needed for BNV is merged."""
@@ -52,7 +57,7 @@ class bnv_analysis():
 
         dfs = []
         for k in grp_dict.keys():
-            indices = shared.__dict__[k.split('.')[-1]+'_indices'] # Flexible solve for group 1 or 2, depending on the group id from analyze
+            indices = shared.__dict__[k.split('.')[-1]+'_indices'] # Flexible solve for group 1 or 2, depending on the group id from __init__
             print(indices)
             df = self.get_cohort_bnv_data(indices = indices, mean=bnv_node)
             df['group'] = grp_dict[k]
@@ -70,7 +75,7 @@ class bnv_analysis():
 
 
     def get_cohort_bnv_data(self, indices=[1], mean=False):
-        network_mask = fam.make_proportional_threshold_mask(self.network, self.prop_thr, exclude_negatives=self.exclude_negatives)
+        network_mask = fam.make_proportional_threshold_mask(self.network, self.prop_thr, exclude_negatives=self.exclude_negatives, subset = self.prop_thr_pop)
         parcels = get.get_network_parcels(self.network)
         subj_dfs =[]
         data = get.get_cohort_network_matrices(self.network, indices, mean=False, conn_data=None, prop_thr=self.prop_thr, subject_level=False, network_mask=network_mask, exclude_negatives=self.exclude_negatives)

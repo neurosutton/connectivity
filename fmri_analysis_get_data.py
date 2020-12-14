@@ -33,7 +33,7 @@ def get_mdata(conn_dir=shared.conn_dir, conn_file=shared.conn_file):
     return loadmat(os.path.join(conn_dir, conn_file))
 
 
-def get_conn_data(mdata=None, roi_count=None, clear_triu=True):
+def get_conn_data(mdata=None, roi_count=None, clear_triu=True, subset=[]):
     """Foundational method to transform the MATLAB matrices to numpy matrices.
     Output:
     mdata loaded in the shared object; dictionary of arrays in line with MATLAB data structures.
@@ -42,6 +42,18 @@ def get_conn_data(mdata=None, roi_count=None, clear_triu=True):
     mdata = get_mdata() if mdata is None else mdata
     roi_count = mdata['Z'].shape[0] if roi_count is None else roi_count
     conn_data = mdata['Z'][:roi_count, :roi_count, :]
+    if subset:
+        print('Subsetting')
+        if not isinstance(subset,list):
+            subset=[subset]
+        if set(subset).issubset([shared.group1, shared.group2]):
+            if not hasattr(shared,'group1_indices'):
+                get_subj_df_data()
+            key = [k + "_indices" for k,v in shared.__dict__.items() if v == subset[0]][0]
+            subset = getattr(shared,key)
+            print(f'Subset has {len(subset)} participants.')
+        conn_data=conn_data[:,:,subset]
+        print(f'Connectivity matrix = {conn_data.shape}')
     if clear_triu:
         for subject in range(conn_data.shape[2]):
             conn_data[:, :, subject][np.triu_indices(conn_data.shape[0], 0)] = np.nan
@@ -66,6 +78,7 @@ def get_network_parcels(network_name, mdata=None):
 
 def get_subj_df_data(nonimaging_subjectlevel_data=None):
     """Primarily for reading in demographic and neuropsychological data."""
+    #TODO make more robust to reorganization from editor. Parse "conn_name" Subject001 and match MATLAB/python indexing to make sure the correct participants are identified.
     nonimaging_subjectlevel_data = shared.nonimaging_subjectlevel_data if nonimaging_subjectlevel_data is None else nonimaging_subjectlevel_data
     subj_df = pd.DataFrame(pd.read_csv(nonimaging_subjectlevel_data))
     subj_df = utils.filter_df(subj_df)
