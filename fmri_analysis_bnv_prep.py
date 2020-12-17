@@ -40,20 +40,20 @@ class bnv_analysis():
         self.label_df = self.label_df[['x','y','z',self.atlas_label]]
         self.label_df[self.atlas_label] = self.label_df[self.atlas_label].str.lower()
    
-    def load_summary_data(self,analyze=None, bnv_node=True):
+    def load_summary_data(self,analyze_group=None, bnv_node=True):
         """Allows string input for group comparison"""
         compare='no' # Tag for whether to subtract mean df's
-        analyze = self.group if analyze is None else analyze
+        analyze_group = self.group if analyze_group is None else analyze_group
 
-        if not analyze:
+        if not analyze_group:
             grp_dict = {'shared.group1':shared.group1,'shared.group2':shared.group2}
         else:
             print('Looking for matching groups')
-            if not isinstance(analyze,list):
-                analyze = [analyze]
-            if len(analyze) > 1:
+            if not isinstance(analyze_group,list):
+                analyze_group = [analyze_group]
+            if len(analyze_group) > 1:
                 compare='yes' # more than one group
-            grp_dict = {k:v for k,v in shared.__dict__.items() if str(v) in analyze}
+            grp_dict = {k:v for k,v in shared.__dict__.items() if str(v) in analyze_group}
 
         dfs = []
         for k in grp_dict.keys():
@@ -100,9 +100,9 @@ class bnv_analysis():
         df = df.reset_index()
         return df
 
-    def make_node_file(self, msr_of_int='fc', analyze=None):
-        analyze = self.group if analyze is None else analyze
-        fc_df = self.load_summary_data(analyze=analyze, bnv_node=True)
+    def make_node_file(self, msr_of_int='fc', analyze_group=None):
+        analyze_group = self.group if analyze_group is None else analyze_group
+        fc_df = self.load_summary_data(analyze_group=analyze_group, bnv_node=True)
         node_df = fc_df[[msr_of_int] + ['rois']]
         out_df = self.label_df.merge(node_df, left_on = self.atlas_label, right_on = 'rois').drop(columns=([self.atlas_label]))
         out_df['size'] = out_df[msr_of_int]
@@ -113,12 +113,12 @@ class bnv_analysis():
         out_df.to_csv(os.path.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + ''.join(self.group) + '_' + str(self.prop_thr).split('.')[-1] + '_bnv.node'), header=False, index=False,sep='\t')
 
 
-    def make_edge_file(self, analyze=None, mdata=None): 
-        analyze = self.group if analyze is None else analyze
+    def make_edge_file(self, analyze_group=None, mdata=None): 
+        analyze_group = self.group if analyze_group is None else analyze_group
         mdata = get.get_mdata() if mdata is None else mdata
         parcels = get.get_network_parcels(self.network, mdata=mdata)
         indices = list(parcels.values())
-        edges = self.load_summary_data(analyze=analyze, bnv_node=False)
+        edges = self.load_summary_data(analyze_group=analyze_group, bnv_node=False)
         drop_cols = edges.columns.intersection([shared.name_id_col, shared.group_id_col,'rois','subj_num'])
         if len(drop_cols) > 0:
             edges.drop(columns=(drop_cols),inplace=True)
@@ -126,11 +126,28 @@ class bnv_analysis():
         edges = edges.to_numpy() 
         edges = edges + edges.T - np.diag(np.diag(edges))
         edges_bin = np.where(edges>.1,1,0)
-        np.savetxt(os.path.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + ''.join(self.group) + '_' + str(self.prop_thr).split('.')[-1]  + '_bnv.edge'),edges,delimiter='\t')
-        np.savetxt(os.path.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + ''.join(self.group) + '_'+ str(self.prop_thr).split('.')[-1]  + '_binary_bnv.edge'),edges_bin,delimiter='\t')
 
-    def run_bnv_prep(self):
+        group_name = ''.join(self.group) if self.group else 'sample'
+        np.savetxt(os.path.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + group_name + '_' + str(self.prop_thr).split('.')[-1]  + '_bnv.edge'),edges,delimiter='\t')
+        np.savetxt(os.path.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + group_name + '_'+ str(self.prop_thr).split('.')[-1]  + '_binary_bnv.edge'),edges_bin,delimiter='\t')
+
+    def make_pval_edge_file(self):
+        edges = fam.compare_network_edges(self.network, prop_thr=self.prop_thr)[1]
+        pvals_filter = np.where(edges[1].data<.05,0,1)
+        edges = np.nan_to_num(edges[0].data)
+        edges = edges*pvals_filter
+        edges = edges + edges.T - np.diag(np.diag(edges))
+        edges_bin = np.where(edges>0,1,np.where(edges<0,-1,0))
+
+        group_name = ''.join(self.group) if self.group else 'sample'
+        np.savetxt(os.path.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + group_name + '_' + str(self.prop_thr).split('.')[-1]  + '_pval_bnv.edge'),edges,delimiter='\t')
+        np.savetxt(os.path.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + group_name + '_'+ str(self.prop_thr).split('.')[-1]  + '_binary_pval_bnv.edge'),edges_bin,delimiter='\t')
+
+    def run_bnv_prep(self,statistical_edges=False):
         self.clean_labels()
         self.load_summary_data()
         self.make_node_file()
-        self.make_edge_file()
+        if statistical_edges:
+            self.make_pval_edge_file()
+        else:
+            self.make_edge_file()

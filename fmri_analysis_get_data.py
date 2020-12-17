@@ -141,7 +141,7 @@ def get_cohort_network_matrices(network_name, subj_idx, mean=False, conn_data=No
 
     cohort_matrices = []  # need to collect all the matrices to add
     for subj in subj_idx:
-        matrix = get_network_matrix(network_name, subj, conn_data=conn_data, prop_thr=prop_thr, network_mask=network_mask,                                  exclude_negatives=exclude_negatives)
+        matrix = get_network_matrix(network_name, subj, conn_data=conn_data, prop_thr=prop_thr, network_mask=network_mask, exclude_negatives=exclude_negatives)
         cohort_matrices.append(matrix)
     cohort_matrices = np.asarray(cohort_matrices)
     if mean and subject_level:

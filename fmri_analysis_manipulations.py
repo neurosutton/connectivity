@@ -12,6 +12,7 @@ import json
 import numpy as np
 from math import ceil, floor
 from importlib import reload
+from scipy import stats
 
 
 import fmri_analysis_load_funcs as faload
@@ -63,11 +64,23 @@ def make_proportional_threshold_mask(network_name, prop_thr, mdata=None, exclude
 
 def describe_cohort_networks(network_name, conn_data=None, prop_thr=None, subject_level=False):
     utils.check_data_loaded()
-    conn_data = shared.conn_data if conn_data is None else conn_data
-    matrix_1 = get_cohort_network_matrices(network_name, shared.group1_indices, subject_level=subject_level, conn_data=conn_data, prop_thr=prop_thr)
-    matrix_2 = get_cohort_network_matrices(network_name, shared.group2_indices, subject_level=subject_level, conn_data=conn_data, prop_thr=prop_thr)
-    t_test_results = scipy.stats.ttest_ind(matrix_1, matrix_2, axis=None, nan_policy='omit')
+    conn_data = get.get_conn_data() if conn_data is None else conn_data
+    matrix_1 = get.get_cohort_network_matrices(network_name, shared.group1_indices, subject_level=subject_level, conn_data=conn_data, prop_thr=prop_thr)
+    matrix_2 = get.get_cohort_network_matrices(network_name, shared.group2_indices, subject_level=subject_level, conn_data=conn_data, prop_thr=prop_thr)
+    t_test_results = stats.ttest_ind(matrix_1, matrix_2, axis=None, nan_policy='omit')
     print(f"Shapes: {matrix_1.shape} | {matrix_2.shape}")
     print(f'Means: {np.nanmean(matrix_1)} | {np.nanmean(matrix_2)}')
     print(f'StDev: {np.nanstd(matrix_1)} | {np.nanstd(matrix_2)}')
     print(f'{t_test_results}')
+
+def compare_network_edges(network_name, conn_data=None, prop_thr=None):
+    utils.check_data_loaded()
+    conn_data = get.get_conn_data(clear_triu=False) if conn_data is None else conn_data
+    matrix_1 = get.get_cohort_network_matrices(network_name, shared.group1_indices, mean=False, subject_level=False, conn_data=conn_data, prop_thr=prop_thr)
+    matrix_2 = get.get_cohort_network_matrices(network_name, shared.group2_indices, mean=False, subject_level=False, conn_data=conn_data, prop_thr=prop_thr)
+    t_test_results = stats.ttest_ind(matrix_1, matrix_2, axis=0, nan_policy='omit')
+    print(f"Shapes: {matrix_1.shape} | {matrix_2.shape}")
+    print(f'Means: {np.nanmean(matrix_1)} | {np.nanmean(matrix_2)}')
+    print(f'StDev: {np.nanstd(matrix_1)} | {np.nanstd(matrix_2)}')
+    print(f'{t_test_results}')
+    return t_test_results
