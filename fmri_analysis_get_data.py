@@ -43,7 +43,6 @@ def get_conn_data(mdata=None, roi_count=None, clear_triu=True, subset=[]):
     roi_count = mdata['Z'].shape[0] if roi_count is None else roi_count
     conn_data = mdata['Z'][:roi_count, :roi_count, :]
     if subset:
-        print('Subsetting')
         if not isinstance(subset,list):
             subset=[subset]
         if set(subset).issubset([shared.group1, shared.group2]):
@@ -132,13 +131,21 @@ def get_network_matrix(network_name, subj_idx, conn_data=None, prop_thr=None, ne
 
 def get_cohort_network_matrices(network_name, subj_idx, mean=False, conn_data=None, prop_thr=None,
                                 subject_level=False, network_mask=None, exclude_negatives=False):
+    """Output:
+       When no mean or subject_level args are selected, array of matrices with the thresholded network connectivity values. Dimensions are (num_of_subjs,ROIs, ROIs)
+       When mean is True, the array of matrices becomes 2D mean of ROI connectivity.
+       When subject_level is True (subservient to the mean arg), matrix is subject as row and grand mean of connectivities as the single column.
+       When subject_level AND mean are selected, the final matrix is subject by mean ROI.
+       """
     conn_data = get_conn_data() if conn_data is None else conn_data
-    ''' Get the matrices for a cohort of patients in a given network. '''
+
     cohort_matrices = []  # need to collect all the matrices to add
     for subj in subj_idx:
         matrix = get_network_matrix(network_name, subj, conn_data=conn_data, prop_thr=prop_thr, network_mask=network_mask,                                  exclude_negatives=exclude_negatives)
         cohort_matrices.append(matrix)
     cohort_matrices = np.asarray(cohort_matrices)
+    if mean and subject_level:
+        return np.nanmean(cohort_matrices, axis=2)
     if mean is True:
         return np.nanmean(cohort_matrices, axis=0)
     elif subject_level is True:
