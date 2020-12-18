@@ -10,6 +10,7 @@ from scipy.io import loadmat
 import os.path as op
 import json
 import numpy as np
+import pandas as pd
 from math import ceil, floor
 from importlib import reload
 from scipy import stats
@@ -73,7 +74,8 @@ def describe_cohort_networks(network_name, conn_data=None, prop_thr=None, subjec
     print(f'StDev: {np.nanstd(matrix_1)} | {np.nanstd(matrix_2)}')
     print(f'{t_test_results}')
 
-def compare_network_edges(network_name, conn_data=None, prop_thr=None):
+def prepare_network_edges_statistically(network_name, conn_data=None, prop_thr=None):
+    """Options for the cohort matrices are intentionally hard coded so that the full connectivity matrix (including the upper triangle) is retained. The full matrix is required for BrainNetViewer to project the edges."""
     utils.check_data_loaded()
     conn_data = get.get_conn_data(clear_triu=False) if conn_data is None else conn_data
     matrix_1 = get.get_cohort_network_matrices(network_name, shared.group1_indices, mean=False, subject_level=False, conn_data=conn_data, prop_thr=prop_thr)
@@ -84,3 +86,18 @@ def compare_network_edges(network_name, conn_data=None, prop_thr=None):
     print(f'StDev: {np.nanstd(matrix_1)} | {np.nanstd(matrix_2)}')
     print(f'{t_test_results}')
     return t_test_results
+
+def get_sig_edges(network_name, mdata=None, prop_thr=None):
+    mdata = get.get_mdata() if mdata is None else mdata
+    parcels = get.get_network_parcels(network_name, mdata=mdata)
+    indices = list(parcels.values())
+    edges = prepare_network_edges_statistically(network_name, prop_thr=prop_thr)
+    edges = np.nan_to_num(edges)
+    pvals = np.array(edges[1].data)
+    pvals_filter = np.where(np.logical_and(pvals<.05, pvals>0),1,0)
+    edges = edges[0].data
+    edges = edges*pvals_filter
+    p_df = pd.DataFrame(pvals*pvals_filter,columns=parcels.keys(), index=parcels.keys())
+    results = pd.DataFrame(edges,columns=parcels.keys(), index=parcels.keys())
+    results = results.merge(p_df, left_index = True, right_index=True, suffixes=['_t','_p'], copy=False)
+    return edges, results[results!=0].stack()

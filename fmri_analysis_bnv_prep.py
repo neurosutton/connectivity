@@ -132,16 +132,16 @@ class bnv_analysis():
         np.savetxt(os.path.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + group_name + '_'+ str(self.prop_thr).split('.')[-1]  + '_binary_bnv.edge'),edges_bin,delimiter='\t')
 
     def make_pval_edge_file(self):
-        edges = fam.compare_network_edges(self.network, prop_thr=self.prop_thr)[1]
-        pvals_filter = np.where(edges[1].data<.05,0,1)
-        edges = np.nan_to_num(edges[0].data)
-        edges = edges*pvals_filter
+        edges,x = fam.get_sig_edges(self.network,prop_thr=self.prop_thr)
         edges = edges + edges.T - np.diag(np.diag(edges))
         edges_bin = np.where(edges>0,1,np.where(edges<0,-1,0))
 
         group_name = ''.join(self.group) if self.group else 'sample'
+
         np.savetxt(os.path.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + group_name + '_' + str(self.prop_thr).split('.')[-1]  + '_pval_bnv.edge'),edges,delimiter='\t')
         np.savetxt(os.path.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + group_name + '_'+ str(self.prop_thr).split('.')[-1]  + '_binary_pval_bnv.edge'),edges_bin,delimiter='\t')
+
+
 
     def run_bnv_prep(self,statistical_edges=False):
         self.clean_labels()
