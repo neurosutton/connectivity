@@ -9,7 +9,7 @@ def filter_df(df,criteria={}):
     return df
 
 def roiIx_to_name_translator():
-    faload.load_network_parcels()
+    return faload.load_network_parcels()
 
 def drop_negatives(matrix):
     matrix[matrix < 0] = np.nan

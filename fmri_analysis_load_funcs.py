@@ -6,7 +6,7 @@ Date: December 2020
 v0.3 (BMS) Adapted fmri_analysis_functions for pandas
 """
 
-import os
+import os,sys
 from glob import glob
 import numpy as np
 import fnmatch, random, time, pickle

@@ -22,8 +22,6 @@ import fmri_analysis_plotting as faplot
 import fmri_analysis_manipulations as fam
 import shared
 
-def test_shared():
-    return shared
 
 def get_mdata(conn_dir=shared.conn_dir, conn_file=shared.conn_file):
     """Loading and reloading the module is much quicker with loading the matrix as its own method. Call first, so that there is data, though."""
@@ -90,6 +88,10 @@ def get_subj_df_data(nonimaging_subjectlevel_data=None):
     faload.update_shared(shared)
     return subj_df, subj_dict, group_dict
 
+def subj_data():
+    # Alias to eliminate the "extra" variables.
+    subj_df,x,x = get_subj_df_data()
+    return subj_df
 
 def get_subject_scores(measure):
     """Gather cognitive or medical scores."""

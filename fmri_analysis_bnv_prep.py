@@ -39,6 +39,15 @@ class bnv_analysis():
         """Reduce mismatches and extraneous information from label file, so that the bare minimum needed for BNV is merged."""
         self.label_df = self.label_df[['x','y','z',self.atlas_label]]
         self.label_df[self.atlas_label] = self.label_df[self.atlas_label].str.lower()
+
+    def limit_labels(self,network=None):
+        """Callable to reduce the labels and x,y,z coordinates to a network of interest."""
+        if self.label_df.shape[1] > 4:
+            self.clean_labels()
+        parcels = get.get_network_parcels(self.network)
+        indices = list(parcels.values())
+
+        return self.label_df.loc[self.label_df[self.atlas_label].str.lower().isin(parcels)]
    
     def load_summary_data(self,analyze_group=None, bnv_node=True):
         """Allows string input for group comparison"""
