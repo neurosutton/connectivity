@@ -48,7 +48,8 @@ class init_variables():
 
 
 def _pickle(obj):
-
+    if pkl_file is None:
+        pkl_file = init_variables.pklfile
     with open(pkl_file,'w+') as f:
  #       pickle.dump(obj,f)
         for k,v in obj.__dict__.items():
