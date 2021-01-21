@@ -44,7 +44,7 @@ class init_variables():
         self.conn_file = 'resultsROI_Condition001.mat'
         self.excl_negatives = False
         _pickle(obj=self)
-    
+
 
 
 def _pickle(obj):
@@ -76,3 +76,6 @@ def update_shared(obj=None):
 #    global shared
 #    shared = load_shared()
 #    return shared
+
+if __name__ == "__main__":
+    x = init_variables()
