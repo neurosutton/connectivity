@@ -24,6 +24,8 @@ class init_variables():
     def __init__(self,__def_path__=None):
         if __def_path__:
             self.__def_path__ = __def_path__
+        else:
+            self.__def_path__ = os.path.dirname(__file__)
         self.date = datetime.today().strftime('%Y%m')
         with open(os.path.join(self.__def_path__,'directory_defs.json')) as f:
             defs = json.load(f)

@@ -14,9 +14,11 @@ from networkx.algorithms import community
 
 # TODO refactor homegrown calls to jive with new GH-based code (i.e., "tan", "faf" with appropriate functions)
 # BMS
+from collections import OrderedDict
 import shared
 import fmri_analysis_get_data as get
-
+import fmri_analysis_manipulations as fam
+import fmri_analysis_bnv_prep as bnv_prep
 #>>>END BMS
 
 # CREATE A FUNCTION TO SIMPLIFY PLOTTING and GRAPH MEASURES
@@ -165,3 +167,81 @@ def drop_subjects_from_df(df, subjects):
 def compare_measures(graph_df, measure):
     return ttest_ind(graph_df[graph_df['group']=='hc'][measure],
               graph_df[graph_df['group']=='eses'][measure])
+
+
+#>>>BMS
+def get_pos_dict(network):
+    bnv = bnv_prep.bnv_analysis(network=network, prop_thr=None)
+    network_locs = bnv.limit_labels(network=network)
+    roi_dict = OrderedDict()
+    for n,net in enumerate(network_locs['SuttonLabel']):
+        roi_dict[n] = network_locs.loc[network_locs['SuttonLabel']==net,['x','y']].values[0]
+    pos ={}
+    for k,v in roi_dict.items():
+        pos[k]=v
+
+    return pos
+
+def sort_edge_weights(G):
+    weights_dict = {}
+    for u,v,weight in G.edges.data("weight"):
+        weights_dict[weight] = [u,v]
+    
+    sorted_weights = sorted(list(weights_dict.keys()))
+    if sorted_weights:
+        sorted_edges = sorted([])
+        for wt in sorted_weights:
+            sorted_edges.append(weights_dict[wt])
+        return sorted_edges, sorted_weights
+    else:
+        raise ValueError('Graph did not have sortable weights.\n')
+
+
+def add_thr_edges(G, prop_thr=None):
+    n_edges_density = fam.get_edge_count(prop_thr)
+    thresholded_network = nx.algorithms.tree.mst.maximum_spanning_tree(G)
+    mst_edges = [tuple(m) for m in thresholded_network.edges()]
+    sorted_edges, sorted_weights = sort_edge_weights(G)
+    shared_edges=[]
+    while len(thresholded_network.edges()) < n_edges_density:
+        try:
+            edge = sorted_edges.pop()
+            wt = sorted_weights.pop()
+            if edge not in thresholded_network.edges():
+                thresholded_network.add_edge(edge[0],edge[1],weight=wt)
+            else:
+                shared_edges.append(edge)
+        except:
+            print('Likely the Graph needs to be for whole brain or the edge density needs to be re-calculated based on a network subset.')
+    if len(shared_edges) != len(mst_edges):
+        print(f'Number of MST edges = {len(mst_edges)}\nNumber of MST edges shared with top {prop_thr} of total edges = {len(shared_edges)}')
+        # TODO make the lists of lists or tuples comparable to be able to pare down the list of edges to the ones that are in MST, but not top %.
+        #print(set(shared_edges)^(set(mst_edges)))
+    return thresholded_network
+
+
+def create_density_based_network(network, subj_idx, prop_thr):
+    """Calculate the whole-brain MST for an individual and then add back high connectivity edges until a threshold is met for each individual"""
+    #common_mat = get.get_cohort_network_matrices(network, all_the_indices)
+    mat = get.get_network_matrix(network,subj_idx)
+    G = make_graph_without_nans(mat)
+    thresholded_network = add_thr_edges(G,prop_thr=prop_thr)
+    return thresholded_network
+
+def calculate_graph_msrs(G):
+    individ_graph_msr_dict = {}
+    individ_graph_msr_dict['avg_path_len'] = nx.algorithms.shortest_paths.generic.average_shortest_path_length(G)
+    individ_graph_msr_dict['global_efficiency'] = nx.algorithms.efficiency_measures.global_efficiency(G)
+    return individ_graph_msr_dict
+
+def collate_graph_measures(network, subjects = (shared.group1+shared.group2), prop_thr = None):
+    df_list = []
+    for subj in subjects:
+        thr_G = create_density_based_network(network, subj, prop_thr)
+        igmd = calculate_graph_msrs(thr_G)
+        tmp_df = pd.DataFrame(igmd, index=[subj])
+        df_list.append(tmp_df)
+
+    df = pd.concat(df_list).reset_index()
+    df.rename(columns={'index':'subj'}, inplace=True)
+    return df

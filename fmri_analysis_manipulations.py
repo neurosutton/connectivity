@@ -20,6 +20,7 @@ import fmri_analysis_load_funcs as faload
 import fmri_analysis_get_data as get
 import fmri_analysis_utilities as utils
 import shared
+import nia_stats_and_summaries as nia
 
 
 def calc_mean_conn_data(mdata=None, roi_count=None, clear_triu=True, subset=[]):
@@ -43,6 +44,17 @@ def get_prop_thr_value(threshold, exclude_negatives=False, mean_conn_data=None):
     edge_count = len(sorted_values)
     thr_ix = ceil(edge_count * threshold)
     return sorted_values[thr_ix]
+
+def get_edge_count(threshold,exclude_negatives=False, mean_conn_data=None, verbose=False):
+    """"""
+    mean_conn_data = calc_mean_conn_data() if mean_conn_data is None else mean_conn_data
+    sorted_values = get_sorted_values(mean_conn_data=mean_conn_data)
+    if exclude_negatives:
+        sorted_values = sorted_values[sorted_values >= 0]
+    edge_count = len(sorted_values)
+    if verbose:
+        print(f'Total number of edges = {edge_count}\nAt {threshold}, {ceil(edge_count * (1-threshold))} edges are needed.')
+    return ceil(edge_count * (1-threshold))
 
 def get_prop_thr_edges(threshold, exclude_negatives=False, mean_conn_data=None, subset=[]):
     """Create the mask of nodes greater than the proportional threshold on the population-averaged connectivity. The mask will be applied to individuals' matrices."""
