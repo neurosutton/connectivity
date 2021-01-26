@@ -21,6 +21,15 @@ def check_data_loaded():
         get.get_subj_df_data()
         reload(shared)
 
+def match_subj_group(subj_ix):
+    import shared
+    if subj_ix in shared.group1_indices:
+        return shared.group1
+    elif subj_ix in shared.group2_indices:
+        return shared.group2
+    else:
+        return np.nan
+
 def nan_bouncer(x, axis=0):
     # https://stackoverflow.com/questions/48101388/remove-nans-in-multidimensional-array
     if axis != 0:

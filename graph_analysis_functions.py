@@ -19,6 +19,10 @@ import shared
 import fmri_analysis_get_data as get
 import fmri_analysis_manipulations as fam
 import fmri_analysis_bnv_prep as bnv_prep
+import fmri_analysis_utilities as utils
+utils.check_data_loaded()
+import nia_stats_and_summaries as nss
+from tqdm import tqdm
 #>>>END BMS
 
 # CREATE A FUNCTION TO SIMPLIFY PLOTTING and GRAPH MEASURES
@@ -213,11 +217,8 @@ def add_thr_edges(G, prop_thr=None):
                 shared_edges.append(edge)
         except:
             print('Likely the Graph needs to be for whole brain or the edge density needs to be re-calculated based on a network subset.')
-    if len(shared_edges) != len(mst_edges):
-        print(f'Number of MST edges = {len(mst_edges)}\nNumber of MST edges shared with top {prop_thr} of total edges = {len(shared_edges)}')
-        # TODO make the lists of lists or tuples comparable to be able to pare down the list of edges to the ones that are in MST, but not top %.
-        #print(set(shared_edges)^(set(mst_edges)))
-    return thresholded_network
+        percent_shared_edges = len(shared_edges)/len(mst_edges)
+    return thresholded_network,percent_shared_edges 
 
 
 def create_density_based_network(network, subj_idx, prop_thr):
@@ -225,23 +226,44 @@ def create_density_based_network(network, subj_idx, prop_thr):
     #common_mat = get.get_cohort_network_matrices(network, all_the_indices)
     mat = get.get_network_matrix(network,subj_idx)
     G = make_graph_without_nans(mat)
-    thresholded_network = add_thr_edges(G,prop_thr=prop_thr)
-    return thresholded_network
+    thresholded_network,percent_shared_edges = add_thr_edges(G,prop_thr=prop_thr)
+    return thresholded_network,percent_shared_edges
 
 def calculate_graph_msrs(G):
     individ_graph_msr_dict = {}
     individ_graph_msr_dict['avg_path_len'] = nx.algorithms.shortest_paths.generic.average_shortest_path_length(G)
-    individ_graph_msr_dict['global_efficiency'] = nx.algorithms.efficiency_measures.global_efficiency(G)
+    #individ_graph_msr_dict['global_efficiency'] = nx.algorithms.efficiency_measures.global_efficiency(G) # Not used currently for computational efficiency, given that avg path length is the inverse
+    individ_graph_msr_dict['clustering'] = nx.algorithms.average_clustering(G)
+    #individ_graph_msr_dict['smallWorld'] = nx.algorithms.omega(G) #computationally intensive
+    #individ_graph_msr_dict['richClub'] = nx.algorithms.rich_club_coefficient(G) # returns dictionary with hubs and RC value
+    neigh_deg = nx.algorithms.average_neighbor_degree(G)
+    individ_graph_msr_dict['avg_neigh_deg'] = np.mean(np.array([n for n in neigh_deg.values()]))
+
     return individ_graph_msr_dict
 
-def collate_graph_measures(network, subjects = (shared.group1+shared.group2), prop_thr = None):
+def collate_graph_measures(network, subjects = (shared.group1_indices+shared.group2_indices), prop_thr = None):
     df_list = []
-    for subj in subjects:
-        thr_G = create_density_based_network(network, subj, prop_thr)
+    for subj in tqdm(subjects):
+        thr_G, percent_shared_edges = create_density_based_network(network, subj, prop_thr)
         igmd = calculate_graph_msrs(thr_G)
         tmp_df = pd.DataFrame(igmd, index=[subj])
+        tmp_df[['percent_shared_edges','thr','group']] = percent_shared_edges,prop_thr, utils.match_subj_group(subj)
         df_list.append(tmp_df)
 
     df = pd.concat(df_list).reset_index()
     df.rename(columns={'index':'subj'}, inplace=True)
     return df
+
+def graph_msr_group_diffs(network, grouping_col, prop_thr_list=np.arange(.85,1,.01)):
+    df_list = []
+    stat_df_list = []
+    for thr in prop_thr_list:
+        tmp_df = collate_graph_measures(network,prop_thr = thr)
+        msrs = [col for col in tmp_df.columns if col not in ['thr','group','subj']]
+        tmp_stat_df = nss.summarize_group_differences(tmp_df, grouping_col, msrs)
+        tmp_stat_df['thr'] = thr
+        df_list.append(tmp_df)
+        stat_df_list.append(tmp_stat_df)
+    df = pd.concat(df_list)
+    stat_df = pd.concat(stat_df_list)
+    return df, stat_df
