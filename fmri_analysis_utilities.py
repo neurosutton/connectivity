@@ -21,6 +21,13 @@ def check_data_loaded():
         get.get_subj_df_data()
         reload(shared)
 
+def subject_converter(df, orig_subj_col='subj', add_characteristics=['subject','group']):
+    import shared
+    demos = pd.DataFrame(pd.read_csv(shared.nonimaging_subjectlevel_data))
+    demos.reset_index(inplace=True)
+    df = df.merge(demos[add_characteristics+['index']],left_on=orig_subj_col,right_on='index')
+    return df
+    
 def match_subj_group(subj_ix):
     import shared
     if subj_ix in shared.group1_indices:

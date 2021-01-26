@@ -38,7 +38,7 @@ def plot_score_by_network(measure, network, drop=[], conn_data=None, prop_thr=No
         print(stats.pearsonr(scores_df['connectivity'], scores_df[measure]))
     return scores_df
 
-def plot_cohort_comparison_over_thresholds(network_name, comparison_df, group_names):
+def plot_cohort_comparison_over_thresholds(network_name, comparison_df, group_names=[shared.group1,shared.group2], y='connectivity'):
     ''' Plot group differences in connectivity strength over a range of thresholds.
 
         Parameters
@@ -58,11 +58,11 @@ def plot_cohort_comparison_over_thresholds(network_name, comparison_df, group_na
           asterix in the right position
     '''
     fig, ax = plt.subplots()
-    sns.lineplot(data=comparison_df, x='threshold', y='connectivity', hue='group', marker='.',
+    sns.lineplot(data=comparison_df, x='threshold', y=y, hue='group', marker='.',
                  ci=95, err_style='bars', alpha=0.8, err_kws={'capsize':5}, linestyle=':')
     plt.title(f'Group Differences in {network_name} Network')
     ax.set_xlabel('Proportional Threshold')
-    ax.set_ylabel('Connectivity Strength')
+    ax.set_ylabel(y)
     plt.show()
 
 def plot_network_matrix(network_name, subj_idx, conn_data=None):

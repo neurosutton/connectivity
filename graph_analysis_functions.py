@@ -241,27 +241,41 @@ def calculate_graph_msrs(G):
 
     return individ_graph_msr_dict
 
-def collate_graph_measures(network, subjects = (shared.group1_indices+shared.group2_indices), prop_thr = None):
+def collate_graph_measures(network, subjects=None, prop_thr = None):
     df_list = []
+    if subjects: 
+       if not isinstance(subjects,list):
+           field = [k for k,v in shared.__dict__.items() if v == subjects]
+           name_str = field[0].split('.')[-1]+'_indices'
+           subjects = [v for k,v in shared.__dict__.items() if k == name_str][0]
+           print(subjects)
+    else:
+       subjects =(shared.group1_indices+shared.group2_indices)
     for subj in tqdm(subjects):
         thr_G, percent_shared_edges = create_density_based_network(network, subj, prop_thr)
         igmd = calculate_graph_msrs(thr_G)
         tmp_df = pd.DataFrame(igmd, index=[subj])
-        tmp_df[['percent_shared_edges','thr','group']] = percent_shared_edges,prop_thr, utils.match_subj_group(subj)
+        tmp_df[['percent_shared_edges','threshold','group']] = percent_shared_edges,prop_thr, utils.match_subj_group(subj)
         df_list.append(tmp_df)
 
     df = pd.concat(df_list).reset_index()
     df.rename(columns={'index':'subj'}, inplace=True)
     return df
 
-def graph_msr_group_diffs(network, grouping_col, prop_thr_list=np.arange(.85,1,.01)):
+def graph_msr_group_diffs(network, grouping_col, prop_thr_list=np.arange(.85,1,.01), limit_subjs=None):
+    """Inputs: network is '' for whole brain, otherwise choose the name or beginning of the name for the desired network.
+    grouping_col can be any categorical column, such as group, cognitive_impairment, etc.
+
+    Output: df = long format data of the graph measures defined in calculate_graph_msrs for each person.
+    stat_df = summary table of group differences derived from df. p-values are included.
+    """
     df_list = []
     stat_df_list = []
     for thr in prop_thr_list:
-        tmp_df = collate_graph_measures(network,prop_thr = thr)
-        msrs = [col for col in tmp_df.columns if col not in ['thr','group','subj']]
+        tmp_df = collate_graph_measures(network,subjects=limit_subjs, prop_thr = thr)
+        msrs = [col for col in tmp_df.columns if col not in ['threshold','group','subj']]
         tmp_stat_df = nss.summarize_group_differences(tmp_df, grouping_col, msrs)
-        tmp_stat_df['thr'] = thr
+        tmp_stat_df['threshold'] = thr
         df_list.append(tmp_df)
         stat_df_list.append(tmp_stat_df)
     df = pd.concat(df_list)
