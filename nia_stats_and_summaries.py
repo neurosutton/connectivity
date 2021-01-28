@@ -22,7 +22,7 @@ def summarize_group_differences(df, group_col, msrs, graph=False):
         grp1=df.loc[(df[group_col]==groups[0]),msr].dropna()
         grp2=df.loc[(df[group_col]==groups[1]),msr].dropna()
         result.loc[msr,('stats','pvalue')] = ttest_ind(grp1,grp2)[-1].round(3)
-    display(result)
+    print(result)
 
     if graph:
         keep = msrs + [group_col]

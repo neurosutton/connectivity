@@ -37,6 +37,7 @@ def get_sorted_values(mean_conn_data=None, mdata=None, roi_count=None, clear_tri
 
 def get_prop_thr_value(threshold, exclude_negatives=False, mean_conn_data=None):
     """Find the index of proportional threshold value based on sorted, population-averaged connectivity at each node."""
+    warnings.filterwarnings('ignore')
     mean_conn_data = calc_mean_conn_data() if mean_conn_data is None else mean_conn_data
     sorted_values = get_sorted_values(mean_conn_data=mean_conn_data)
     if exclude_negatives:
