@@ -7,8 +7,7 @@ v0.3 (BMS) Adapted fmri_analysis_functions for pandas
 """
 
 from scipy.io import loadmat
-import os.path as op
-import json
+import json, warnings
 import numpy as np
 import pandas as pd
 from math import ceil, floor
@@ -103,7 +102,6 @@ def prepare_network_edges_statistically(network_name, conn_data=None, prop_thr=N
 def get_sig_edges(network_name, mdata=None, prop_thr=None):
     mdata = get.get_mdata() if mdata is None else mdata
     parcels = get.get_network_parcels(network_name, mdata=mdata)
-    indices = list(parcels.values())
     edges = prepare_network_edges_statistically(network_name, prop_thr=prop_thr)
     edges = np.nan_to_num(edges)
     pvals = np.array(edges[1].data)

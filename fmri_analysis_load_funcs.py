@@ -36,6 +36,7 @@ class init_variables():
             global pkl_file
             #pkl_file =  os.path.join(self.proj_dir,'vars.pkl')
             pkl_file =  os.path.join(self.__def_path__,'shared.py')
+            self.pkl_file = pkl_file
             self.name_id_col = defs['name_id_col']
             self.group_id_col = defs['group_id_col']
             self.group1 = defs['group1']
@@ -48,8 +49,8 @@ class init_variables():
 
 
 def _pickle(obj):
-    if pkl_file is None:
-        pkl_file = init_variables.pklfile
+    if not 'pkl_file' in globals():
+        pkl_file = init_variables.pkl_file
     with open(pkl_file,'w+') as f:
  #       pickle.dump(obj,f)
         for k,v in obj.__dict__.items():

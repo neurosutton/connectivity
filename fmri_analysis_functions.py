@@ -37,8 +37,7 @@ config = get.get_config()
 
 # Moved plotting funcs to fmri_analysis_plotting
 
-def get_network_matrix(network_name, subj_idx, conn_data=None, mdata=None, prop_thr=None, network_mask=None,
-                       exclude_negatives=False, normalize=False):
+def get_network_matrix(network_name, subj_idx, conn_data=None, mdata=None, prop_thr=None, network_mask=None, exclude_negatives=False, normalize=False):
     '''
     Adding a normalize, which can call different types.
         - 'self' will divide by own whole brain mean connectivity

@@ -3,6 +3,7 @@ import numpy as np
 import fmri_analysis_get_data as get
 from importlib import reload
 import os
+from datetime import datetime
 
 
 def check_data_loaded():
@@ -24,6 +25,7 @@ def filter_df(df,criteria={}):
 
 
 def match_subj_group(subj_ix):
+    """Match subject index and group. May be obsolete in favor of subject_converter."""
     import shared
     if subj_ix in shared.group1_indices:
         return shared.group1
@@ -33,13 +35,14 @@ def match_subj_group(subj_ix):
         return np.nan
 
 def parallel_setup():
+    """Calculate the number of threads that should be included in the pool."""
     import multiprocessing as mp
     import math
     cores = mp.cpu_count()
     if cores < 8:
         job_limit = math.ceil(.5*cores)
     else:
-        job_limit = math.ceil(.3*cores)
+        job_limit = math.ceil(.3*cores) # Play nice with other super users.
     return mp.Pool(job_limit)
 
 
@@ -49,7 +52,10 @@ def roiIx_to_name_translator():
 
 def save_df(df, filename):
     import shared
-    df.to_csv(os.path.join(shared.main_dir,filename), index=False)
+    now = datetime.now().strftime('%y%m%d%H%M')
+    out_filename = os.path.join(shared.main_dir,str(now)+filename)
+    df.to_csv(out_filename, index=False)
+
 
 
 def subject_converter(df, orig_subj_col='subj', add_characteristics=['subject','group']):

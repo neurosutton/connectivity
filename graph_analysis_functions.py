@@ -196,7 +196,7 @@ def sort_edge_weights(G):
     weights_dict = {}
     for u,v,weight in G.edges.data("weight"):
         weights_dict[weight] = [u,v]
-    
+
     sorted_weights = sorted(list(weights_dict.keys()))
     if sorted_weights:
         sorted_edges = sorted([])
@@ -224,7 +224,7 @@ def add_thr_edges(G, prop_thr=None):
         except:
             print('Likely the Graph needs to be for whole brain or the edge density needs to be re-calculated based on a network subset.')
         percent_shared_edges = len(shared_edges)/len(mst_edges)
-    return thresholded_network,percent_shared_edges 
+    return thresholded_network,percent_shared_edges
 
 
 def create_density_based_network(network, subj_idx, prop_thr):
@@ -235,16 +235,17 @@ def create_density_based_network(network, subj_idx, prop_thr):
     thresholded_network,percent_shared_edges = add_thr_edges(G,prop_thr=prop_thr)
     return thresholded_network,percent_shared_edges
 
+
 def calculate_graph_msrs(G):
     individ_graph_msr_dict = {}
-    individ_graph_msr_dict['shortest_path'] = nx.algorithms.shortest_paths.generic.average_shortest_path_length(G, method='dijkstra')
-    individ_graph_msr_dict['local_efficiency'] = nx.algorithms.efficiency_measures.local_efficiency(G)
+    individ_graph_msr_dict['gm_shortest_path'] = nx.algorithms.shortest_paths.generic.average_shortest_path_length(G, method='dijkstra')
+    individ_graph_msr_dict['gm_local_efficiency'] = nx.algorithms.efficiency_measures.local_efficiency(G)
 
     return individ_graph_msr_dict
 
+
 def collate_graph_measures(network, subjects=None, grouping_col='group',prop_thr=None):
-    df_list = []
-    if subjects is not None: 
+    if subjects is not None:
        if not isinstance(subjects,list):
            field = [k for k,v in shared.__dict__.items() if v == subjects]
            name_str = field[0].split('.')[-1]+'_indices'
@@ -253,30 +254,26 @@ def collate_graph_measures(network, subjects=None, grouping_col='group',prop_thr
        subjects =(shared.group1_indices+shared.group2_indices)
     global tmp
     tmp = current_analysis(network, grouping_col, prop_thr)
-    pool = utils.parallel_setup()
-
-    df = pd.concat(pool.map(parallel_graph_msr,subjects))
-    #utils.parallelize_op(individ_graph_msrs, subjects, args=[network], kwargs={'prop_thr':prop_thr,'grouping_col':grouping_col})
-        
-    #df = pd.concat(df_list).reset_index()
-    #df.rename(columns={'index':'subj'}, inplace=True)
+    with utils.parallel_setup() as pool:
+        df = pd.concat(pool.map(parallel_graph_msr,subjects))
     return df
 
 def parallel_graph_msr(subj):
     return individ_graph_msrs(tmp.network, subj, prop_thr=tmp.prop_thr, grouping_col=tmp.grouping_col)
 
+
 def individ_graph_msrs(network, subj, prop_thr=None, grouping_col='group'):
     thr_G, percent_shared_edges = create_density_based_network(network, subj, prop_thr)
     igmd = calculate_graph_msrs(thr_G)
     tmp_df = pd.DataFrame(igmd, index=[subj])
-    tmp_df[['percent_shared_edges','threshold',grouping_col]] = percent_shared_edges,prop_thr, utils.match_subj_group(subj)
-    utils.save_df(tmp,subj+'_'+thr+'_graphMsrs.csv')
+    tmp_df[['percent_shared_edges','threshold','subj_ix','network']] = percent_shared_edges,prop_thr,subj, network
+    tmp_df = utils.subject_converter(tmp_df,orig_subj_col='subj_ix')
     print(f'End {subj} {prop_thr}')
     return tmp_df
-    
 
 
-def graph_msr_group_diffs(network, grouping_col, prop_thr_list=np.arange(0,1,.1), limit_subjs=None, save=False):
+
+def graph_msr_group_diffs(network, grouping_col, prop_thr_list=np.arange(.09,1,.1), limit_subjs=None, save=False):
     """Inputs: network is '' for whole brain, otherwise choose the name or beginning of the name for the desired network.
     grouping_col can be any categorical column, such as group, cognitive_impairment, etc.
 
@@ -284,7 +281,7 @@ def graph_msr_group_diffs(network, grouping_col, prop_thr_list=np.arange(0,1,.1)
     """
     df_list = []
     for thr in tqdm(prop_thr_list):
-        tmp_df = collate_graph_measures(network,subjects=limit_subjs, prop_thr = thr)        
+        tmp_df = collate_graph_measures(network,subjects=limit_subjs, prop_thr = thr)
         df_list.append(tmp_df)
     df = pd.concat(df_list)
 
@@ -292,12 +289,13 @@ def graph_msr_group_diffs(network, grouping_col, prop_thr_list=np.arange(0,1,.1)
         utils.save_df(df, 'long_graph_msrs.csv')
     return df
 
+
 def summarize_graph_msr_group_diffs(df, grouping_col, limit_subjs=None, save=False):
-    """Inputs: 
-        Long format dataframe created by graph_msr_group_diffs. 
+    """Inputs:
+        Long format dataframe created by graph_msr_group_diffs.
         grouping_col can be any categorical column, such as group, cognitive_impairment, etc.
 
-    Output: 
+    Output:
         stat_df = summary table of group differences derived from df. p-values are included.
     """
     thr_list = set(df['threshold'])
