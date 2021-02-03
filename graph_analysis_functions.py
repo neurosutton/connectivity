@@ -12,7 +12,6 @@ from sklearn import metrics
 from random import shuffle
 from networkx.algorithms import community
 
-# TODO refactor homegrown calls to jive with new GH-based code (i.e., "tan", "faf" with appropriate functions)
 # BMS
 from collections import OrderedDict
 import shared
@@ -40,8 +39,11 @@ def plot_weighted_graph(gw, **kwargs):
     }
     if 'pos' in kwargs.keys():
         options['pos'] = kwargs['pos']
-    else:
-        print(kwargs.keys())
+
+    if 'node_weights' in kwargs.keys():
+        add_node_weights(gw, kwargs['node_weights'][0], kwargs['node_weights'][1])
+        print(nx.get_node_attributes(gw,kwargs['node_weights'][0]))
+        options['node_color'] = [v for v in nx.get_node_attributes(gw,kwargs['node_weights'][0])]
 
     fig, ax = plt.subplots(figsize=(16, 16))
     nx.draw(gw, ax=ax, **options)
@@ -180,17 +182,29 @@ class current_analysis():
         self.grouping_col = grouping_col
         self.prop_thr = prop_thr
 
-def get_pos_dict(network):
+def get_position_dict(network):
+    """Add position information to each node using the coordinates in a dataframe with ROI labels and coordinates.
+    Use with plot_weighted_graphs to represent the results in an axial super glass brain.
+    Currently, not flexible as the specific label column is hard coded."""
     bnv = bnv_prep.bnv_analysis(network=network, prop_thr=None)
     network_locs = bnv.limit_labels(network=network)
     roi_dict = OrderedDict()
     for n,net in enumerate(network_locs['SuttonLabel']):
         roi_dict[n] = network_locs.loc[network_locs['SuttonLabel']==net,['x','y']].values[0]
-    pos ={}
+    position_dict ={}
     for k,v in roi_dict.items():
-        pos[k]=v
+        position_dict[k]=v
 
-    return pos
+    return position_dict
+
+def add_node_weights(G, msr_name, nx_func):
+    """Inputs: G = graph
+    msr_name = key entry for nodal weighting
+    nx_func = NetworkX function to generate the weights per node
+    """
+    msr_dict = nx_func
+    for n in G.nodes:
+        G.nodes[n][msr_name] = msr_dict[n]
 
 def sort_edge_weights(G):
     weights_dict = {}
