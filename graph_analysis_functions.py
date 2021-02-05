@@ -42,7 +42,6 @@ def plot_weighted_graph(gw, **kwargs):
 
     if 'node_weights' in kwargs.keys():
         add_node_weights(gw, kwargs['node_weights'][0], kwargs['node_weights'][1])
-        print(nx.get_node_attributes(gw,kwargs['node_weights'][0]))
         options['node_color'] = [v for v in nx.get_node_attributes(gw,kwargs['node_weights'][0])]
 
     fig, ax = plt.subplots(figsize=(16, 16))
