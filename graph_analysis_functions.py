@@ -267,8 +267,13 @@ def create_density_based_network(network, subj_idx, prop_thr):
 
 def calculate_graph_msrs(G):
     individ_graph_msr_dict = {}
-    individ_graph_msr_dict['gm_shortest_path'] = nx.algorithms.shortest_paths.generic.average_shortest_path_length(G, method='dijkstra')
-    individ_graph_msr_dict['gm_local_efficiency'] = nx.algorithms.efficiency_measures.local_efficiency(G)
+    if nx.is_connected(G):
+        individ_graph_msr_dict['gm_shortest_path'] = nx.algorithms.shortest_paths.generic.average_shortest_path_length(G, method='dijkstra')
+        individ_graph_msr_dict['gm_local_efficiency'] = nx.algorithms.efficiency_measures.local_efficiency(G)
+    else:
+        individ_graph_msr_dict['num_total_edges'] = len(G.edges)
+        individ_graph_msr_dict['num_total_nodes'] = len(G.nodes)
+        individ_graph_msr_dict['num_connected_comp'] = nx.algorithms.components.number_connected_components(G)
 
     return individ_graph_msr_dict
 
@@ -313,6 +318,7 @@ def individ_subgraph_msrs(network, subgraph, subj, prop_thr=None, grouping_col='
     subgraph = filter_density_based_network(thr_G, subgraph)
     igmd = calculate_graph_msrs(subgraph)
     tmp_subgraph_df = pd.DataFrame(igmd, index=[subj])
+    tmp_subgraph_df['subj_ix'] = subj
     tmp_subgraph_df = utils.subject_converter(tmp_subgraph_df,orig_subj_col='subj_ix')
     return tmp_subgraph_df
 
