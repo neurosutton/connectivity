@@ -176,6 +176,7 @@ def compare_measures(graph_df, measure):
 
 #>>>BMS
 class current_analysis():
+    """Local class to pass some preset fields."""
     def __init__(self, network='',grouping_col='group',prop_thr=None):
         self.network = network
         self.grouping_col = grouping_col
@@ -206,6 +207,8 @@ def add_node_weights(G, msr_name, nx_func):
         G.nodes[n][msr_name] = msr_dict[n]
 
 def sort_edge_weights(G):
+    """Helper function. Extract the weights, sort them, and find the matching values for a sorted list. Needed for percentile thresholding to supplement the MST selection.
+    """
     weights_dict = {}
     for u,v,weight in G.edges.data("weight"):
         weights_dict[weight] = [u,v]
@@ -221,6 +224,10 @@ def sort_edge_weights(G):
 
 
 def add_thr_edges(G, prop_thr=None):
+    """
+    Inputs: the graph, a proportional threshold (optional) for adding nodes to the MST result.
+    Outputs: The subsetted network FOR AN INDIVIDUAL that contains the MST skeleton and the extra nodes/edges up to the proportional threshold; a calculation of edges that are in both the MST and the density base list. At more stringent thresholds, not all the MST edges are in the highest percentage of ranked edges.
+    """
     n_edges_density = fam.get_edge_count(prop_thr)
     thresholded_network = nx.algorithms.tree.mst.maximum_spanning_tree(G)
     mst_edges = [tuple(m) for m in thresholded_network.edges()]
@@ -238,6 +245,7 @@ def add_thr_edges(G, prop_thr=None):
             print('Likely the Graph needs to be for whole brain or the edge density needs to be re-calculated based on a network subset.')
         percent_shared_edges = len(shared_edges)/len(mst_edges)
     return thresholded_network,percent_shared_edges
+
 
 
 def create_density_based_network(network, subj_idx, prop_thr):
