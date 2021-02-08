@@ -176,10 +176,12 @@ def compare_measures(graph_df, measure):
 
 #>>>BMS
 class current_analysis():
-    def __init__(self, network='',grouping_col='group',prop_thr=None):
+    """Local class to pass some preset fields to the parallelization functions."""
+    def __init__(self, network='',grouping_col='group',prop_thr=None, subgraph_network=None):
         self.network = network
         self.grouping_col = grouping_col
         self.prop_thr = prop_thr
+        self.subgraph_network = subgraph_network
 
 def get_position_dict(network):
     """Add position information to each node using the coordinates in a dataframe with ROI labels and coordinates.
@@ -206,6 +208,8 @@ def add_node_weights(G, msr_name, nx_func):
         G.nodes[n][msr_name] = msr_dict[n]
 
 def sort_edge_weights(G):
+    """Helper function. Extract the weights, sort them, and find the matching values for a sorted list. Needed for percentile thresholding to supplement the MST selection.
+    """
     weights_dict = {}
     for u,v,weight in G.edges.data("weight"):
         weights_dict[weight] = [u,v]
@@ -221,6 +225,10 @@ def sort_edge_weights(G):
 
 
 def add_thr_edges(G, prop_thr=None):
+    """
+    Inputs: the graph, a proportional threshold (optional) for adding nodes to the MST result.
+    Outputs: The subsetted network FOR AN INDIVIDUAL that contains the MST skeleton and the extra nodes/edges up to the proportional threshold; a calculation of edges that are in both the MST and the density base list. At more stringent thresholds, not all the MST edges are in the highest percentage of ranked edges.
+    """
     n_edges_density = fam.get_edge_count(prop_thr)
     thresholded_network = nx.algorithms.tree.mst.maximum_spanning_tree(G)
     mst_edges = [tuple(m) for m in thresholded_network.edges()]
@@ -239,6 +247,14 @@ def add_thr_edges(G, prop_thr=None):
         percent_shared_edges = len(shared_edges)/len(mst_edges)
     return thresholded_network,percent_shared_edges
 
+def filter_density_based_network(thresholded_network, subgraph_network=None):
+    """Input: String-based network of interest (e.g., 'frontoparietal') and MST + density-based thresholded network (output of add_thr_edges)
+    Output: Selected network graph to be used with calculate_graph_msrs to determine metrics
+    """
+    network_parcels = get.get_network_parcels(subgraph_network)
+    parcel_list = [v for v in network_parcels.values()]
+    H = thresholded_network.subgraph(parcel_list)
+    return H
 
 def create_density_based_network(network, subj_idx, prop_thr):
     """Calculate the whole-brain MST for an individual and then add back high connectivity edges until a threshold is met for each individual"""
@@ -251,13 +267,18 @@ def create_density_based_network(network, subj_idx, prop_thr):
 
 def calculate_graph_msrs(G):
     individ_graph_msr_dict = {}
-    individ_graph_msr_dict['gm_shortest_path'] = nx.algorithms.shortest_paths.generic.average_shortest_path_length(G, method='dijkstra')
-    individ_graph_msr_dict['gm_local_efficiency'] = nx.algorithms.efficiency_measures.local_efficiency(G)
+    if nx.is_connected(G):
+        individ_graph_msr_dict['gm_shortest_path'] = nx.algorithms.shortest_paths.generic.average_shortest_path_length(G, method='dijkstra')
+        individ_graph_msr_dict['gm_local_efficiency'] = nx.algorithms.efficiency_measures.local_efficiency(G)
+    else:
+        individ_graph_msr_dict['num_total_edges'] = len(G.edges)
+        individ_graph_msr_dict['num_total_nodes'] = len(G.nodes)
+        individ_graph_msr_dict['num_connected_comp'] = nx.algorithms.components.number_connected_components(G)
 
     return individ_graph_msr_dict
 
 
-def collate_graph_measures(network, subjects=None, grouping_col='group',prop_thr=None):
+def collate_graph_measures(network, subjects=None, grouping_col='group',prop_thr=None, subgraph_network=None):
     if subjects is not None:
        if not isinstance(subjects,list):
            field = [k for k,v in shared.__dict__.items() if v == subjects]
@@ -266,13 +287,21 @@ def collate_graph_measures(network, subjects=None, grouping_col='group',prop_thr
     else:
        subjects =(shared.group1_indices+shared.group2_indices)
     global tmp
-    tmp = current_analysis(network, grouping_col, prop_thr)
+    tmp = current_analysis(network, grouping_col, prop_thr, subgraph_network)
     with utils.parallel_setup() as pool:
         df = pd.concat(pool.map(parallel_graph_msr,subjects))
+
+    if subgraph_network:
+        with utils.parallel_setup() as pool:
+            df_subgraph = pd.concat(pool.map(parallel_subgraph_msr, subjects))
+        df = df.merge(df_subgraph, on = 'subj_ix')
     return df
 
 def parallel_graph_msr(subj):
     return individ_graph_msrs(tmp.network, subj, prop_thr=tmp.prop_thr, grouping_col=tmp.grouping_col)
+
+def parallel_subgraph_msr(subj):
+    return individ_subgraph_msrs(tmp.network, tmp.subgraph_network, subj, prop_thr=tmp.prop_thr, grouping_col=tmp.grouping_col)
 
 
 def individ_graph_msrs(network, subj, prop_thr=None, grouping_col='group'):
@@ -284,6 +313,14 @@ def individ_graph_msrs(network, subj, prop_thr=None, grouping_col='group'):
     print(f'End {subj} {prop_thr}')
     return tmp_df
 
+def individ_subgraph_msrs(network, subgraph, subj, prop_thr=None, grouping_col='group'):
+    thr_G, percent_shared_edges = create_density_based_network(network, subj, prop_thr)
+    subgraph = filter_density_based_network(thr_G, subgraph)
+    igmd = calculate_graph_msrs(subgraph)
+    tmp_subgraph_df = pd.DataFrame(igmd, index=[subj])
+    tmp_subgraph_df['subj_ix'] = subj
+    tmp_subgraph_df = utils.subject_converter(tmp_subgraph_df,orig_subj_col='subj_ix')
+    return tmp_subgraph_df
 
 
 def graph_msr_group_diffs(network, grouping_col, prop_thr_list=np.arange(.09,1,.1), limit_subjs=None, save=False):

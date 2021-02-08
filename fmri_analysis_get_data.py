@@ -58,7 +58,7 @@ def get_conn_data(mdata=None, roi_count=None, clear_triu=True, subset=[]):
 
 def get_network_parcels(network_name, mdata=None):
     """Returns parcel names and indices with HCP remaining in the name and indexed to work with numpy-based functions.
-    Output: {atlas_name.roi: numpy index of ROI}
+    Output: {atlas_name.roi (str): numpy index of ROI (int)}
     """
     mdata = get_mdata() if mdata is None else mdata
 
