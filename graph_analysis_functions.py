@@ -280,12 +280,14 @@ def calculate_graph_msrs(G):
 
 def collate_graph_measures(network, subjects=None, grouping_col='group',prop_thr=None, subgraph_network=None):
     if subjects is not None:
-       if not isinstance(subjects,list):
+        if isinstance(subjects,np.array):
+            subjects = list(subjects)
+        elif not isinstance(subjects,list):
            field = [k for k,v in shared.__dict__.items() if v == subjects]
            name_str = field[0].split('.')[-1]+'_indices'
            subjects = [v for k,v in shared.__dict__.items() if k == name_str][0]
     else:
-       subjects =(shared.group1_indices+shared.group2_indices)
+       subjects = (shared.group1_indices+shared.group2_indices)
     global tmp
     tmp = current_analysis(network, grouping_col, prop_thr, subgraph_network)
     with utils.parallel_setup() as pool:
