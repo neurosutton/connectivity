@@ -95,12 +95,14 @@ def get_graph_measures(network='', threshold=(1-0.008)):
                                      'shortest_path_length', 'global_edges', 'Q',
                                      'global_efficiency', 'local_efficiency',
                                      'average_node_connectivity', 'mean_degree'])
+    graph_df = utils.subject_converter(graph_df,orig_subj_col='subject') # BMS subject index to subject label
     threshold = [threshold] if type(threshold) == float else threshold
     bckgrd_data = get.subj_data()
+    bckgrd_data = utils.subject_converter(bckgrd_data,orig_subj_col='subject')
     for value in threshold:
-        for idx in range(len(bckgrd_data)):
+        for subj in set(bckgrd_data['subject']):
+            idx = bckgrd_data.loc[((bckgrd_data['subject']==subj) and (bckrd_data['threshold']==value)),'subject'].index()
             print("\r>> Calculating for subject {} at threshold={}".format(idx, value), end='')
-            df_pos = len(graph_df) # looping index. Better way?
             subj_data = np.expand_dims(conn_data[:, :, idx].copy(), axis=2)
             mask = get.get_prop_thr_edges(value, conn_data=subj_data)[:, :, 0]
             matrix = get.get_network_matrix(network_name=network, subj_idx=0,
@@ -108,21 +110,22 @@ def get_graph_measures(network='', threshold=(1-0.008)):
                                             conn_data=subj_data)
             graph = make_graph_without_nans(matrix)
             subgraph = largest_subgraph(graph)
+            
             # TODO Translate to pandas style with text-based labels, rather than indexed numbers that are not easily read with multiple thresholds for the same subjects.
-            graph_df.at[df_pos, 'subject'] = bckgrd_data['subject'][idx]
-            graph_df.at[df_pos, 'group'] = bckgrd_data['group'][idx]
-            graph_df.at[df_pos, 'threshold'] = value
-            graph_df.at[df_pos, 'global_mean'] = np.nanmean(matrix)
-            graph_df.at[df_pos, 'density'] = nx.density(graph)
-            graph_df.at[df_pos, 'largest_component'] = len(subgraph)
-            graph_df.at[df_pos, 'average_clustering'] = nx.average_clustering(subgraph)
-            graph_df.at[df_pos, 'shortest_path_length'] = nx.average_shortest_path_length(subgraph)
-            graph_df.at[df_pos, 'global_efficiency'] = nx.global_efficiency(subgraph)
-            graph_df.at[df_pos, 'mean_degree'] = np.nanmean(nx.degree(graph))
+            graph_df.iloc[idx, 'subject'] = subject
+            graph_df.iloc[idx, 'group'] = bckgrd_data['group'][idx]
+            graph_df.iloc[idx, 'threshold'] = value
+            graph_df.iloc[idx, 'global_mean'] = np.nanmean(matrix)
+            graph_df.iloc[idx, 'density'] = nx.density(graph)
+            graph_df.iloc[idx, 'largest_component'] = len(subgraph)
+            graph_df.iloc[idx, 'average_clustering'] = nx.average_clustering(subgraph)
+            graph_df.iloc[idx, 'shortest_path_length'] = nx.average_shortest_path_length(subgraph)
+            graph_df.iloc[idx, 'global_efficiency'] = nx.global_efficiency(subgraph)
+            graph_df.iloc[idx, 'mean_degree'] = np.nanmean(nx.degree(graph))
             # graph_df.at[df_pos, 'local_efficiency'] = nx.local_efficiency(subgraph)
             # graph_df.at[df_pos, 'average_node_connectivity'] = nx.average_node_connectivity(graph)
-            graph_df.at[df_pos, 'global_edges'] = len(graph.edges())
-            graph_df.at[df_pos, 'Q'] = nx_comm.modularity(subgraph, nx_comm.label_propagation_communities(subgraph))
+            graph_df.iloc[idx, 'global_edges'] = len(graph.edges())
+            graph_df.iloc[idx, 'Q'] = nx_comm.modularity(subgraph, nx_comm.label_propagation_communities(subgraph))
     return graph_df
 
 
