@@ -51,7 +51,7 @@ class init_variables():
 def _pickle(obj):
     if not 'pkl_file' in globals():
         global pkl_file
-        pkl_file = init_variables.pkl_file
+        pkl_file = init_variables().pkl_file
     with open(pkl_file,'w+') as f:
  #       pickle.dump(obj,f)
         for k,v in obj.__dict__.items():
