@@ -112,20 +112,20 @@ def get_graph_measures(network='', threshold=(1-0.008)):
             subgraph = largest_subgraph(graph)
             
             # TODO Translate to pandas style with text-based labels, rather than indexed numbers that are not easily read with multiple thresholds for the same subjects.
-            graph_df.iloc[idx, 'subject'] = subject
-            graph_df.iloc[idx, 'group'] = bckgrd_data['group'][idx]
-            graph_df.iloc[idx, 'threshold'] = value
-            graph_df.iloc[idx, 'global_mean'] = np.nanmean(matrix)
-            graph_df.iloc[idx, 'density'] = nx.density(graph)
-            graph_df.iloc[idx, 'largest_component'] = len(subgraph)
-            graph_df.iloc[idx, 'average_clustering'] = nx.average_clustering(subgraph)
-            graph_df.iloc[idx, 'shortest_path_length'] = nx.average_shortest_path_length(subgraph)
-            graph_df.iloc[idx, 'global_efficiency'] = nx.global_efficiency(subgraph)
-            graph_df.iloc[idx, 'mean_degree'] = np.nanmean(nx.degree(graph))
+            graph_df.loc[idx, 'subject'] = subject
+            graph_df.loc[idx, 'group'] = bckgrd_data['group'][idx]
+            graph_df.loc[idx, 'threshold'] = value
+            graph_df.loc[idx, 'global_mean'] = np.nanmean(matrix)
+            graph_df.loc[idx, 'density'] = nx.density(graph)
+            graph_df.loc[idx, 'largest_component'] = len(subgraph)
+            graph_df.loc[idx, 'average_clustering'] = nx.average_clustering(subgraph)
+            graph_df.loc[idx, 'shortest_path_length'] = nx.average_shortest_path_length(subgraph)
+            graph_df.loc[idx, 'global_efficiency'] = nx.global_efficiency(subgraph)
+            graph_df.loc[idx, 'mean_degree'] = np.nanmean(nx.degree(graph))
             # graph_df.at[df_pos, 'local_efficiency'] = nx.local_efficiency(subgraph)
             # graph_df.at[df_pos, 'average_node_connectivity'] = nx.average_node_connectivity(graph)
-            graph_df.iloc[idx, 'global_edges'] = len(graph.edges())
-            graph_df.iloc[idx, 'Q'] = nx_comm.modularity(subgraph, nx_comm.label_propagation_communities(subgraph))
+            graph_df.loc[idx, 'global_edges'] = len(graph.edges())
+            graph_df.loc[idx, 'Q'] = nx_comm.modularity(subgraph, nx_comm.label_propagation_communities(subgraph))
     return graph_df
 
 
