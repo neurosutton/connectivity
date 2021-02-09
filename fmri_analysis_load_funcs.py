@@ -80,5 +80,9 @@ def update_shared(obj=None):
 #    shared = load_shared()
 #    return shared
 
-if __name__ == "__main__":
-    x = init_variables()
+# if __name__ == "__main__":
+#     print("Hi there.")
+#     init_variables()
+
+
+init_variables()

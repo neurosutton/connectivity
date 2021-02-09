@@ -14,7 +14,6 @@ from networkx.algorithms import community
 
 # BMS
 from collections import OrderedDict
-import shared
 import fmri_analysis_get_data as get
 import fmri_analysis_manipulations as fam
 import fmri_analysis_bnv_prep as bnv_prep
@@ -22,6 +21,7 @@ import fmri_analysis_utilities as utils
 utils.check_data_loaded()
 import nia_stats_and_summaries as nss
 from tqdm import tqdm
+import shared
 #>>>END BMS
 
 # CREATE A FUNCTION TO SIMPLIFY PLOTTING and GRAPH MEASURES
