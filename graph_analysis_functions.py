@@ -84,48 +84,6 @@ def largest_subgraph(g):
     return g.subgraph(max_set).copy()
 
 
-def get_graph_measures(network='', threshold=(1-0.008)):
-    """
-    Summarizes individuals' graphs and concatenates the summary measures into a dataframe for further analysis.
-    """
-    conn_data = get.get_conn_data()
-    # conn_data[:, :, 0].shape
-    graph_df = pd.DataFrame(columns=['subject', 'group', 'density', 'largest_component',
-                                     'global_mean', 'threshold', 'average_clustering',
-                                     'shortest_path_length', 'global_edges', 'Q',
-                                     'global_efficiency', 'local_efficiency',
-                                     'average_node_connectivity', 'mean_degree'])
-    threshold = [threshold] if type(threshold) == float else threshold
-    bckgrd_data = get.subj_data()
-    for value in threshold:
-        for idx in range(len(bckgrd_data)):
-            print("\r>> Calculating for subject {} at threshold={}".format(idx, value), end='')
-            df_pos = len(graph_df) # looping index. Better way?
-            subj_data = np.expand_dims(conn_data[:, :, idx].copy(), axis=2)
-            mask = get.get_prop_thr_edges(value, conn_data=subj_data)[:, :, 0]
-            matrix = get.get_network_matrix(network_name=network, subj_idx=0,
-                                            network_mask=mask,
-                                            conn_data=subj_data)
-            graph = make_graph_without_nans(matrix)
-            subgraph = largest_subgraph(graph)
-            # TODO Translate to pandas style with text-based labels, rather than indexed numbers that are not easily read with multiple thresholds for the same subjects.
-            graph_df.at[df_pos, 'subject'] = bckgrd_data['subject'][idx]
-            graph_df.at[df_pos, 'group'] = bckgrd_data['group'][idx]
-            graph_df.at[df_pos, 'threshold'] = value
-            graph_df.at[df_pos, 'global_mean'] = np.nanmean(matrix)
-            graph_df.at[df_pos, 'density'] = nx.density(graph)
-            graph_df.at[df_pos, 'largest_component'] = len(subgraph)
-            graph_df.at[df_pos, 'average_clustering'] = nx.average_clustering(subgraph)
-            graph_df.at[df_pos, 'shortest_path_length'] = nx.average_shortest_path_length(subgraph)
-            graph_df.at[df_pos, 'global_efficiency'] = nx.global_efficiency(subgraph)
-            graph_df.at[df_pos, 'mean_degree'] = np.nanmean(nx.degree(graph))
-            # graph_df.at[df_pos, 'local_efficiency'] = nx.local_efficiency(subgraph)
-            # graph_df.at[df_pos, 'average_node_connectivity'] = nx.average_node_connectivity(graph)
-            graph_df.at[df_pos, 'global_edges'] = len(graph.edges())
-            graph_df.at[df_pos, 'Q'] = nx_comm.modularity(subgraph, nx_comm.label_propagation_communities(subgraph))
-    return graph_df
-
-
 def find_auc_for_measure(measure, df):
     # measure = 'shortest_path_length'
     subjects = sorted(set(df['subject']))
@@ -177,8 +135,7 @@ def compare_measures(graph_df, measure):
 #>>>BMS
 class current_analysis():
     """Local class to pass some preset fields to the parallelization functions."""
-    def __init__(self, network='',grouping_col='group',prop_thr=None, subgraph_network=None):
-        self.network = network
+    def __init__(self,grouping_col='group',prop_thr=None, subgraph_network=None):
         self.grouping_col = grouping_col
         self.prop_thr = prop_thr
         self.subgraph_network = subgraph_network
@@ -268,57 +225,66 @@ def calculate_graph_msrs(G):
     individ_graph_msr_dict = {}
     if nx.is_connected(G):
         communities = nx.algorithms.community.modularity_max.greedy_modularity_communities(G)
-        individ_graph_dict['nx_communities'] = communities
-        individ_graph_dict['nx_num_of_comm'] = len(communities)
-        individ_graph_dict['modularity'] = nx.algorithms.community.quality.modularity(G, communities)
+        individ_graph_msr_dict['nx_communities'] = [communities]
+        individ_graph_msr_dict['nx_num_of_comm'] = len(communities)
+        individ_graph_msr_dict['modularity'] = nx.algorithms.community.quality.modularity(G, communities)
         individ_graph_msr_dict['gm_shortest_path'] = nx.algorithms.shortest_paths.generic.average_shortest_path_length(G, method='dijkstra')
         individ_graph_msr_dict['gm_local_efficiency'] = nx.algorithms.efficiency_measures.local_efficiency(G)
+        individ_graph_msr_dict['mean_degree'] = np.nanmean(nx.degree(G))
     else:
-        individ_graph_msr_dict['num_total_edges'] = len(G.edges)
-        individ_graph_msr_dict['num_total_nodes'] = len(G.nodes)
-        individ_graph_msr_dict['num_connected_comp'] = nx.algorithms.components.number_connected_components(G)
-
+        individ_graph_msr_dict['sg_num_total_edges'] = len(G.edges)
+        individ_graph_msr_dict['sg_num_total_nodes'] = len(G.nodes)
+        individ_graph_msr_dict['sg_num_connected_comp'] = nx.algorithms.components.number_connected_components(G)
+        subgraph = largest_subgraph(G)
+        individ_graph_msr_dict['sg_largest_component'] = len(subgraph)
+        individ_graph_msr_dict['sg_average_clustering'] = nx.average_clustering(subgraph)
+        individ_graph_msr_dict['sg_shortest_path_length'] = nx.average_shortest_path_length(subgraph)
+        individ_graph_msr_dict['sg_global_efficiency'] = nx.global_efficiency(subgraph)
     return individ_graph_msr_dict
 
 
-def collate_graph_measures(network, subjects=None, grouping_col='group',prop_thr=None, subgraph_network=None):
+def collate_graph_measures(subjects=None, grouping_col='group',prop_thr=None, subgraph_network=None):
     if subjects is not None:
         if isinstance(subjects,np.ndarray):
             subjects = list(subjects)
+        elif isinstance(subjects, int):
+            subjects = [subjects]
         elif not isinstance(subjects,list):
-           field = [k for k,v in shared.__dict__.items() if v == subjects]
-           name_str = field[0].split('.')[-1]+'_indices'
+            # The case where group name was used for the list of subjects
+           edited_dict = {k:v for k,v in shared.__dict__.items() if isinstance(v,list)}
+           field = [k for k,v in edited_dict.items() if subjects in v]
+           name_str = field[0].split('.')[-1]
            subjects = [v for k,v in shared.__dict__.items() if k == name_str][0]
     else:
        subjects = (shared.group1_indices+shared.group2_indices)
+    print(f'Analyzing {subjects}')
     global tmp
-    tmp = current_analysis(network, grouping_col, prop_thr, subgraph_network)
+    tmp = current_analysis(grouping_col, prop_thr, subgraph_network)
     with utils.parallel_setup() as pool:
         df = pd.concat(pool.map(parallel_graph_msr,subjects))
-
     if subgraph_network:
         with utils.parallel_setup() as pool:
             df_subgraph = pd.concat(pool.map(parallel_subgraph_msr, subjects))
-        df = df.merge(df_subgraph, on = 'subj_ix')
+        df = df.merge(df_subgraph, on = 'subject')
     return df
 
 def parallel_graph_msr(subj):
-    return individ_graph_msrs(tmp.network, subj, prop_thr=tmp.prop_thr, grouping_col=tmp.grouping_col)
+    return individ_graph_msrs(subj, prop_thr=tmp.prop_thr, grouping_col=tmp.grouping_col)
 
 def parallel_subgraph_msr(subj):
-    return individ_subgraph_msrs(tmp.network, tmp.subgraph_network, subj, prop_thr=tmp.prop_thr, grouping_col=tmp.grouping_col)
+    return individ_subgraph_msrs(tmp.subgraph_network, subj, prop_thr=tmp.prop_thr, grouping_col=tmp.grouping_col)
 
 
-def individ_graph_msrs(network, subj, prop_thr=None, grouping_col='group'):
+def individ_graph_msrs(subj, prop_thr=None, grouping_col='group'):
     thr_G, percent_shared_edges = create_density_based_network(subj, prop_thr)
     igmd = calculate_graph_msrs(thr_G)
     tmp_df = pd.DataFrame(igmd, index=[subj])
-    tmp_df[['percent_shared_edges','threshold','subj_ix','network']] = percent_shared_edges,prop_thr,subj, network
+    tmp_df[['percent_shared_edges','threshold','subj_ix']] = percent_shared_edges,prop_thr,subj
     tmp_df = utils.subject_converter(tmp_df,orig_subj_col='subj_ix')
     print(f'End {subj} {prop_thr}')
     return tmp_df
 
-def individ_subgraph_msrs(network, subgraph, subj, prop_thr=None, grouping_col='group'):
+def individ_subgraph_msrs(subgraph, subj, prop_thr=None, grouping_col='group'):
     thr_G, percent_shared_edges = create_density_based_network(subj, prop_thr)
     subgraph = filter_density_based_network(thr_G, subgraph)
     igmd = calculate_graph_msrs(subgraph)
