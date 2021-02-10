@@ -267,6 +267,10 @@ def create_density_based_network(subj_idx, prop_thr):
 def calculate_graph_msrs(G):
     individ_graph_msr_dict = {}
     if nx.is_connected(G):
+        communities = nx.algorithms.community.modularity_max.greedy_modularity_communities(G)
+        individ_graph_dict['nx_communities'] = communities
+        individ_graph_dict['nx_num_of_comm'] = len(communities)
+        individ_graph_dict['modularity'] = nx.algorithms.community.quality.modularity(G, communities)
         individ_graph_msr_dict['gm_shortest_path'] = nx.algorithms.shortest_paths.generic.average_shortest_path_length(G, method='dijkstra')
         individ_graph_msr_dict['gm_local_efficiency'] = nx.algorithms.efficiency_measures.local_efficiency(G)
     else:
