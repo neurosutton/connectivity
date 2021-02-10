@@ -3,5 +3,6 @@ directory_defs.json
 *.pyc
 directory_defs*
 user_notes_*
-.spyproject*
+.spyproject/
 shared.py
+.vs/
