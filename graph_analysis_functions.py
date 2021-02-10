@@ -319,12 +319,28 @@ def graph_msr_group_diffs(network, grouping_col, prop_thr_list=np.arange(.09,1,.
         utils.save_df(df, 'long_graph_msrs.csv')
     return df
 
+<<<<<<< HEAD
 def save_long_format_results(output_filepath, subjects=None, grouping_col='group',prop_thr=None, subgraph_network=None, multiproc=True):
     """All input arguments the same as collate_graph_measures, plus output filepath for csv with the results for each subject, threshold, network, etc.
     """
     df = collate_graph_measures(subjects=subjects, grouping_col=grouping_col,prop_thr=prop_thr, subgraph_network=subgraph_network, multiproc=multiproc)
     return df.to_csv(output_filepath,index=False)
 =======
+
+def save_long_format_results(output_filepath, subjects=None,
+                             grouping_col='group', prop_thr=None,
+                             subgraph_network=None, multiproc=True):
+    """ All input arguments the same as collate_graph_measures, plus
+        output filepath for csv with the results for each subject, threshold,
+        network, etc.
+    """
+    df = collate_graph_measures(subjects=subjects,
+                                grouping_col=grouping_col,
+                                prop_thr=prop_thr,
+                                subgraph_network=subgraph_network,
+                                multiproc=multiproc)
+    return df.to_csv(output_filepath, index=False)
+>>>>>>> 1e0e27e662d893ed3ee9690530f8919970303ddc
 
 def summarize_graph_msr_group_diffs(df, grouping_col, limit_subjs=None, save=False):
     """Inputs:
