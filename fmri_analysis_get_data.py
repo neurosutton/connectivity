@@ -6,16 +6,10 @@ Date: August 2020
 v0.3 (BMS) Adapted fmri_analysis_functions for pandas
 """
 import os
-from glob import glob
 import numpy as np
-import fnmatch, random, time, pickle
+import fnmatch
 import pandas as pd
-import json
-from collections import OrderedDict, defaultdict
-from datetime import datetime
 from scipy.io import loadmat
-from importlib import reload
-
 import fmri_analysis_utilities as utils
 import fmri_analysis_load_funcs as faload
 import fmri_analysis_plotting as faplot
@@ -23,33 +17,38 @@ import fmri_analysis_manipulations as fam
 import shared
 
 
-def get_mdata(conn_dir=shared.conn_dir, conn_file=shared.conn_file):
-    """Loading and reloading the module is much quicker with loading the matrix as its own method. Call first, so that there is data, though."""
+def get_mdata(conn_dir=None, conn_file=None):
+    """ Loading and reloading the module is much quicker with loading
+        the matrix as its own method. Call first, so that there is data,
+        though. """
     if not conn_dir:
-        conn_dir = get_conn_dir
-        conn_file = get_conn_file
+        conn_dir = shared.conn_dir  # get_conn_dir
+        conn_file = shared.conn_file  # get_conn_file
     return loadmat(os.path.join(conn_dir, conn_file))
 
 
 def get_conn_data(mdata=None, roi_count=None, clear_triu=True, subset=[]):
     """Foundational method to transform the MATLAB matrices to numpy matrices.
     Output:
-    mdata loaded in the shared object; dictionary of arrays in line with MATLAB data structures.
-    conn_data: Just the connectivity matrices extracted from mdata; square matrix excludes the regressors and atlas-based values that CONN adds to the right side of the matrix
+    mdata     : loaded in the shared object; dictionary of arrays in line with
+                MATLAB data structures.
+    conn_data : Just the connectivity matrices extracted from mdata;
+                square matrix excludes the regressors and atlas-based values
+                that CONN adds to the right side of the matrix
     """
     mdata = get_mdata() if mdata is None else mdata
     roi_count = mdata['Z'].shape[0] if roi_count is None else roi_count
     conn_data = mdata['Z'][:roi_count, :roi_count, :]
     if subset:
-        if not isinstance(subset,list):
-            subset=[subset]
+        if not isinstance(subset, list):
+            subset = [subset]
         if set(subset).issubset([shared.group1, shared.group2]):
-            if not hasattr(shared,'group1_indices'):
+            if not hasattr(shared, 'group1_indices'):
                 get_subj_df_data()
             key = [k + "_indices" for k,v in shared.__dict__.items() if v == subset[0]][0]
-            subset = getattr(shared,key)
+            subset = getattr(shared, key)
             print(f'Subset has {len(subset)} participants.')
-        conn_data=conn_data[:,:,subset]
+        conn_data = conn_data[:, :, subset]
         print(f'Connectivity matrix = {conn_data.shape}')
     if clear_triu:
         for subject in range(conn_data.shape[2]):
@@ -64,7 +63,7 @@ def get_network_parcels(network_name, mdata=None):
 
     parcel_names = [str[0].lower() for str in mdata['names'][0]]
     parcels = {k.split('.')[-1]:v for v,k in enumerate(parcel_names)}
-    if network_name and network_name is not "wb":
+    if network_name and network_name != "wb":
         pattern = network_name.lower() + '*'
         matching = fnmatch.filter(parcels.keys(), pattern)
         network_parcels = {k:v for k,v in parcels.items() if k in matching}
