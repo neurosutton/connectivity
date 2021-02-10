@@ -230,7 +230,6 @@ def calculate_graph_msrs(G, subgraph_name=None):
         individ_graph_msr_dict['modularity'] = nx.algorithms.community.quality.modularity(G, communities)
         individ_graph_msr_dict['gm_shortest_path'] = nx.algorithms.shortest_paths.generic.average_shortest_path_length(G, method='dijkstra')
         individ_graph_msr_dict['gm_local_efficiency'] = nx.algorithms.efficiency_measures.local_efficiency(G)
-        individ_graph_msr_dict['mean_degree'] = np.nanmean(nx.degree(G))
     if not nx.is_connected(G) or subgraph_name:
         individ_graph_msr_dict['sg_num_total_edges'] = len(G.edges)
         individ_graph_msr_dict['sg_num_total_nodes'] = len(G.nodes)
@@ -240,6 +239,7 @@ def calculate_graph_msrs(G, subgraph_name=None):
         individ_graph_msr_dict['sg_average_clustering'] = nx.average_clustering(subgraph)
         individ_graph_msr_dict['sg_shortest_path_length'] = nx.average_shortest_path_length(subgraph)
         individ_graph_msr_dict['sg_global_efficiency'] = nx.global_efficiency(subgraph)
+        individ_graph_msr_dict['mean_degree'] = np.nanmean(nx.degree(G))
         individ_graph_msr_dict['network'] = subgraph_name
     return individ_graph_msr_dict
 
@@ -311,6 +311,11 @@ def graph_msr_group_diffs(network, grouping_col, prop_thr_list=np.arange(.09,1,.
         utils.save_df(df, 'long_graph_msrs.csv')
     return df
 
+def save_long_format_results(output_filepath, subjects=None, grouping_col='group',prop_thr=None, subgraph_network=None):
+    """All input arguments the same as collate_graph_measures, plus output filepath for csv with the results for each subject, threshold, network, etc.
+    """
+    df = collate_graph_measures(subjects=None, grouping_col='group',prop_thr=None, subgraph_network=None)
+    return df.to_csv(output_filepath,index=False)
 
 def summarize_graph_msr_group_diffs(df, grouping_col, limit_subjs=None, save=False):
     """Inputs:
