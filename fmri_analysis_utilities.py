@@ -39,8 +39,8 @@ def parallel_setup():
     import multiprocessing as mp
     import math
     cores = mp.cpu_count()
-    if cores < 8:
-        job_limit = math.ceil(.5*cores)
+    if cores <= 8:
+        job_limit = math.ceil(.25*cores)
     else:
         job_limit = math.ceil(.3*cores) # Play nice with other super users.
     return mp.Pool(job_limit)
