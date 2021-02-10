@@ -11,6 +11,8 @@ import networkx.algorithms.community as nx_comm
 from sklearn import metrics
 from random import shuffle
 from networkx.algorithms import community
+
+# BMS
 from collections import OrderedDict
 import fmri_analysis_get_data as get
 import fmri_analysis_manipulations as fam
@@ -20,7 +22,7 @@ utils.check_data_loaded()
 import nia_stats_and_summaries as nss
 from tqdm import tqdm
 import shared
-
+#>>>END BMS
 
 # CREATE A FUNCTION TO SIMPLIFY PLOTTING and GRAPH MEASURES
 def plot_weighted_graph(gw, **kwargs):
@@ -33,7 +35,7 @@ def plot_weighted_graph(gw, **kwargs):
         "edge_cmap": plt.cm.rainbow,
         "edge_vmin": 0,
         "edge_vmax": 1,
-        "with_labels": False
+        "with_labels" :  False
     }
     if 'pos' in kwargs.keys():
         options['pos'] = kwargs['pos']
@@ -58,15 +60,11 @@ def print_graph_measures(gw):
 
 def make_graph_without_nans(matrix):
     """
-    Input matrix is original matrix that may be masked for a  network/person
+    Input matrix is original matrix that may be masked for a given network and/or person
     matrix = get.get_network_matrix(network_name, subj_id,
                                             network_mask,
                                             conn_data=subj_data)
-    Note: network_mask is for thresholded networks. This thresholded network is
-          appropriate when the proportional threshold is based on population-
-          level analysis. Otherwise, individual proportional thresholds can be
-          invoked through get_network_matrix with the keyword "prop_thr" and no
-          "network_mask"
+    Note: network_mask is for thresholded networks. This thresholded network is appropriate when the proportional threshold is based on population-level analysis. Otherwise, individual proportional thresholds can be invoked through get_network_matrix with the keyword "prop_thr" and no "network_mask"
     """
     graph = nx.Graph(matrix)
     edges_to_remove = []
@@ -96,7 +94,7 @@ def find_auc_for_measure(measure, df):
         auc = metrics.auc(thresholds, df[df['subject'] == subject][measure])
         auc_df.at[idx, 'subject'] = subject
         auc_df.at[idx, 'auc'] = auc
-        auc_df.at[idx, 'group'] = df[new_df['subject'] == subject]['group'].tolist()[0]
+        auc_df.at[idx, 'group'] = df[new_df['subject']==subject]['group'].tolist()[0]
         # print(new_df[new_df['subject']==subject]['group'][0])
     return auc_df
 
@@ -142,7 +140,6 @@ class current_analysis():
         self.prop_thr = prop_thr
         self.subgraph_network = subgraph_network
 
-
 def get_position_dict(network):
     """Add position information to each node using the coordinates in a dataframe with ROI labels and coordinates.
     Use with plot_weighted_graphs to represent the results in an axial super glass brain.
@@ -158,7 +155,6 @@ def get_position_dict(network):
 
     return position_dict
 
-
 def add_node_weights(G, msr_name, nx_func):
     """Inputs: G = graph
     msr_name = key entry for nodal weighting
@@ -167,7 +163,6 @@ def add_node_weights(G, msr_name, nx_func):
     msr_dict = nx_func
     for n in G.nodes:
         G.nodes[n][msr_name] = msr_dict[n]
-
 
 def sort_edge_weights(G):
     """Helper function. Extract the weights, sort them, and find the matching values for a sorted list. Needed for percentile thresholding to supplement the MST selection.
@@ -209,7 +204,6 @@ def add_thr_edges(G, prop_thr=None):
         percent_shared_edges = len(shared_edges)/len(mst_edges)
     return thresholded_network,percent_shared_edges
 
-
 def filter_density_based_network(thresholded_network, subgraph_network=None):
     """Input: String-based network of interest (e.g., 'frontoparietal') and MST + density-based thresholded network (output of add_thr_edges)
     Output: Selected network graph to be used with calculate_graph_msrs to determine metrics
@@ -219,15 +213,12 @@ def filter_density_based_network(thresholded_network, subgraph_network=None):
     H = thresholded_network.subgraph(parcel_list)
     return H
 
-
 def create_density_based_network(subj_idx, prop_thr):
-    """ Calculate the whole-brain MST for an individual and then add
-        back high connectivity edges until a threshold is met for each
-        individual. """
+    """Calculate the whole-brain MST for an individual and then add back high connectivity edges until a threshold is met for each individual"""
     mat = get.get_network_matrix('',subj_idx) # BMS Forced whole brain connectivity, so that other networks of interest can be passed to funcs without overriding MST for whole brain
     G = make_graph_without_nans(mat)
-    thresholded_network, percent_shared_edges = add_thr_edges(G, prop_thr=prop_thr)
-    return thresholded_network, percent_shared_edges
+    thresholded_network,percent_shared_edges = add_thr_edges(G,prop_thr=prop_thr)
+    return thresholded_network,percent_shared_edges
 
 
 def calculate_graph_msrs(G, subgraph_name=None):
@@ -253,10 +244,9 @@ def calculate_graph_msrs(G, subgraph_name=None):
     return individ_graph_msr_dict
 
 
-def collate_graph_measures(subjects=None, grouping_col='group', prop_thr=None,
-                           subgraph_network=None, multiproc=True):
+def collate_graph_measures(subjects=None, grouping_col='group',prop_thr=None, subgraph_network=None, multiproc=True):
     if subjects is not None:
-        if isinstance(subjects, np.ndarray):
+        if isinstance(subjects,np.ndarray):
             subjects = list(subjects)
         elif isinstance(subjects, int):
             subjects = [subjects]
@@ -267,41 +257,31 @@ def collate_graph_measures(subjects=None, grouping_col='group', prop_thr=None,
            name_str = field[0].split('.')[-1]
            subjects = [v for k,v in shared.__dict__.items() if k == name_str][0]
     else:
-        subjects = (shared.group1_indices + shared.group2_indices)
+       subjects = (shared.group1_indices+shared.group2_indices)
     print(f'Analyzing {subjects}')
     global tmp
     tmp = current_analysis(grouping_col, prop_thr, subgraph_network)
-    if multiproc is True:
+    if multiproc:
         with utils.parallel_setup() as pool:
             df = pd.concat(pool.map(parallel_graph_msr,subjects))
         if subgraph_network:
             with utils.parallel_setup() as pool:
                 df_subgraph = pd.concat(pool.map(parallel_subgraph_msr, subjects))
-            df = pd.concat([df, df_subgraph])
+            df = pd.concat([df,df_subgraph])
     else:
-        df = pd.DataFrame()
+        df_list = []
         for subj in subjects:
-            df_subj = individ_graph_msrs(subj, prop_thr=tmp.prop_thr,
-                                         grouping_col=tmp.grouping_col)
-            df = pd.concat([df, df_subj])
+            df_list.append(individ_graph_msrs(subj,prop_thr=tmp.prop_thr, grouping_col=tmp.grouping_col))
             if subgraph_network:
-                df_subj_sub = individ_subgraph_msrs(tmp.subgraph_network,
-                                                    subj,
-                                                    prop_thr=tmp.prop_thr,
-                                                    grouping_col=tmp.grouping_col)
-                df = pd.concat([df, df_subj_sub])
+                df_list.append(individ_subgraph_msrs(tmp.subgraph_network,subj,prop_thr=tmp.prop_thr, grouping_col=tmp.grouping_col))
+        df = pd.concat(df_list)
     return df
 
-
 def parallel_graph_msr(subj):
-    return individ_graph_msrs(subj, prop_thr=tmp.prop_thr,
-                              grouping_col=tmp.grouping_col)
-
+    return individ_graph_msrs(subj, prop_thr=tmp.prop_thr, grouping_col=tmp.grouping_col)
 
 def parallel_subgraph_msr(subj):
-    return individ_subgraph_msrs(tmp.subgraph_network, subj,
-                                 prop_thr=tmp.prop_thr,
-                                 grouping_col=tmp.grouping_col)
+    return individ_subgraph_msrs(tmp.subgraph_network, subj, prop_thr=tmp.prop_thr, grouping_col=tmp.grouping_col)
 
 
 def individ_graph_msrs(subj, prop_thr=None, grouping_col='group'):
@@ -312,7 +292,6 @@ def individ_graph_msrs(subj, prop_thr=None, grouping_col='group'):
     tmp_df = utils.subject_converter(tmp_df,orig_subj_col='subj_ix')
     print(f'End {subj} {prop_thr}')
     return tmp_df
-
 
 def individ_subgraph_msrs(subgraph_name, subj, prop_thr=None, grouping_col='group'):
     thr_G, percent_shared_edges = create_density_based_network(subj, prop_thr)
