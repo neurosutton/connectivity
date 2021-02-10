@@ -271,9 +271,9 @@ def collate_graph_measures(subjects=None, grouping_col='group',prop_thr=None, su
     else:
         df_list = []
         for subj in subjects:
-            individ_graph_msrs(subj,prop_thr=tmp.prop_thr, grouping_col=tmp.grouping_col)
+            df_list.append(individ_graph_msrs(subj,prop_thr=tmp.prop_thr, grouping_col=tmp.grouping_col))
             if subgraph_network:
-                individ_subgraph_msrs(tmp.subgraph_name,subj,prop_thr=tmp.prop_thr, grouping_col=tmp.grouping_col)
+                df_list.append(individ_subgraph_msrs(tmp.subgraph_network,subj,prop_thr=tmp.prop_thr, grouping_col=tmp.grouping_col))
         df = pd.concat(df_list)
     return df
 
