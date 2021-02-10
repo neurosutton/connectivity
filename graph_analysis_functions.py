@@ -256,10 +256,9 @@ def filter_density_based_network(thresholded_network, subgraph_network=None):
     H = thresholded_network.subgraph(parcel_list)
     return H
 
-def create_density_based_network(network, subj_idx, prop_thr):
+def create_density_based_network(subj_idx, prop_thr):
     """Calculate the whole-brain MST for an individual and then add back high connectivity edges until a threshold is met for each individual"""
-    #common_mat = get.get_cohort_network_matrices(network, all_the_indices)
-    mat = get.get_network_matrix(network,subj_idx)
+    mat = get.get_network_matrix('',subj_idx) # BMS Forced whole brain connectivity, so that other networks of interest can be passed to funcs without overriding MST for whole brain
     G = make_graph_without_nans(mat)
     thresholded_network,percent_shared_edges = add_thr_edges(G,prop_thr=prop_thr)
     return thresholded_network,percent_shared_edges
@@ -280,7 +279,7 @@ def calculate_graph_msrs(G):
 
 def collate_graph_measures(network, subjects=None, grouping_col='group',prop_thr=None, subgraph_network=None):
     if subjects is not None:
-        if isinstance(subjects,np.array):
+        if isinstance(subjects,np.ndarray):
             subjects = list(subjects)
         elif not isinstance(subjects,list):
            field = [k for k,v in shared.__dict__.items() if v == subjects]
@@ -307,7 +306,7 @@ def parallel_subgraph_msr(subj):
 
 
 def individ_graph_msrs(network, subj, prop_thr=None, grouping_col='group'):
-    thr_G, percent_shared_edges = create_density_based_network(network, subj, prop_thr)
+    thr_G, percent_shared_edges = create_density_based_network(subj, prop_thr)
     igmd = calculate_graph_msrs(thr_G)
     tmp_df = pd.DataFrame(igmd, index=[subj])
     tmp_df[['percent_shared_edges','threshold','subj_ix','network']] = percent_shared_edges,prop_thr,subj, network
@@ -316,7 +315,7 @@ def individ_graph_msrs(network, subj, prop_thr=None, grouping_col='group'):
     return tmp_df
 
 def individ_subgraph_msrs(network, subgraph, subj, prop_thr=None, grouping_col='group'):
-    thr_G, percent_shared_edges = create_density_based_network(network, subj, prop_thr)
+    thr_G, percent_shared_edges = create_density_based_network(subj, prop_thr)
     subgraph = filter_density_based_network(thr_G, subgraph)
     igmd = calculate_graph_msrs(subgraph)
     tmp_subgraph_df = pd.DataFrame(igmd, index=[subj])
