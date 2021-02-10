@@ -348,12 +348,18 @@ def save_long_format_results(output_filepath, subjects=None,
         output filepath for csv with the results for each subject, threshold,
         network, etc.
     """
-    df = collate_graph_measures(subjects=subjects,
-                                grouping_col=grouping_col,
-                                prop_thr=prop_thr,
-                                subgraph_network=subgraph_network,
-                                multiproc=multiproc)
-    return df.to_csv(output_filepath, index=False)
+    prop_thr = [prop_thr] if type(prop_thr) is float else prop_thr
+    for thr in prop_thr:
+        df = collate_graph_measures(subjects=subjects,
+                                    grouping_col=grouping_col,
+                                    prop_thr=thr,
+                                    subgraph_network=subgraph_network,
+                                    multiproc=multiproc)
+        if 'df_complete' not in locals():
+            df_complete = df.copy()
+        else:
+            df_complete = pd.concat([df_complete, df])
+    return df_complete.to_csv(output_filepath, index=False)
 
 
 def summarize_graph_msr_group_diffs(df, grouping_col, limit_subjs=None, save=False):
