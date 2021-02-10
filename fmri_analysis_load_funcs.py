@@ -76,13 +76,7 @@ def load_shared(pkl_file):
 def update_shared(obj=None):
     if obj:
         _pickle(obj)
-#    global shared
-#    shared = load_shared()
-#    return shared
 
-# if __name__ == "__main__":
-#     print("Hi there.")
-#     init_variables()
-
-
+# Potentially temporary fix for shared module not being created upon import
+# TODO see if there is a better way to make sure the shared module exists and can be loaded.
 init_variables()
