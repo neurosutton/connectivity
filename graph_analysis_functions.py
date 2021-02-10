@@ -341,11 +341,19 @@ def graph_msr_group_diffs(network, grouping_col, prop_thr_list=np.arange(.09,1,.
     return df
 
 
-def save_long_format_results(output_filepath, subjects=None, grouping_col='group',prop_thr=None, subgraph_network=None):
-    """All input arguments the same as collate_graph_measures, plus output filepath for csv with the results for each subject, threshold, network, etc.
+def save_long_format_results(output_filepath, subjects=None,
+                             grouping_col='group', prop_thr=None,
+                             subgraph_network=None, multiproc=True):
+    """ All input arguments the same as collate_graph_measures, plus
+        output filepath for csv with the results for each subject, threshold,
+        network, etc.
     """
-    df = collate_graph_measures(subjects=subjects, grouping_col=grouping_col,prop_thr=prop_thr, subgraph_network=subgraph_network)
-    return df.to_csv(output_filepath,index=False)
+    df = collate_graph_measures(subjects=subjects,
+                                grouping_col=grouping_col,
+                                prop_thr=prop_thr,
+                                subgraph_network=subgraph_network,
+                                multiproc=multiproc)
+    return df.to_csv(output_filepath, index=False)
 
 
 def summarize_graph_msr_group_diffs(df, grouping_col, limit_subjs=None, save=False):
