@@ -244,9 +244,10 @@ def calculate_graph_msrs(G, subgraph_name=None):
     return individ_graph_msr_dict
 
 
-def collate_graph_measures(subjects=None, grouping_col='group',prop_thr=None, subgraph_network=None, multiproc=True):
+def collate_graph_measures(subjects=None, grouping_col='group', prop_thr=None,
+                           subgraph_network=None, multiproc=True):
     if subjects is not None:
-        if isinstance(subjects,np.ndarray):
+        if isinstance(subjects, np.ndarray):
             subjects = list(subjects)
         elif isinstance(subjects, int):
             subjects = [subjects]
@@ -257,7 +258,7 @@ def collate_graph_measures(subjects=None, grouping_col='group',prop_thr=None, su
            name_str = field[0].split('.')[-1]
            subjects = [v for k,v in shared.__dict__.items() if k == name_str][0]
     else:
-       subjects = (shared.group1_indices+shared.group2_indices)
+        subjects = (shared.group1_indices + shared.group2_indices)
     print(f'Analyzing {subjects}')
     global tmp
     tmp = current_analysis(grouping_col, prop_thr, subgraph_network)
@@ -271,14 +272,25 @@ def collate_graph_measures(subjects=None, grouping_col='group',prop_thr=None, su
     else:
         df_list = []
         for subj in subjects:
-            df_list.append(individ_graph_msrs(subj,prop_thr=tmp.prop_thr, grouping_col=tmp.grouping_col))
+            df_list.append(individ_graph_msrs(subj, prop_thr=tmp.prop_thr,
+                                              grouping_col=tmp.grouping_col))
             if subgraph_network:
-                df_list.append(individ_subgraph_msrs(tmp.subgraph_network,subj,prop_thr=tmp.prop_thr, grouping_col=tmp.grouping_col))
+                if type(subgraph_network) is list:
+                    for network in subgraph_network:
+                        df_list.append(individ_subgraph_msrs(network, subj,
+                                                             prop_thr=tmp.prop_thr,
+                                                             grouping_col=tmp.grouping_col))
+                else:
+                    df_list.append(individ_subgraph_msrs(tmp.subgraph_network,
+                                                         subj,prop_thr=tmp.prop_thr,
+                                                         grouping_col=tmp.grouping_col))
         df = pd.concat(df_list)
     return df
 
+
 def parallel_graph_msr(subj):
     return individ_graph_msrs(subj, prop_thr=tmp.prop_thr, grouping_col=tmp.grouping_col)
+
 
 def parallel_subgraph_msr(subj):
     return individ_subgraph_msrs(tmp.subgraph_network, subj, prop_thr=tmp.prop_thr, grouping_col=tmp.grouping_col)
@@ -292,6 +304,7 @@ def individ_graph_msrs(subj, prop_thr=None, grouping_col='group'):
     tmp_df = utils.subject_converter(tmp_df,orig_subj_col='subj_ix')
     print(f'End {subj} {prop_thr}')
     return tmp_df
+
 
 def individ_subgraph_msrs(subgraph_name, subj, prop_thr=None, grouping_col='group'):
     thr_G, percent_shared_edges = create_density_based_network(subj, prop_thr)
