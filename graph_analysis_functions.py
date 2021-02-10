@@ -244,7 +244,7 @@ def calculate_graph_msrs(G, subgraph_name=None):
     return individ_graph_msr_dict
 
 
-def collate_graph_measures(subjects=None, grouping_col='group',prop_thr=None, subgraph_network=None):
+def collate_graph_measures(subjects=None, grouping_col='group',prop_thr=None, subgraph_network=None, multiproc=False):
     if subjects is not None:
         if isinstance(subjects,np.ndarray):
             subjects = list(subjects)
@@ -261,12 +261,20 @@ def collate_graph_measures(subjects=None, grouping_col='group',prop_thr=None, su
     print(f'Analyzing {subjects}')
     global tmp
     tmp = current_analysis(grouping_col, prop_thr, subgraph_network)
-    with utils.parallel_setup() as pool:
-        df = pd.concat(pool.map(parallel_graph_msr,subjects))
-    if subgraph_network:
+    if multiproc:
         with utils.parallel_setup() as pool:
-            df_subgraph = pd.concat(pool.map(parallel_subgraph_msr, subjects))
-        df = pd.concat([df,df_subgraph])
+            df = pd.concat(pool.map(parallel_graph_msr,subjects))
+        if subgraph_network:
+            with utils.parallel_setup() as pool:
+                df_subgraph = pd.concat(pool.map(parallel_subgraph_msr, subjects))
+            df = pd.concat([df,df_subgraph])
+    else:
+        df_list = []
+        for subj in subjects:
+            individ_graph_msrs(subj,prop_thr=tmp.prop_thr, grouping_col=tmp.grouping_col)
+            if subgraph_network:
+                individ_subgraph_msrs(tmp.subgraph_name,subj,prop_thr=tmp.prop_thr, grouping_col=tmp.grouping_col)
+        df = pd.concat(df_list)
     return df
 
 def parallel_graph_msr(subj):
@@ -311,10 +319,10 @@ def graph_msr_group_diffs(network, grouping_col, prop_thr_list=np.arange(.09,1,.
         utils.save_df(df, 'long_graph_msrs.csv')
     return df
 
-def save_long_format_results(output_filepath, subjects=None, grouping_col='group',prop_thr=None, subgraph_network=None):
+def save_long_format_results(output_filepath, subjects=None, grouping_col='group',prop_thr=None, subgraph_network=None, multiproc=False):
     """All input arguments the same as collate_graph_measures, plus output filepath for csv with the results for each subject, threshold, network, etc.
     """
-    df = collate_graph_measures(subjects=subjects, grouping_col=grouping_col,prop_thr=prop_thr, subgraph_network=subgraph_network)
+    df = collate_graph_measures(subjects=subjects, grouping_col=grouping_col,prop_thr=prop_thr, subgraph_network=subgraph_network, multiproc=multiproc)
     return df.to_csv(output_filepath,index=False)
 
 def summarize_graph_msr_group_diffs(df, grouping_col, limit_subjs=None, save=False):
