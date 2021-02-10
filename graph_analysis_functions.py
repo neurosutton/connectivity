@@ -221,7 +221,7 @@ def create_density_based_network(subj_idx, prop_thr):
     return thresholded_network,percent_shared_edges
 
 
-def calculate_graph_msrs(G):
+def calculate_graph_msrs(G, subgraph_name=None):
     individ_graph_msr_dict = {}
     if nx.is_connected(G):
         communities = nx.algorithms.community.modularity_max.greedy_modularity_communities(G)
@@ -231,7 +231,7 @@ def calculate_graph_msrs(G):
         individ_graph_msr_dict['gm_shortest_path'] = nx.algorithms.shortest_paths.generic.average_shortest_path_length(G, method='dijkstra')
         individ_graph_msr_dict['gm_local_efficiency'] = nx.algorithms.efficiency_measures.local_efficiency(G)
         individ_graph_msr_dict['mean_degree'] = np.nanmean(nx.degree(G))
-    else:
+    if not nx.is_connected(G) or subgraph_name:
         individ_graph_msr_dict['sg_num_total_edges'] = len(G.edges)
         individ_graph_msr_dict['sg_num_total_nodes'] = len(G.nodes)
         individ_graph_msr_dict['sg_num_connected_comp'] = nx.algorithms.components.number_connected_components(G)
@@ -240,6 +240,7 @@ def calculate_graph_msrs(G):
         individ_graph_msr_dict['sg_average_clustering'] = nx.average_clustering(subgraph)
         individ_graph_msr_dict['sg_shortest_path_length'] = nx.average_shortest_path_length(subgraph)
         individ_graph_msr_dict['sg_global_efficiency'] = nx.global_efficiency(subgraph)
+        individ_graph_msr_dict['network'] = subgraph_name
     return individ_graph_msr_dict
 
 
@@ -265,7 +266,7 @@ def collate_graph_measures(subjects=None, grouping_col='group',prop_thr=None, su
     if subgraph_network:
         with utils.parallel_setup() as pool:
             df_subgraph = pd.concat(pool.map(parallel_subgraph_msr, subjects))
-        df = df.merge(df_subgraph, on = 'subject')
+        df = pd.concat([df,df_subgraph])
     return df
 
 def parallel_graph_msr(subj):
@@ -284,10 +285,10 @@ def individ_graph_msrs(subj, prop_thr=None, grouping_col='group'):
     print(f'End {subj} {prop_thr}')
     return tmp_df
 
-def individ_subgraph_msrs(subgraph, subj, prop_thr=None, grouping_col='group'):
+def individ_subgraph_msrs(subgraph_name, subj, prop_thr=None, grouping_col='group'):
     thr_G, percent_shared_edges = create_density_based_network(subj, prop_thr)
-    subgraph = filter_density_based_network(thr_G, subgraph)
-    igmd = calculate_graph_msrs(subgraph)
+    subgraph = filter_density_based_network(thr_G, subgraph_name)
+    igmd = calculate_graph_msrs(subgraph, subgraph_name) 
     tmp_subgraph_df = pd.DataFrame(igmd, index=[subj])
     tmp_subgraph_df['subj_ix'] = subj
     tmp_subgraph_df = utils.subject_converter(tmp_subgraph_df,orig_subj_col='subj_ix')
