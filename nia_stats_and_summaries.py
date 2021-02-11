@@ -48,7 +48,12 @@ def calculate_auc(
         msrs=None,
         subgroups=None):
     """Input: Long format dataframe with subject identifiers and various measures that are to be permuted. In general, using this package will denote the permuted measures with gm for graph measure."""
-    msrs = [msr for msr in df.columns if 'gm' in msr]
+    if not msrs:
+        excl_cols = ['subj', 'index', grouping_col, 'group', 'threshold']
+        msrs = [msr for msr in df.columns if (not any(substring in msr for substring in excl_cols)) 
+                                            and (df[msr].dtype in [np.float64, np.int64]
+                                            and (len(set(df[msr])) > 3))]
+    print(f'Working through {msrs}')
     # In the whole brain case, method will fail without specifying dtype.
     df['network'] = df['network'].astype(str)
     for msr in sorted(msrs):
@@ -66,7 +71,7 @@ def calculate_auc(
 
         groups = list(set(tmp[grouping_col]))
         group1_members = set(
-            tmp.loc[tmp[grouping_col] == groups[0], name_id_col])
+            tmp.loc[tmp[grouping_col] == groups[0], name_id_col]) # List of subject IDs
         study_exp_auc_diff = auc_group_diff(
             tmp, group1_members, msr, group_match_col=name_id_col)
         print(f'{groups[0]} - {groups[1]} = {study_exp_auc_diff}')
@@ -104,7 +109,7 @@ def auc_group_diff(df, group1_list, msr, group_match_col='subj'):
         group1_list), ['threshold', msr]].groupby('threshold').mean().values
     group2_means = df.loc[~df[group_match_col].isin(
         group1_list), ['threshold', msr]].groupby('threshold').mean().values
-    thrs = sorted(set(df['threshold']))
+    thrs = sorted(set(df['threshold'].dropna()))
     group1_auc = metrics.auc(thrs, group1_means)
     group2_auc = metrics.auc(thrs, group2_means)
     return group1_auc - group2_auc

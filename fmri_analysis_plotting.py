@@ -200,6 +200,10 @@ def plot_cohort_comparison_matrices(
 
 
 def plot_auc(study_exp_auc_diff, permuted_diffs, msr, network=None):
+    """Intended as a helper function for nia_stats_and_summaries (calculate_auc).
+    Plots calculated study-related experimental differences and random, 
+    permuted differences for a given metric. 
+    """
     network = network if network else 'Whole_brain'
     fig, ax = plt.subplots()
     sns.histplot(x=permuted_diffs, kde=True)
