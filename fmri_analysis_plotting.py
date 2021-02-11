@@ -20,16 +20,28 @@ import fmri_analysis_get_data as get
 import shared
 
 
-def plot_score_by_network(measure, network, drop=[], conn_data=None, prop_thr=None, network_mask=None,
-                          exclude_negatives=False, stats=False):
+def plot_score_by_network(
+        measure,
+        network,
+        drop=[],
+        conn_data=None,
+        prop_thr=None,
+        network_mask=None,
+        exclude_negatives=False,
+        stats=False):
     conn_data = get.get_conn_data() if conn_data is None else conn_data
     scores_df = get.get_subject_scores(measure)
     conn_values = []
     for idx in drop:
         scores_df = scores_df[scores_df['index'] != idx]
     for subj in scores_df['index']:
-        m = get.get_network_matrix(network, subj, conn_data=conn_data, prop_thr=prop_thr,
-                               network_mask=network_mask, exclude_negatives=exclude_negatives)
+        m = get.get_network_matrix(
+            network,
+            subj,
+            conn_data=conn_data,
+            prop_thr=prop_thr,
+            network_mask=network_mask,
+            exclude_negatives=exclude_negatives)
         m[np.triu_indices(m.shape[0], k=0)] = np.nan
         conn_values.append(np.nanmean(m))
 
@@ -39,7 +51,12 @@ def plot_score_by_network(measure, network, drop=[], conn_data=None, prop_thr=No
         print(stats.pearsonr(scores_df['connectivity'], scores_df[measure]))
     return scores_df
 
-def plot_cohort_comparison_over_thresholds(network_name, comparison_df, group='group', y='connectivity'):
+
+def plot_cohort_comparison_over_thresholds(
+        network_name,
+        comparison_df,
+        group='group',
+        y='connectivity'):
     ''' Plot group differences in connectivity strength over a range of thresholds.
 
         Parameters
@@ -59,12 +76,23 @@ def plot_cohort_comparison_over_thresholds(network_name, comparison_df, group='g
           asterix in the right position
     '''
     fig, ax = plt.subplots()
-    sns.lineplot(data=comparison_df, x='threshold', y=y, hue=group, marker='.',
-                 ci=95, err_style='bars', alpha=0.8, err_kws={'capsize':5}, linestyle=':')
+    sns.lineplot(
+        data=comparison_df,
+        x='threshold',
+        y=y,
+        hue=group,
+        marker='.',
+        ci=95,
+        err_style='bars',
+        alpha=0.8,
+        err_kws={
+            'capsize': 5},
+        linestyle=':')
     plt.title(f'Group Differences in {network_name} Network')
     ax.set_xlabel('Proportional Threshold')
     ax.set_ylabel(y)
     plt.show()
+
 
 def plot_network_matrix(network_name, subj_idx, conn_data=None):
     if not conn_data:
@@ -78,17 +106,30 @@ def plot_network_matrix(network_name, subj_idx, conn_data=None):
     # plt.matshow(conn_data['Z'][:, :, 0][np.ix_(indices, indices)])
     # Let's adjust the tick labels.
     plt.title(f'Subject: {subj_idx} | Network: {network_name}')
-    plt.xticks(np.arange(len(indices)), list(parcels.keys()), rotation='vertical')
-    plt.yticks(np.arange(len(indices)), list(parcels.keys()), rotation='horizontal')
+    plt.xticks(
+        np.arange(
+            len(indices)), list(
+            parcels.keys()), rotation='vertical')
+    plt.yticks(
+        np.arange(
+            len(indices)), list(
+            parcels.keys()), rotation='horizontal')
     # plt.colorbar()
-    ax.tick_params(axis="x", bottom=True, top=True, labelbottom=True, labeltop=False)
+    ax.tick_params(
+        axis="x",
+        bottom=True,
+        top=True,
+        labelbottom=True,
+        labeltop=False)
     plt.show()
 
 
 def plot_cohort_network_matrix(conn_data, network_name, subj_idx_list):
     cohort_matrices = []  # need to collect all the matrices to add
     for subj in subj_idx_list:
-        cohort_matrices.append(get.get_network_matrix(mdata, network_name, subj))
+        cohort_matrices.append(
+            get.get_network_matrix(
+                mdata, network_name, subj))
     cohort_matrices = np.asarray(cohort_matrices)
     mean_matrix = np.nanmean(cohort_matrices, axis=0)
     fig = plt.figure()
@@ -98,14 +139,35 @@ def plot_cohort_network_matrix(conn_data, network_name, subj_idx_list):
     plt.show()
 
 
-def plot_cohort_comparison_matrices(network_name, subj_idx_list_1, subj_idx_list_2, prop_thr=None, vmin=None, vmax=None, conn_data=None, mdata=None):
+def plot_cohort_comparison_matrices(
+        network_name,
+        subj_idx_list_1,
+        subj_idx_list_2,
+        prop_thr=None,
+        vmin=None,
+        vmax=None,
+        conn_data=None,
+        mdata=None):
     conn_data = get.get_conn_data() if conn_data is None else conn_data
-    mean_matrix_1 = get.get_cohort_network_matrices(network_name, subj_idx_list_1, mean=True, conn_data=conn_data, prop_thr=prop_thr)
-    mean_matrix_2 = get.get_cohort_network_matrices(network_name, subj_idx_list_2, mean=True, conn_data=conn_data, prop_thr=prop_thr)
-    vmin = np.min([np.nanmin(mean_matrix_1), np.nanmin(mean_matrix_2)]) if vmin is None else vmin
-    vmax = np.max([np.nanmax(mean_matrix_1), np.nanmax(mean_matrix_2)]) if vmax is None else vmax
+    mean_matrix_1 = get.get_cohort_network_matrices(
+        network_name,
+        subj_idx_list_1,
+        mean=True,
+        conn_data=conn_data,
+        prop_thr=prop_thr)
+    mean_matrix_2 = get.get_cohort_network_matrices(
+        network_name,
+        subj_idx_list_2,
+        mean=True,
+        conn_data=conn_data,
+        prop_thr=prop_thr)
+    vmin = np.min([np.nanmin(mean_matrix_1), np.nanmin(
+        mean_matrix_2)]) if vmin is None else vmin
+    vmax = np.max([np.nanmax(mean_matrix_1), np.nanmax(
+        mean_matrix_2)]) if vmax is None else vmax
     boundary = np.max([np.absolute(vmin), np.absolute(vmax)])
-    parcels = get.get_network_parcels(network_name, subj_idx_list_1[0], mdata=mdata)
+    parcels = get.get_network_parcels(
+        network_name, subj_idx_list_1[0], mdata=mdata)
     indices = list(parcels.values())
     fig, axs = plt.subplots(1, 2, figsize=(8, 6), dpi=180)
     cmap = plt.get_cmap('Spectral')
@@ -114,20 +176,33 @@ def plot_cohort_comparison_matrices(network_name, subj_idx_list_1, subj_idx_list
     im1 = axs[0].matshow(mean_matrix_1, cmap=cmap, norm=cNorm)
     im2 = axs[1].matshow(mean_matrix_2, cmap=cmap, norm=cNorm)
     if len(mean_matrix_1[0]) < 25:
-        axs[0].set_xticklabels(list(parcels.keys()), rotation='vertical', fontsize=5)
+        axs[0].set_xticklabels(
+            list(
+                parcels.keys()),
+            rotation='vertical',
+            fontsize=5)
         axs[0].set_xticks(np.arange(len(indices)))
-        axs[0].set_yticklabels(list(parcels.keys()), rotation='horizontal', fontsize=5)
+        axs[0].set_yticklabels(
+            list(
+                parcels.keys()),
+            rotation='horizontal',
+            fontsize=5)
         axs[0].set_yticks(np.arange(len(indices)))
-        axs[1].set_xticklabels(list(parcels.keys()), rotation='vertical', fontsize=5)
+        axs[1].set_xticklabels(
+            list(
+                parcels.keys()),
+            rotation='vertical',
+            fontsize=5)
         axs[1].set_xticks(np.arange(len(indices)))
     plt.colorbar(mappable=scalarMap, ax=axs[:], shrink=0.5)
     print(plt.gcf())
     plt.show()
-    
+
+
 def plot_auc(study_exp_auc_diff, permuted_diffs, msr, network=None):
     network = network if network else 'Whole_brain'
-    fig,ax = plt.subplots()
+    fig, ax = plt.subplots()
     sns.histplot(x=permuted_diffs, kde=True)
-    plt.axvline(study_exp_auc_diff, color='r',linewidth=5)
+    plt.axvline(study_exp_auc_diff, color='r', linewidth=5)
     plt.title(f'{network}:{msr}')
     plt.show()
