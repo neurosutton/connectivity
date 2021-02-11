@@ -276,6 +276,7 @@ def calculate_graph_msrs(G, subgraph_name=None):
             subgraph)
         individ_graph_msr_dict['mean_degree'] = np.nanmean(nx.degree(G))
         individ_graph_msr_dict['network'] = subgraph_name
+        individ_graph_msr_dict['threshold'] = prop_thr
     return individ_graph_msr_dict
 
 

@@ -48,20 +48,23 @@ def calculate_auc(
         msrs=None,
         subgroups=None):
     """Input: Long format dataframe with subject identifiers and various measures that are to be permuted. In general, using this package will denote the permuted measures with gm for graph measure."""
+     # In the whole brain case, method will fail without specifying dtype.
+    df['network'] = df['network'].astype(str)
+    if network:
+        tmp = df[df['network'].str.contains(network, case=False)].dropna(how='all')
+    else:
+        tmp = df[df['network'].replace({'nan':np.NaN}).isna()]
+
     if not msrs:
         excl_cols = ['subj', 'index', grouping_col, 'group', 'threshold']
-        msrs = [msr for msr in df.columns if (not any(substring in msr for substring in excl_cols)) 
-                                            and (df[msr].dtype in [np.float64, np.int64]
-                                            and (len(set(df[msr])) > 3))]
-    print(f'Working through {msrs}')
-    # In the whole brain case, method will fail without specifying dtype.
-    df['network'] = df['network'].astype(str)
+        msrs = [msr for msr in tmp.columns if (not any(substring in msr for substring in excl_cols)) 
+                                            and (tmp[msr].dtype in [np.float64, np.int64])
+                                            and (len(set(tmp[msr])) > 3)
+                                            and (len(tmp[msr].dropna()) > 0)]
+    print(f'Working through {sorted(msrs)} for FCN: {network}')
+
     for msr in sorted(msrs):
         print(f'{msr.upper()}')
-        if network:
-            tmp = df[df['network'].str.contains(network, case=False)].dropna()
-        else:
-            tmp = df
 
         if subgroups:
             # Needed for the case of splitting treatment or diagnosis group
@@ -110,6 +113,7 @@ def auc_group_diff(df, group1_list, msr, group_match_col='subj'):
     group2_means = df.loc[~df[group_match_col].isin(
         group1_list), ['threshold', msr]].groupby('threshold').mean().values
     thrs = sorted(set(df['threshold'].dropna()))
+
     group1_auc = metrics.auc(thrs, group1_means)
     group2_auc = metrics.auc(thrs, group2_means)
     return group1_auc - group2_auc
