@@ -1,0 +1,12 @@
+{
+	"conn_dir":"filepath to CONN first level analysis output",
+	"main_dir":"filepath to project level directory",
+	"subjects_file" : "op.join(main_dir, demographics csv file name)",
+	"data_dir" : conn_dir,
+	"conn_file" : "CONN mat file string",
+	"atlas_dir" : "filepath to the templates used in the CONN analysis",
+	"group1" : "str",
+	"group2" : "str",
+	"name_id_col" : "str",
+	"group_id_col" : "str"
+}
