@@ -48,24 +48,24 @@ def calculate_auc(
         msrs=None,
         subgroups=None):
     """Input: Long format dataframe with subject identifiers and various measures that are to be permuted. In general, using this package will denote the permuted measures with gm for graph measure."""
-     # In the whole brain case, method will fail without specifying dtype.
+    # In the whole brain case, method will fail without specifying dtype.
     df['network'] = df['network'].astype(str)
     if network:
-        tmp = df[df['network'].str.contains(network, case=False)].dropna(how='all')
+        tmp = df[df['network'].str.contains(
+            network, case=False)].dropna(how='all')
     else:
-        tmp = df[df['network'].replace({'nan':np.NaN}).isna()]
+        tmp = df[df['network'].replace({'nan': np.NaN}).isna()]
     print(f'Drawing from {df.shape} data points')
 
     if not msrs:
         excl_cols = ['subj', 'index', grouping_col, 'group', 'threshold']
-        msrs = [msr for msr in tmp.columns if (not any(substring in msr for substring in excl_cols)) 
-                                            and (tmp[msr].dtype in [np.float64, np.int64])
-                                            and (len(set(tmp[msr])) > 3)
-                                            and (len(tmp[msr].dropna()) > 0)]
+        msrs = [msr for msr in tmp.columns if (not any(substring in msr for substring in excl_cols))
+                and (tmp[msr].dtype in [np.float64, np.int64])
+                and (len(set(tmp[msr])) > 3)
+                and (len(tmp[msr].dropna()) > 0)]
     print(f'Working through {sorted(msrs)} for FCN: {network}')
 
     for msr in sorted(msrs):
-        print(f'{msr.upper()}')
 
         if subgroups:
             # Needed for the case of splitting treatment or diagnosis group
@@ -74,12 +74,15 @@ def calculate_auc(
             tmp = tmp.loc[tmp[grouping_col].isin(subgroups), :]
 
         groups = list(set(tmp[grouping_col]))
+        # List of subject IDs
         group1_members = set(
-            tmp.loc[tmp[grouping_col] == groups[0], name_id_col]) # List of subject IDs
+            tmp.loc[tmp[grouping_col] == groups[0], name_id_col])
         study_exp_auc_diff = auc_group_diff(
             tmp, group1_members, msr, group_match_col=name_id_col)
-        print(f'{groups[0]} - {groups[1]} = {study_exp_auc_diff}')
-        if study_exp_auc_diff: 
+
+        if study_exp_auc_diff and (not np.isnan(study_exp_auc_diff)):
+            print(f'{msr.upper()}')
+            print(f'{groups[0]} - {groups[1]} = {study_exp_auc_diff}')
             permuted_diffs = []
             for c in tqdm(
                     range(
@@ -115,14 +118,12 @@ def auc_group_diff(df, group1_list, msr, group_match_col='subj'):
     group2_means = df.loc[~df[group_match_col].isin(
         group1_list), ['threshold', msr]].groupby('threshold').mean().values
     thrs = sorted(set(df['threshold'].dropna()))
-    
+
     if len(thrs) > 2:
         group1_auc = metrics.auc(thrs, group1_means)
         group2_auc = metrics.auc(thrs, group2_means)
-
         return group1_auc - group2_auc
     else:
         print(f'{msr} did not have enough threshold data points for this comparison.')
-        print(df.loc[df[group_match_col].isin(
-        group1_list), ['threshold', msr]].groupby('threshold').mean().values)
-    
+        print(df.loc[df[group_match_col].isin(group1_list), [
+              'threshold', msr]].groupby('threshold').mean().values)
