@@ -248,7 +248,7 @@ def create_density_based_network(subj_idx, prop_thr):
     return thresholded_network, percent_shared_edges
 
 
-def calculate_graph_msrs(G, subgraph_name=None):
+def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None):
     individ_graph_msr_dict = {}
     if nx.is_connected(G):
         communities = nx.algorithms.community.modularity_max.greedy_modularity_communities(
@@ -331,6 +331,7 @@ def collate_graph_measures(
                         prop_thr=tmp.prop_thr,
                         grouping_col=tmp.grouping_col))
         df = pd.concat(df_list)
+    df = df.replace({'nan', np.nan})
     return df
 
 
@@ -351,7 +352,7 @@ def parallel_subgraph_msr(subj):
 
 def individ_graph_msrs(subj, prop_thr=None, grouping_col='group'):
     thr_G, percent_shared_edges = create_density_based_network(subj, prop_thr)
-    igmd = calculate_graph_msrs(thr_G)
+    igmd = calculate_graph_msrs(thr_G, prop_thr=prop_thr)
     tmp_df = pd.DataFrame(igmd, index=[subj])
     tmp_df[['percent_shared_edges', 'threshold', 'subj_ix']
            ] = percent_shared_edges, prop_thr, subj
@@ -365,9 +366,9 @@ def individ_subgraph_msrs(
         subj,
         prop_thr=None,
         grouping_col='group'):
-    thr_G, percent_shared_edges = create_density_based_network(subj, prop_thr)
+    thr_G = create_density_based_network(subj, prop_thr)
     subgraph = filter_density_based_network(thr_G, subgraph_name)
-    igmd = calculate_graph_msrs(subgraph, subgraph_name)
+    igmd = calculate_graph_msrs(subgraph, subgraph_name, prop_thr=prop_thr)
     tmp_subgraph_df = pd.DataFrame(igmd, index=[subj])
     tmp_subgraph_df['subj_ix'] = subj
     tmp_subgraph_df = utils.subject_converter(
@@ -409,6 +410,7 @@ def save_long_format_results(
         prop_thr=prop_thr,
         subgraph_network=subgraph_network,
         multiproc=multiproc)
+    df = df.replace({'nan', np.nan})
     return df.to_csv(output_filepath, index=False)
 
 
@@ -424,6 +426,7 @@ def summarize_graph_msr_group_diffs(
     Output:
         stat_df = summary table of group differences derived from df. p-values are included.
     """
+    df = df.replace({'nan', np.nan})
     thr_list = set(df['threshold'])
     stat_df_list = []
     msrs = [col for col in df.columns if col not in [

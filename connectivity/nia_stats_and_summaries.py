@@ -54,6 +54,7 @@ def calculate_auc(
         tmp = df[df['network'].str.contains(network, case=False)].dropna(how='all')
     else:
         tmp = df[df['network'].replace({'nan':np.NaN}).isna()]
+    print(f'Drawing from {df.shape} data points')
 
     if not msrs:
         excl_cols = ['subj', 'index', grouping_col, 'group', 'threshold']
@@ -78,33 +79,34 @@ def calculate_auc(
         study_exp_auc_diff = auc_group_diff(
             tmp, group1_members, msr, group_match_col=name_id_col)
         print(f'{groups[0]} - {groups[1]} = {study_exp_auc_diff}')
-        permuted_diffs = []
-        for c in tqdm(
-                range(
-                    1,
-                    bootstrap),
-                bar_format='{desc:<5.5}{percentage:3.0f}%|{bar:10}{r_bar}'):
-            permuted_group1_members = random.sample(
-                set(tmp[name_id_col]), len(group1_members))
-            permuted_diffs.append(
-                auc_group_diff(
-                    tmp,
-                    permuted_group1_members,
-                    msr,
-                    group_match_col=name_id_col))
+        if study_exp_auc_diff: 
+            permuted_diffs = []
+            for c in tqdm(
+                    range(
+                        1,
+                        bootstrap),
+                    bar_format='{desc:<5.5}{percentage:3.0f}%|{bar:10}{r_bar}'):
+                permuted_group1_members = random.sample(
+                    set(tmp[name_id_col]), len(group1_members))
+                permuted_diffs.append(
+                    auc_group_diff(
+                        tmp,
+                        permuted_group1_members,
+                        msr,
+                        group_match_col=name_id_col))
 
-        prms_lssr = len(
-            [val for val in permuted_diffs if val < study_exp_auc_diff])
-        try:
-            print(
-                f"The experimental AUC difference, {study_exp_auc_diff.round(3)}, occurs {round(prms_lssr/bootstrap*100,3)}% of the time in the boostrapped results.")
-        except BaseException:
-            print(f'AUC difference beyond any bootstrapped result')
-        faplot.plot_auc(
-            study_exp_auc_diff,
-            permuted_diffs,
-            msr,
-            network=network)
+            prms_lssr = len(
+                [val for val in permuted_diffs if val < study_exp_auc_diff])
+            try:
+                print(
+                    f"The experimental AUC difference, {study_exp_auc_diff.round(3)}, occurs {round(prms_lssr/bootstrap*100,3)}% of the time in the boostrapped results.")
+            except BaseException:
+                print(f'AUC difference beyond any bootstrapped result')
+            faplot.plot_auc(
+                study_exp_auc_diff,
+                permuted_diffs,
+                msr,
+                network=network)
 
 
 def auc_group_diff(df, group1_list, msr, group_match_col='subj'):
@@ -113,7 +115,14 @@ def auc_group_diff(df, group1_list, msr, group_match_col='subj'):
     group2_means = df.loc[~df[group_match_col].isin(
         group1_list), ['threshold', msr]].groupby('threshold').mean().values
     thrs = sorted(set(df['threshold'].dropna()))
+    
+    if len(thrs) > 2:
+        group1_auc = metrics.auc(thrs, group1_means)
+        group2_auc = metrics.auc(thrs, group2_means)
 
-    group1_auc = metrics.auc(thrs, group1_means)
-    group2_auc = metrics.auc(thrs, group2_means)
-    return group1_auc - group2_auc
+        return group1_auc - group2_auc
+    else:
+        print(f'{msr} did not have enough threshold data points for this comparison.')
+        print(df.loc[df[group_match_col].isin(
+        group1_list), ['threshold', msr]].groupby('threshold').mean().values)
+    
