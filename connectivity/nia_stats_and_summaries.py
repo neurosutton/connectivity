@@ -20,6 +20,7 @@ import random
 
 
 def summarize_group_differences(df, group_col, msrs, graph=False):
+    msrs = [msrs] if type(msrs) == str else msrs
     msr_dict = {msr: ['mean', 'std', 'count'] for msr in msrs}
     result = df.groupby(group_col).agg(msr_dict).round(2).T.unstack()
     groups = list(set(df[group_col]))
