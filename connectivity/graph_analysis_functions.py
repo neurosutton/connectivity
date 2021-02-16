@@ -228,12 +228,14 @@ def add_thr_edges(G, prop_thr=None):
 
 
 def filter_density_based_network(thresholded_network, subgraph_network=None):
-    """Input: String-based network of interest (e.g., 'frontoparietal') and MST + density-based thresholded network (output of add_thr_edges)
-    Output: Selected network graph to be used with calculate_graph_msrs to determine metrics
+    """Input: String-based network of interest (e.g., 'frontoparietal') and
+           MST + density-based thresholded network (output of add_thr_edges)
+       Output: Selected network graph to be used with calculate_graph_msrs
+           to determine metrics
     """
     network_parcels = get.get_network_parcels(subgraph_network)
     parcel_list = [v for v in network_parcels.values()]
-    H = thresholded_network.subgraph(parcel_list)
+    H = thresholded_network[0].subgraph(parcel_list)
     return H
 
 
@@ -323,13 +325,23 @@ def collate_graph_measures(
                     subj,
                     prop_thr=tmp.prop_thr,
                     grouping_col=tmp.grouping_col))
-            if subgraph_network:
+            """if subgraph_network:
                 df_list.append(
                     individ_subgraph_msrs(
                         tmp.subgraph_network,
                         subj,
                         prop_thr=tmp.prop_thr,
-                        grouping_col=tmp.grouping_col))
+                        grouping_col=tmp.grouping_col))"""
+            if subgraph_network:
+                if type(subgraph_network) is str:
+                    subgraph_network = [subgraph_network]
+                for network in subgraph_network:
+                    df_list.append(
+                        individ_subgraph_msrs(
+                            network,
+                            subj,
+                            prop_thr=tmp.prop_thr,
+                            grouping_col=tmp.grouping_col))
         df = pd.concat(df_list)
     df = df.replace({'nan', np.nan})
     return df
