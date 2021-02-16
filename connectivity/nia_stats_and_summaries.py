@@ -19,23 +19,78 @@ from tqdm import tqdm
 import random
 
 
-def summarize_group_differences(df, group_col, msrs, graph=False):
+def summarize_group_differences(df, group_cols, msrs, graph=False):
+    """
+    Compare group differences and produce a table with the
+    corresponding statistical tests.
+
+    Parameters
+    ----------
+    df : long format dataframe
+        Dataframe with measures for each person in the study to be
+        compared along with any grouping labels.
+    group_cols : str
+        Name of the column(s) in the df that is (are) the grouper(s).
+    msrs: list
+        Metrics that are to be statistically compared.
+    graph: boolean
+        Returns a plot of group differences, if True.
+
+    Returns
+    -------
+    result : dataframe
+        Summary table of group differences with p-values
+
+    (optional) plot of group differences
+    """
+
+    msrs = [msrs] if not isinstance(msrs, list) else msrs
     msr_dict = {msr: ['mean', 'std', 'count'] for msr in msrs}
-    result = df.groupby(group_col).agg(msr_dict).round(2).T.unstack()
-    groups = list(set(df[group_col]))
-    for msr in msr_dict.keys():
-        grp1 = df.loc[(df[group_col] == groups[0]), msr].dropna()
-        grp2 = df.loc[(df[group_col] == groups[1]), msr].dropna()
-        result.loc[msr, ('stats', 'pvalue')] = ttest_ind(
-            grp1, grp2)[-1].round(3)
+    group_cols = [group_cols] if not isinstance(msrs, list) else group_cols
+    groups = list(set(df[group_col[0]])) # Assumes the first grouper is the main grouper
+ 
+    if len(group_cols) > 1 or 'threshold' in df.columns:
+        if len(group_cols) > 1:
+            second_grouping = list(set(df[group_cols[1]]))
+        else:
+            groups_cols[1] = 'threshold'
+            second_grouping = list(set(df['threshold']))
+
+        for sg,toss in enumerate(second_grouping):
+            grp1_ix = df.loc[(df[group_cols[0]] == groups[0]) & (df[group_cols[1]] == second_grouping[sg]),:].index
+            grp2_ix = df.loc[(df[group_cols[0]] == groups[1]) & (df[group_cols[1]] == second_grouping[sg]),:].index 
+            result = df.loc[df[group_cols[1]] == second_grouping[sg],:].groupby(group_cols[0]).agg(msr_dict).round(2).T.unstack()
+            result = _helper_sgd(df, grp1_ix, grp2_ix, result, msr_dict)
+    else:
+        grp1_ix = df.loc[(df[group_cols[0]] == groups[0])].index
+        grp2_ix = df.loc[(df[group_cols[0]] == groups[1])].index                       
+        result = df.groupby(group_cols).agg(msr_dict).round(2).T.unstack()
+        result = _helper_sgd(df, grp1_ix, grp2_ix, result, msr_dict)
     print(result)
 
     if graph:
+        # TODO See if the logic for the graph holds for the threshold/multigrouper case
         keep = msrs + [group_col]
         tmp = df[keep]
         sns.pairplot(tmp, hue=group_col, palette='winter')
         plt.xticks(rotation=80)
         plt.show()
+    return result
+
+
+def _helper_sgd(df, grp1_ix, grp2_ix, result, msr_dict):
+    """
+    Helper function for summarize_grou_differences.
+
+    Inputs built to depend on arguments defined in 
+    summarize_group_differences.
+    Returns summarized df
+    """
+    for msr in msr_dict.keys():
+        grp1 = df.loc[grp1_ix, msr].dropna()
+        grp2 = df.loc[grp2_ix, msr].dropna()
+        result.loc[msr, ('stats', 'pvalue')] = ttest_ind(
+            grp1, grp2)[-1].round(3)
     return result
 
 
