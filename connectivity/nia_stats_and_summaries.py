@@ -46,10 +46,19 @@ def calculate_auc(
         name_id_col='subject',
         bootstrap=5000,
         msrs=None,
-        subgroups=None):
-    """Input: Long format dataframe with subject identifiers and various measures that are to be permuted. In general, using this package will denote the permuted measures with gm for graph measure."""
+        subgroups=None,
+        exclude=None):
+    """ Input: Long format dataframe with subject identifiers and various
+        measures that are to be permuted. In general, using this package will
+        denote the permuted measures with gm for graph measure. """
     # In the whole brain case, method will fail without specifying dtype.
     df['network'] = df['network'].astype(str)
+    if exclude is not None:
+        try:
+            df = df.query('subj_ix not in @exclude')
+        except TypeError:
+            print('No exclusions applied. Might not have passed ',
+                  f'the right data type ({type(exclude)}).')
     if network:
         tmp = df[df['network'].str.contains(
             network, case=False)].dropna(how='all')
@@ -59,7 +68,8 @@ def calculate_auc(
 
     if not msrs:
         excl_cols = ['subj', 'index', grouping_col, 'group', 'threshold']
-        msrs = [msr for msr in tmp.columns if (not any(substring in msr for substring in excl_cols))
+        msrs = [msr for msr in tmp.columns if (
+            not any(substring in msr for substring in excl_cols))
                 and (tmp[msr].dtype in [np.float64, np.int64])
                 and (len(set(tmp[msr])) > 3)
                 and (len(tmp[msr].dropna()) > 0)]
