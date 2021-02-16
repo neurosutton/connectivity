@@ -48,9 +48,27 @@ def calculate_auc(
         msrs=None,
         subgroups=None,
         exclude=None):
-    """ Input: Long format dataframe with subject identifiers and various
+    """Perform permutation-based statistical testing of graph measure AUCs.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Long format dataframe with subject identifiers and various
         measures that are to be permuted. In general, using this package will
-        denote the permuted measures with gm for graph measure. """
+        denote the permuted measures with gm for graph measure.
+    network : string
+    grouping_col : string
+    name_id_col : string
+    bootstrap : int
+    msrs : list, optional
+    subgroups :
+    exclude : list of subject indices, optional
+
+    Returns
+    -------
+    Nothing. Performs statistical tests and displays the output.
+    # TO DO: Should this return the results in some format?
+    """
     # In the whole brain case, method will fail without specifying dtype.
     df['network'] = df['network'].astype(str)
     if exclude is not None:
@@ -98,7 +116,8 @@ def calculate_auc(
                     range(
                         1,
                         bootstrap),
-                    bar_format='{desc:<5.5}{percentage:3.0f}%|{bar:10}{r_bar}'):
+                    bar_format=('{desc:<5.5}{percentage:3.0f}%|',
+                                '{bar:10}{r_bar}')):
                 permuted_group1_members = random.sample(
                     set(tmp[name_id_col]), len(group1_members))
                 permuted_diffs.append(
@@ -111,10 +130,13 @@ def calculate_auc(
             prms_lssr = len(
                 [val for val in permuted_diffs if val < study_exp_auc_diff])
             try:
-                print(
-                    f"The experimental AUC difference, {study_exp_auc_diff.round(3)}, occurs {round(prms_lssr/bootstrap*100,3)}% of the time in the boostrapped results.")
+                print('The experimental AUC difference, ',
+                      '{study_exp_auc_diff.round(3)}, occurs ',
+                      f'{round(prms_lssr/bootstrap*100,3)}% of the time in ',
+                      'the boostrapped results.')
             except BaseException:
-                print(f'AUC difference beyond any bootstrapped result')
+                print(f'The AUC difference, {study_exp_auc_diff.round(3)}, ',
+                      ' beyond any bootstrapped result')
             faplot.plot_auc(
                 study_exp_auc_diff,
                 permuted_diffs,
@@ -134,6 +156,7 @@ def auc_group_diff(df, group1_list, msr, group_match_col='subj'):
         group2_auc = metrics.auc(thrs, group2_means)
         return group1_auc - group2_auc
     else:
-        print(f'{msr} did not have enough threshold data points for this comparison.')
+        print(f'{msr} did not have enough threshold data points ',
+              'for this comparison.')
         print(df.loc[df[group_match_col].isin(group1_list), [
               'threshold', msr]].groupby('threshold').mean().values)
