@@ -53,17 +53,18 @@ def plot_score_by_network(
 
 
 def plot_cohort_comparison_over_thresholds(
-        network_name,
         comparison_df,
+        network_name=None,
         group='group',
         y='connectivity'):
-    ''' Plot group differences in connectivity strength over a range of thresholds.
+    ''' Plot group differences in connectivity strength over a threshold range.
 
         Parameters
         ----------
-        network_name    : str, don't include "network"
-        comparison_df   : pandas.Dataframe, output from get_cohort_over_thresholds()
-        group_names     : list, should include two str items with the group names
+        network_name : str, don't include "network"
+        comparison_df : pandas.Dataframe, output from get_cohort_over_thresholds()
+        group_names : list, should include two str items with the group names
+        y : measure from graph to plot
 
         STILL NEEDS ADDRESSED
         ---------------------
@@ -76,8 +77,12 @@ def plot_cohort_comparison_over_thresholds(
           asterix in the right position
     '''
     fig, ax = plt.subplots()
+    comparison_df.loc[comparison_df.network == 'nan', 'network'] = 'whole_brain'
+    network_name = 'whole_brain' if network_name is None else network_name
+    # df = df.query('subj_ix not in @exclude')
+    df = comparison_df.query('network == @network_name')
     sns.lineplot(
-        data=comparison_df,
+        data=df,
         x='threshold',
         y=y,
         hue=group,
@@ -201,8 +206,8 @@ def plot_cohort_comparison_matrices(
 
 def plot_auc(study_exp_auc_diff, permuted_diffs, msr, network=None):
     """Intended as a helper function for nia_stats_and_summaries (calculate_auc).
-    Plots calculated study-related experimental differences and random, 
-    permuted differences for a given metric. 
+    Plots calculated study-related experimental differences and random,
+    permuted differences for a given metric.
     """
     network = network if network else 'Whole_brain'
     fig, ax = plt.subplots()
