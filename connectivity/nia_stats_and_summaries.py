@@ -131,7 +131,7 @@ def calculate_auc(
                 [val for val in permuted_diffs if val < study_exp_auc_diff])
             try:
                 print('The experimental AUC difference, ',
-                      '{study_exp_auc_diff.round(3)}, occurs ',
+                      f'{study_exp_auc_diff.round(3)}, occurs ',
                       f'{round(prms_lssr/bootstrap*100,3)}% of the time in ',
                       'the boostrapped results.')
             except BaseException:
