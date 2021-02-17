@@ -1,9 +1,16 @@
 # Exploring graph theory connectivity of neuroimaging data
-Produces graph theory summaries based on connectivity matrices generated with the CONN toolbox.
+Produces graph theory summaries based on connectivity matrices generated with the CONN toolbox. Given that the methods rely on matrices and dataframes, it is likely this package will be interchangeable with MEG or EEG data as well.
 
 For now, these methods are intended for in-house use and will break without the supporting directory structure.
 The actual directory_defs.json is ignored, but a sample json file is supplied in docs.
 
-## Main function: fmri_analysis_load_funcs
-At the beginning of a project, you will need to define a few structures in a directory_defs.json file and build a connectivity analysis of fMRI data in CONN. Once the definitions and connectivity matrices for each participant are available, you can call most any function in the modules and it will refer back to this load_funcs module. If groups are not defined or demographics are not available, it is likely that a module will break as these are designed to load off the bat and be available to multiple functions.
+# Starting a new project
+- Define the filepaths and fields in a directory_defs.json file
+    - See docs/sample_directory_defs.json
+
+- Build a connectivity analysis of fMRI data in CONN
+    - Note which atlas you used for the CONN analysis. The same atlas will be referenced consistently for node information, including labels and approximate orthocenters (coordinates).
+    - TODO: explain the required format/information in the atlas dataframe
+
+- Draft a spreadsheet or dataframe with demographic, grouping, and correlative information. (This information is necessary for any of the group comparison functions to work
 
