@@ -105,9 +105,14 @@ def _helper_sgd_stats(df, grp1_ix, grp2_ix, result, msr_dict, grouper=None, grp_
     """
     Helper function for summarize_group_differences.
 
+    Parameters
+    ----------
     Inputs built to depend on arguments defined in 
     summarize_group_differences.
-    Returns summarized df
+
+    Returns
+    ------- 
+    summarized df
     """
     for msr in msr_dict.keys():
         grp1 = df.loc[df.index.isin(grp1_ix), msr].dropna()
