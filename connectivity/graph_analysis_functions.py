@@ -306,7 +306,7 @@ def collate_graph_measures(
                         name_str][0]
     else:
         subjects = (shared.group1_indices + shared.group2_indices)
-    print(f'Analyzing {subjects}')
+    print(f'Analyzing subjects: {subjects}')
     global tmp
     tmp = current_analysis(grouping_col, prop_thr, subgraph_network)
     if multiproc:
@@ -319,29 +319,24 @@ def collate_graph_measures(
             df = pd.concat([df, df_subgraph])
     else:
         df_list = []
-        for subj in subjects:
-            df_list.append(
-                individ_graph_msrs(
-                    subj,
-                    prop_thr=tmp.prop_thr,
-                    grouping_col=tmp.grouping_col))
-            """if subgraph_network:
+        prop_thr = [prop_thr] if type(prop_thr) != list else prop_thr
+        for thr in prop_thr:
+            for subj in subjects:
                 df_list.append(
-                    individ_subgraph_msrs(
-                        tmp.subgraph_network,
+                    individ_graph_msrs(
                         subj,
-                        prop_thr=tmp.prop_thr,
-                        grouping_col=tmp.grouping_col))"""
-            if subgraph_network:
-                if type(subgraph_network) is str:
-                    subgraph_network = [subgraph_network]
-                for network in subgraph_network:
-                    df_list.append(
-                        individ_subgraph_msrs(
-                            network,
-                            subj,
-                            prop_thr=tmp.prop_thr,
-                            grouping_col=tmp.grouping_col))
+                        prop_thr=thr,
+                        grouping_col=tmp.grouping_col))
+                if subgraph_network:
+                    if type(subgraph_network) is str:
+                        subgraph_network = [subgraph_network]
+                    for network in subgraph_network:
+                        df_list.append(
+                            individ_subgraph_msrs(
+                                network,
+                                subj,
+                                prop_thr=thr,
+                                grouping_col=tmp.grouping_col))
         df = pd.concat(df_list)
     df = df.replace({'nan', np.nan})
     return df
@@ -363,9 +358,27 @@ def parallel_subgraph_msr(subj):
 
 
 def individ_graph_msrs(subj, prop_thr=None, grouping_col='group'):
+    """ Calculate multiple graph measures for a subject at given threshold.
+
+        Parameters
+        ----------
+        subj : int, index of subject
+        prop_thr : float, threshold to be applied to whole brain graph
+        grouping_col : string, which group subject belongs to
+            (this is relevant to later analysis functions)
+
+        Returns
+        -------
+        Pandas dataframe containing the subject info and graph measures
+
+    """
     thr_G, percent_shared_edges = create_density_based_network(subj, prop_thr)
     igmd = calculate_graph_msrs(thr_G, prop_thr=prop_thr)
     tmp_df = pd.DataFrame(igmd, index=[subj])
+    tmp_df = pd.concat([tmp_df,
+                        pd.DataFrame(columns=['percent_shared_edges',
+                                              'threshold',
+                                              'subj_ix'])])
     tmp_df[['percent_shared_edges', 'threshold', 'subj_ix']
            ] = percent_shared_edges, prop_thr, subj
     tmp_df = utils.subject_converter(tmp_df, orig_subj_col='subj_ix')

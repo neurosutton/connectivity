@@ -54,9 +54,10 @@ def plot_score_by_network(
 
 def plot_cohort_comparison_over_thresholds(
         comparison_df,
-        network_name=None,
+        network=None,
         group='group',
-        y='connectivity'):
+        y='connectivity',
+        exclude=None):
     ''' Plot group differences in connectivity strength over a threshold range.
 
         Parameters
@@ -76,11 +77,18 @@ def plot_cohort_comparison_over_thresholds(
         - So this needs to loop over each threshold, calculate the p value, and then place the
           asterix in the right position
     '''
+    if exclude is not None:
+        try:
+            comparison_df = comparison_df.query('subj_ix not in @exclude')
+            print(set(comparison_df['subj_ix']))
+        except TypeError:
+            print('No exclusions applied. Might not have passed ',
+                  f'the right data type ({type(exclude)}).')
     fig, ax = plt.subplots()
-    comparison_df.loc[comparison_df.network == 'nan', 'network'] = 'whole_brain'
-    network_name = 'whole_brain' if network_name is None else network_name
-    # df = df.query('subj_ix not in @exclude')
-    df = comparison_df.query('network == @network_name')
+    comparison_df.loc[comparison_df.network == 'nan',
+                      'network'] = 'whole_brain'
+    network = 'whole_brain' if network is None else network
+    df = comparison_df.query('network == @network')
     sns.lineplot(
         data=df,
         x='threshold',
@@ -93,7 +101,7 @@ def plot_cohort_comparison_over_thresholds(
         err_kws={
             'capsize': 5},
         linestyle=':')
-    plt.title(f'Group Differences in {network_name} Network')
+    plt.title(f'Group Differences in {network} Network')
     ax.set_xlabel('Proportional Threshold')
     ax.set_ylabel(y)
     plt.show()
