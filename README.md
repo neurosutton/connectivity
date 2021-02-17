@@ -1,10 +1,10 @@
-# Exploring graph theory connectivity of neuroimaging data
+## Exploring graph theory connectivity of neuroimaging data
 Produces graph theory summaries based on connectivity matrices generated with the CONN toolbox. Given that the methods rely on matrices and dataframes, it is likely this package will be interchangeable with MEG or EEG data as well.
 
 For now, these methods are intended for in-house use and will break without the supporting directory structure.
 The actual directory_defs.json is ignored, but a sample json file is supplied in docs.
 
-# Starting a new project
+## Starting a new project
 - Define the filepaths and fields in a directory_defs.json file
     - See docs/sample_directory_defs.json
 
@@ -14,3 +14,7 @@ The actual directory_defs.json is ignored, but a sample json file is supplied in
 
 - Draft a spreadsheet or dataframe with demographic, grouping, and correlative information. (This information is necessary for any of the group comparison functions to work
 
+- Recommend running 
+```import fmri_analysis_utilities as utils
+utils.check_loaded_data()```
+    - This method will effectively evaluate if the json and demographics data are in a useable format with the rest of the package.
