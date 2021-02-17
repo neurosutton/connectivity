@@ -253,6 +253,9 @@ def create_density_based_network(subj_idx, prop_thr):
 def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None):
     individ_graph_msr_dict = {}
     if nx.is_connected(G):
+        # TODO list of desired measures to be passed to utils.check_msrs_calcd
+        # TODO generate a dictionary of measures and commands to loop through
+        # based on output of utils.check_msrs_calcd?
         communities = nx.algorithms.community.modularity_max.greedy_modularity_communities(
             G)
         individ_graph_msr_dict['nx_communities'] = [communities]

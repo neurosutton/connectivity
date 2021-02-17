@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import fmri_analysis_get_data as get
 from importlib import reload
-import os
+import os, glob
 from datetime import datetime
 
 
@@ -78,3 +78,39 @@ def nan_bouncer(x, axis=0):
     idx = tuple(np.ogrid[tuple(map(slice, x.shape[1:]))])
     res = x[(np.argsort(~mask, axis=0, kind='mergesort')[cut:],) + idx]
     return res if axis == 0 else np.moveaxis(res, 0, axis)
+
+def check_msrs_calcd(msrs_needed, prop_thr,csv_file_pattern='*csv'):
+    """
+    Locates previously calculated and saved results to avoid long
+    re-processing times and compute.
+
+    Parameters
+    ----------
+    msrs_needed : list
+        Each measure in this list will be searched for in the column
+        names to return matches.
+
+    prop_thr : float
+        Methods calling this one should have a specific threshold that
+        is associated with the calculations. Use that same threshold
+        to cross-check previous analyses.
+    
+    csv_file_pattern (optional) : filename
+        Helpful to zero in on previously saved results, particularly if
+        a certain result is desired to check against.
+
+    Returns
+    -------
+    calcd_msrs : dict
+    """
+
+    import shared
+    import collections
+    # Create expandable, nested dictionaries
+    avlbl_dict = collections.defaultdict(dict)
+    csv_locs = glob.glob(os.path.join(shared.proj_dir, csv_file_pattern))
+    # Get the measures that are available and at a given threshold
+
+    # Compare them against the requested measures
+
+    # Output a dictionary of measures, thresholds, and values.
