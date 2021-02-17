@@ -14,7 +14,9 @@ The actual directory_defs.json is ignored, but a sample json file is supplied in
 
 - Draft a spreadsheet or dataframe with demographic, grouping, and correlative information. (This information is necessary for any of the group comparison functions to work
 
-- Recommend running 
+- Recommend running
+```
     import fmri_analysis_utilities as utils
     utils.check_loaded_data()
-    - This method will effectively evaluate if the json and demographics data are in a useable format with the rest of the package.
+```
+   - This method will effectively evaluate if the json and demographics data are in a useable format with the rest of the package.
