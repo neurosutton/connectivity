@@ -27,22 +27,34 @@ utils.check_data_loaded()
 
 
 def plot_weighted_graph(gw, color_nodes_by=None, **kwargs):
-    """Display the network graph with edges colored by weight.
+    """Plot the edges and nodes in the selected graph.
+
+       Should look like an axial glass view, if the orthocenter coordinates
+       for the atlas nodes are passed by way of pos kwarg.
 
        Parameters
        ----------
-       gw : weighted Networkx Graph object
+       gw : nx.Graph
+           Graph from full-rank connectivity matrix. (May not have to
+           be from the full-rank results.)
        colored_nodes_by : string
            String identifier of a parameter/feature given to
            the nodes in gw. Typically this will be assigned with
            the function nx.set_node_attributes(g, dict) by passing a
            dictionary of node / parameter / value pairs,
            in form of {node: {'param': value}}
-       **kwargs :
+       **kwargs : Optional parameters. Presently accepts the following:
+       pos (kwarg) : dict
+           Dictionary with coordinates for each node. Possibly
+           extensible with other properties in pos. See nx
+       node_weights (kwarg) : list
+           The list should include a label and the corresponding nx
+           property. e.g., ['degree', gw.degree]
 
        Returns
        -------
-       Nothing, displays graph
+       Nothing, displays graph with edges, color-coordinated depending
+       on kwargs.
 
        TO DO
        -----
