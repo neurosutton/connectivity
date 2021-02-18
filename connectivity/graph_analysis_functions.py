@@ -27,6 +27,28 @@ utils.check_data_loaded()
 
 
 def plot_weighted_graph(gw, color_nodes_by=None, **kwargs):
+    """
+    Plot the edges and nodes in the selected graph. Should look like
+    an axial glass view, if the orthocenter coordinates for the 
+    atlas nodes are passed by way of pos kwarg.
+    
+    Parameters
+    ----------
+    gw : nx.Graph
+        Graph from full-rank connectivity matrix. (May not have to 
+        be from the full-rank results)
+    pos (kwarg) : dict
+        Dictionary with coordinates for each node. Possibly
+        extensible with other properties in pos. See nx
+    node_weights : list
+        The list should include a label and the corresponding nx
+        property. e.g., ['degree', gw.degree]
+    
+    Returns
+    -------
+    Node map with edges, color-coordinated depending on kwargs.
+    """
+    
     eweights = [d['weight'] for (u, v, d) in gw.edges(data=True)]
     options = {
         "edge_color": eweights,
