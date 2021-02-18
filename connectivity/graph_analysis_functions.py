@@ -7,7 +7,6 @@ from networkx.algorithms import community
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pandas as pd
-from importlib import reload
 import seaborn as sns
 from scipy.stats import ttest_ind
 import networkx.algorithms.community as nx_comm
@@ -27,7 +26,7 @@ utils.check_data_loaded()
 # CREATE A FUNCTION TO SIMPLIFY PLOTTING and GRAPH MEASURES
 
 
-def plot_weighted_graph(gw, **kwargs):
+def plot_weighted_graph(gw, color_nodes_by=None, **kwargs):
     eweights = [d['weight'] for (u, v, d) in gw.edges(data=True)]
     options = {
         "edge_color": eweights,
@@ -35,14 +34,18 @@ def plot_weighted_graph(gw, **kwargs):
         "node_size": 200,
         "node_color": 'yellow',
         "edge_cmap": plt.cm.rainbow,
+        "cmap" : plt.cm.Accent,
         "edge_vmin": 0,
-        "edge_vmax": 1,
+        "edge_vmax": 1.2,
         "with_labels": False
     }
     if 'pos' in kwargs.keys():
         options['pos'] = kwargs['pos']
 
-    if 'node_weights' in kwargs.keys():
+    if color_nodes_by is not None:
+        options['node_color'] = [
+            v for v in nx.get_node_attributes(gw, color_nodes_by)]
+    elif 'node_weights' in kwargs.keys():
         add_node_weights(
             gw,
             kwargs['node_weights'][0],
@@ -53,7 +56,7 @@ def plot_weighted_graph(gw, **kwargs):
 
     fig, ax = plt.subplots(figsize=(16, 16))
     nx.draw(gw, ax=ax, **options)
-    norm = mpl.colors.Normalize(vmin=0, vmax=1, clip=False)
+    norm = mpl.colors.Normalize(vmin=0, vmax=1.2, clip=False)
     fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap='rainbow'), ax=ax)
     plt.show()
 
@@ -147,7 +150,8 @@ def compare_measures(graph_df, measure):
 
 # >>>BMS
 class current_analysis():
-    """Local class to pass some preset fields to the parallelization functions."""
+    """Local class to pass some preset fields to the parallelization
+       functions."""
 
     def __init__(
             self,
@@ -205,8 +209,13 @@ def sort_edge_weights(G):
 
 def add_thr_edges(G, prop_thr=None):
     """
-    Inputs: the graph, a proportional threshold (optional) for adding nodes to the MST result.
-    Outputs: The subsetted network FOR AN INDIVIDUAL that contains the MST skeleton and the extra nodes/edges up to the proportional threshold; a calculation of edges that are in both the MST and the density base list. At more stringent thresholds, not all the MST edges are in the highest percentage of ranked edges.
+    Inputs: the graph, a proportional threshold (optional) for adding nodes to
+        the MST result.
+    Outputs: The subsetted network FOR AN INDIVIDUAL that contains the MST
+        skeleton and the extra nodes/edges up to the proportional threshold;
+        a calculation of edges that are in both the MST and the density base
+        list. At more stringent thresholds, not all the MST edges are in the
+        highest percentage of ranked edges.
     """
     n_edges_density = fam.get_edge_count(prop_thr)
     thresholded_network = nx.algorithms.tree.mst.maximum_spanning_tree(G)
@@ -222,7 +231,9 @@ def add_thr_edges(G, prop_thr=None):
             else:
                 shared_edges.append(edge)
         except BaseException:
-            print('Likely the Graph needs to be for whole brain or the edge density needs to be re-calculated based on a network subset.')
+            print('Likely the Graph needs to be for whole brain or the edge ',
+                  'density needs to be re-calculated based on a network ',
+                  'subset.')
         percent_shared_edges = len(shared_edges) / len(mst_edges)
     return thresholded_network, percent_shared_edges
 
@@ -240,7 +251,8 @@ def filter_density_based_network(thresholded_network, subgraph_network=None):
 
 
 def create_density_based_network(subj_idx, prop_thr):
-    """Calculate the whole-brain MST for an individual and then add back high connectivity edges until a threshold is met for each individual"""
+    """Calculate the whole-brain MST for an individual and then add back high
+       connectivity edges until a threshold is met for each individual"""
     mat = get.get_network_matrix(
         '',
         subj_idx)  # BMS Forced whole brain connectivity, so that other networks of interest can be passed to funcs without overriding MST for whole brain
