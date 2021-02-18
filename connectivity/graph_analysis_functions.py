@@ -27,6 +27,31 @@ utils.check_data_loaded()
 
 
 def plot_weighted_graph(gw, color_nodes_by=None, **kwargs):
+    """Display the network graph with edges colored by weight.
+
+       Parameters
+       ----------
+       gw : weighted Networkx Graph object
+       colored_nodes_by : string
+           String identifier of a parameter/feature given to
+           the nodes in gw. Typically this will be assigned with
+           the function nx.set_node_attributes(g, dict) by passing a
+           dictionary of node / parameter / value pairs,
+           in form of {node: {'param': value}}
+       **kwargs :
+
+       Returns
+       -------
+       Nothing, displays graph
+
+       TO DO
+       -----
+       1. Marked below as well. Not sure if the node_weights argument
+          will properly assign the values of the weight or if they
+          will simply color by the node ID. Ran into this problem
+          in the color_nodes_by section above, fixed by ensuring I was
+          using the dict values instead of dict keys (JJB)
+    """
     eweights = [d['weight'] for (u, v, d) in gw.edges(data=True)]
     options = {
         "edge_color": eweights,
@@ -34,7 +59,7 @@ def plot_weighted_graph(gw, color_nodes_by=None, **kwargs):
         "node_size": 200,
         "node_color": 'yellow',
         "edge_cmap": plt.cm.rainbow,
-        "cmap" : plt.cm.Accent,
+        "cmap": plt.cm.nipy_spectral,
         "edge_vmin": 0,
         "edge_vmax": 1.2,
         "with_labels": False
@@ -44,12 +69,13 @@ def plot_weighted_graph(gw, color_nodes_by=None, **kwargs):
 
     if color_nodes_by is not None:
         options['node_color'] = [
-            v for v in nx.get_node_attributes(gw, color_nodes_by)]
+            [v for v in nx.get_node_attributes(gw, color_nodes_by).values()]]
     elif 'node_weights' in kwargs.keys():
         add_node_weights(
             gw,
             kwargs['node_weights'][0],
             kwargs['node_weights'][1])
+        # TO DO: double check this next bit isn't just taking the node keys
         options['node_color'] = [
             v for v in nx.get_node_attributes(
                 gw, kwargs['node_weights'][0])]
