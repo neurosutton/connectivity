@@ -92,16 +92,26 @@ def _helper_sgd_grouper(df, msr_dict, group_cols, groups, subgroup_col, subgroup
     df_list=[]
     for sg,toss in enumerate(subgroups):
         if thr:
-            grp1_ix = df.loc[(df[group_cols[0]] == groups[0]) & (df[subgroup_col] == subgroups[sg]) & (df['threshold'] == thr),:].index
-            grp2_ix = df.loc[(df[group_cols[0]] == groups[1]) & (df[subgroup_col] == subgroups[sg]) & (df['threshold'] == thr),:].index 
+            grp1_ix = df.loc[(df[group_cols[0]] == groups[0]) 
+                            & (df[subgroup_col] == subgroups[sg]) 
+                            & (df['threshold'] == thr),:].index
+            grp2_ix = df.loc[(df[group_cols[0]] == groups[1]) 
+                            & (df[subgroup_col] == subgroups[sg]) 
+                            & (df['threshold'] == thr),:].index 
         else:
-            grp1_ix = df.loc[(df[group_cols[0]] == groups[0]) & (df[subgroup_col] == subgroups[sg]),:].index
-            grp2_ix = df.loc[(df[group_cols[0]] == groups[1]) & (df[subgroup_col] == subgroups[sg]),:].index
-        result = df.loc[df[group_cols[1]] == subgroups[sg],:].groupby(group_cols[0]).agg(msr_dict).round(2).T.unstack()
-        df_list.append(_helper_sgd_stats(df, grp1_ix, grp2_ix, result, msr_dict, subgroup_col, subgroups[sg]))
+            grp1_ix = df.loc[(df[group_cols[0]] == groups[0]) 
+                            & (df[subgroup_col] == subgroups[sg]),:].index
+            grp2_ix = df.loc[(df[group_cols[0]] == groups[1]) 
+                            & (df[subgroup_col] == subgroups[sg]),:].index
+        result = (df.loc[df[group_cols[1]] == subgroups[sg],:]
+                                        .groupby(group_cols[0])
+                                        .agg(msr_dict)
+                                        .round(2).T
+                                        .unstack())
+        df_list.append(_helper_sgd_stats(df, grp1_ix, grp2_ix, result, msr_dict, grouper=subgroup_col, grp_val=subgroups[sg], prop_thr=thr))
     return df_list
 
-def _helper_sgd_stats(df, grp1_ix, grp2_ix, result, msr_dict, grouper=None, grp_val=None):
+def _helper_sgd_stats(df, grp1_ix, grp2_ix, result, msr_dict, grouper=None, grp_val=None, prop_thr=None):
     """
     Helper function for summarize_group_differences.
 
@@ -117,6 +127,8 @@ def _helper_sgd_stats(df, grp1_ix, grp2_ix, result, msr_dict, grouper=None, grp_
                 grp1, grp2)[-1].round(3)
             if grouper:
                 result.loc[msr, ('', grouper)] = grp_val
+            if prop_thr and not grouper == 'threshold':
+                result.loc[msr, ('', 'threshold')] = prop_thr
         except Exception as e:
             pass
     return result

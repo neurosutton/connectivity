@@ -319,7 +319,7 @@ def collate_graph_measures(
             df = pd.concat([df, df_subgraph])
     else:
         df_list = []
-        prop_thr = [prop_thr] if type(prop_thr) != list else prop_thr
+        prop_thr = [prop_thr] if not isinstance(prop_thr, list) else prop_thr
         for thr in prop_thr:
             for subj in subjects:
                 df_list.append(
@@ -328,7 +328,7 @@ def collate_graph_measures(
                         prop_thr=thr,
                         grouping_col=tmp.grouping_col))
                 if subgraph_network:
-                    if type(subgraph_network) is str:
+                    if isinstance(subgraph_network, str):
                         subgraph_network = [subgraph_network]
                     for network in subgraph_network:
                         df_list.append(
