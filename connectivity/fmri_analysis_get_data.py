@@ -10,6 +10,7 @@ import numpy as np
 import fnmatch
 import pandas as pd
 from scipy.io import loadmat
+from collections import OrderedDict
 import fmri_analysis_utilities as utils
 import fmri_analysis_load_funcs as faload
 import fmri_analysis_plotting as faplot
@@ -55,7 +56,7 @@ def get_conn_data(mdata=None, roi_count=None, clear_triu=True, subset=[]):
             conn_data[:, :, subject][np.triu_indices(conn_data.shape[0], 0)] = np.nan
     return conn_data
 
-def get_network_parcels(network_name, mdata=None):
+def get_network_parcels(network, mdata=None):
     """Returns parcel names and indices with HCP remaining in the name and indexed to work with numpy-based functions.
     Output: {atlas_name.roi (str): numpy index of ROI (int)}
     """
@@ -63,13 +64,14 @@ def get_network_parcels(network_name, mdata=None):
 
     parcel_names = [str[0].lower() for str in mdata['names'][0]]
     parcels = {k.split('.')[-1]:v for v,k in enumerate(parcel_names)}
-    if network_name and network_name != "wb":
-        pattern = network_name.lower() + '*'
+    if network and not network in ["wb", "whole_brain", "whole brain"] :
+        pattern = network.lower() + '*'
         matching = fnmatch.filter(parcels.keys(), pattern)
         network_parcels = {k:v for k,v in parcels.items() if k in matching}
     else:
         network_parcels = parcels
-    #indices = [parcels.get(key) for key in matching] #Unused?
+    # Organize the array by FCN/alphabetical regions
+    network_parcels = OrderedDict(sorted(network_parcels.items()))
     return network_parcels
 
 def get_subj_df_data(nonimaging_subjectlevel_data=None):
