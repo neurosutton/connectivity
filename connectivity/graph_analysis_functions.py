@@ -1,4 +1,3 @@
-import shared
 from tqdm import tqdm
 import nia_stats_and_summaries as nss
 import networkx as nx
@@ -21,6 +20,7 @@ import fmri_analysis_manipulations as fam
 import fmri_analysis_bnv_prep as bnv_prep
 import fmri_analysis_utilities as utils
 utils.check_data_loaded()
+import shared
 # >>>END BMS
 
 # CREATE A FUNCTION TO SIMPLIFY PLOTTING and GRAPH MEASURES
@@ -155,9 +155,8 @@ def find_auc_for_measure(measure, df):
         auc = metrics.auc(thresholds, df[df['subject'] == subject][measure])
         auc_df.at[idx, 'subject'] = subject
         auc_df.at[idx, 'auc'] = auc
-        auc_df.at[idx, 'group'] = df[new_df['subject'] == subject]['group'].tolist()[
+        auc_df.at[idx, 'group'] = df[df['subject'] == subject]['group'].tolist()[
             0]
-        # print(new_df[new_df['subject']==subject]['group'][0])
     return auc_df
 
 
@@ -246,17 +245,31 @@ def get_position_dict(network):
 '''
 
 def add_node_weights(G, msr_name, nx_func):
-    """Inputs: G = graph
+    """
+    Helper function to add weights (values) and a dictionary key
+    to the Graph.node structure.
+
+    Parameters
+    ----------
+    G = graph
     msr_name = key entry for nodal weighting
     nx_func = NetworkX function to generate the weights per node
+
+    Returns
+    -------
+    Modifies the Graph node dictionary to include the new weighting
+    values and key.
     """
+
     msr_dict = nx_func
     for n in G.nodes:
         G.nodes[n][msr_name] = msr_dict[n]
 
 
 def sort_edge_weights(G):
-    """Helper function. Extract the weights, sort them, and find the matching values for a sorted list. Needed for percentile thresholding to supplement the MST selection.
+    """Helper function. Extract the weights, sort them, and find the matching
+    values for a sorted list. Needed for percentile thresholding to supplement
+    the MST selection.
     """
     weights_dict = {}
     for u, v, weight in G.edges.data("weight"):
@@ -274,14 +287,26 @@ def sort_edge_weights(G):
 
 def add_thr_edges(G, prop_thr=None):
     """
-    Inputs: the graph, a proportional threshold (optional) for adding nodes to
+    Computes MST for whole brain and then adds subset of edges back
+    to the MST graph, depending on proportional threshold for highest
+    weighted edges.
+    
+    Parameters
+    ----------
+    G : nx.Graph
+    prop_thr : float
+    proportional threshold (optional) for adding nodes to
         the MST result.
-    Outputs: The subsetted network FOR AN INDIVIDUAL that contains the MST
-        skeleton and the extra nodes/edges up to the proportional threshold;
+    Returns: 
+    thresholded_network : nx.Graph
+        The subsetted network FOR AN INDIVIDUAL that contains the MST
+        skeleton and the extra nodes/edges up to the proportional threshold
+    percent_shared_edges : float
         a calculation of edges that are in both the MST and the density base
         list. At more stringent thresholds, not all the MST edges are in the
         highest percentage of ranked edges.
     """
+
     n_edges_density = fam.get_edge_count(prop_thr)
     thresholded_network = nx.algorithms.tree.mst.maximum_spanning_tree(G)
     mst_edges = [tuple(m) for m in thresholded_network.edges()]
@@ -365,6 +390,9 @@ def collate_graph_measures(
         prop_thr=None,
         subgraph_network=None,
         multiproc=True):
+    """
+    Workhorse method
+    """
     if subjects is not None:
         if isinstance(subjects, np.ndarray):
             subjects = list(subjects)
@@ -504,7 +532,9 @@ def save_long_format_results(
         prop_thr=None,
         subgraph_network=None,
         multiproc=True):
-    """All input arguments the same as collate_graph_measures, plus output filepath for csv with the results for each subject, threshold, network, etc.
+    """All input arguments the same as collate_graph_measures, 
+    plus output filepath for csv with the results for each 
+    subject, threshold, network, etc.
     """
     df = collate_graph_measures(
         subjects=subjects,

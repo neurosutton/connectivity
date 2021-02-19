@@ -7,6 +7,8 @@ v0.3 (BMS) Adapted fmri_analysis_functions for pandas
 """
 import scipy.stats
 import matplotlib.pyplot as plt
+from matplotlib.path import Path
+from matplotlib.patches import PathPatch
 from matplotlib import colors
 from matplotlib.pyplot import figure
 import pandas as pd
@@ -107,16 +109,14 @@ def plot_cohort_comparison_over_thresholds(
     plt.show()
 
 
-def plot_network_matrix(network_name, subj_idx, conn_data=None):
-    if not conn_data:
-        conn_data = shared.conn_data
-    parcels = get.get_network_parcels(conn_data, network_name, subj_idx)
+def plot_network_matrix(network_name, subj_idx, conn_data=None, clear_triu=True):
+    conn_data = get.get_conn_data(clear_triu=clear_triu) if not conn_data else conn_data
+    parcels = get.get_network_parcels(network_name)
     indices = list(parcels.values())
     fig = plt.figure()
     ax = plt.gca()
-    im = ax.matshow(conn_data['Z'][:, :, subj_idx][np.ix_(indices, indices)])
+    im = ax.matshow(conn_data[:, :, subj_idx][np.ix_(indices, indices)])      
     fig.colorbar(im)
-    # plt.matshow(conn_data['Z'][:, :, 0][np.ix_(indices, indices)])
     # Let's adjust the tick labels.
     plt.title(f'Subject: {subj_idx} | Network: {network_name}')
     plt.xticks(
@@ -134,8 +134,51 @@ def plot_network_matrix(network_name, subj_idx, conn_data=None):
         top=True,
         labelbottom=True,
         labeltop=False)
+    if network_name in ['wb', 'whole_brain', 'whole brain']:
+        # Broken Polygon drawing is not correct currently.
+        vertices, codes = add_squares()
+        path = Path(vertices, codes)
+        pathpatch = PathPatch(path, facecolor='None', edgecolor='red')
+        ax.add_patch(pathpatch)
     plt.show()
 
+
+def add_squares(network='wb'):
+    """
+    Plot squares around network nodes using naming convention and strategy from 
+    https://matplotlib.org/stable/gallery/shapes_and_collections/compound_path.html#sphx-glr-gallery-shapes-and-collections-compound-path-py
+    
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    vertices and codes to use with matplotlib.path to draw squares
+    around networks.
+    """
+
+    parcels = get.get_network_parcels(network)
+    unique_networks = set([k.split("_")[0] for k in parcels.keys()])
+    # Turn the parcel OrderedDict into a df, so that network corners
+    # can be identified by value in index (not np_ix, which is where
+    # the data is pulled from in mdata)
+    df = pd.DataFrame(parcels.items(), columns = ['label','np_ix'])
+    codes = []
+    vertices = []
+    for n in unique_networks:
+        ix = df.loc[df['label'].str.contains(n)].index
+        # TODO Figure out how to reference the top left corner
+        # rather than the bottom left for coords
+        corner1 = (np.min(ix), np.min(ix))
+        corner2 = (np.min(ix), np.max(ix))
+        corner3 = (np.max(ix), np.max(ix))
+        corner4 = (np.max(ix), np.min(ix))
+
+        codes += [Path.MOVETO] + [Path.LINETO]*2 + [Path.CLOSEPOLY]
+        vertices += [corner1, corner2, corner3, corner4, (1,1)]
+    print(codes, vertices)
+    return codes, vertices
 
 def plot_cohort_network_matrix(conn_data, network_name, subj_idx_list):
     cohort_matrices = []  # need to collect all the matrices to add
