@@ -26,7 +26,7 @@ utils.check_data_loaded()
 # CREATE A FUNCTION TO SIMPLIFY PLOTTING and GRAPH MEASURES
 
 
-def plot_weighted_graph(gw, color_nodes_by=None, **kwargs):
+def plot_weighted_graph(gw, network=None, color_nodes_by=None, **kwargs):
     """Plot the edges and nodes in the selected graph.
 
        Should look like an axial glass view, if the orthocenter coordinates
@@ -64,20 +64,32 @@ def plot_weighted_graph(gw, color_nodes_by=None, **kwargs):
           in the color_nodes_by section above, fixed by ensuring I was
           using the dict values instead of dict keys (JJB)
     """
-    eweights = [d['weight'] for (u, v, d) in gw.edges(data=True)]
+    # eweights = [d['weight'] for (u, v, d) in gw.edges(data=True)]
     options = {
-        "edge_color": eweights,
-        "width": 1,
-        "node_size": 200,
+        # "edge_color": eweights,
+        "width": 0.5,
+        "node_size": 300,
+        "linewidths": 1,
+        "edgecolors": 'black',
         "node_color": 'yellow',
         "edge_cmap": plt.cm.rainbow,
-        "cmap": plt.cm.nipy_spectral,
+        "cmap": plt.cm.hsv,
         "edge_vmin": 0,
         "edge_vmax": 1.2,
-        "with_labels": False
+        "with_labels": True
     }
-    if 'pos' in kwargs.keys():
+    if network is not None:
+        pos = get_position_dict(network)
+        options['pos'] = pos
+        # nodes = gw.nodes()
+        for node in list(gw):
+            if node not in pos.keys():
+                gw.remove_node(node)
+    elif 'pos' in kwargs.keys():
         options['pos'] = kwargs['pos']
+
+    eweights = [d['weight'] for (u, v, d) in gw.edges(data=True)]
+    options['edge_color'] = eweights
 
     if color_nodes_by is not None:
         options['node_color'] = [
@@ -207,6 +219,21 @@ def get_position_dict(network):
     Currently, not flexible as the specific label column is hard coded."""
     bnv = bnv_prep.bnv_analysis(network=network, prop_thr=None)
     network_locs = bnv.limit_labels(network=network)
+    position_dict = {}
+
+    for index, row in network_locs.iterrows():
+        position_dict[index] = [row['x'], row['y']]
+
+    return position_dict
+
+
+'''
+def get_position_dict(network):
+    """Add position information to each node using the coordinates in a dataframe with ROI labels and coordinates.
+    Use with plot_weighted_graphs to represent the results in an axial super glass brain.
+    Currently, not flexible as the specific label column is hard coded."""
+    bnv = bnv_prep.bnv_analysis(network=network, prop_thr=None)
+    network_locs = bnv.limit_labels(network=network)
     roi_dict = OrderedDict()
     for n, net in enumerate(network_locs['SuttonLabel']):
         roi_dict[n] = network_locs.loc[network_locs['SuttonLabel']
@@ -216,7 +243,7 @@ def get_position_dict(network):
         position_dict[k] = v
 
     return position_dict
-
+'''
 
 def add_node_weights(G, msr_name, nx_func):
     """Inputs: G = graph
