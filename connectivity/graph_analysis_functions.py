@@ -363,6 +363,9 @@ def collate_graph_measures(
         prop_thr=None,
         subgraph_network=None,
         multiproc=True):
+    """
+    Workhorse method
+    """
     if subjects is not None:
         if isinstance(subjects, np.ndarray):
             subjects = list(subjects)
@@ -502,7 +505,9 @@ def save_long_format_results(
         prop_thr=None,
         subgraph_network=None,
         multiproc=True):
-    """All input arguments the same as collate_graph_measures, plus output filepath for csv with the results for each subject, threshold, network, etc.
+    """All input arguments the same as collate_graph_measures, 
+    plus output filepath for csv with the results for each 
+    subject, threshold, network, etc.
     """
     df = collate_graph_measures(
         subjects=subjects,

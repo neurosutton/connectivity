@@ -107,16 +107,14 @@ def plot_cohort_comparison_over_thresholds(
     plt.show()
 
 
-def plot_network_matrix(network_name, subj_idx, conn_data=None):
-    if not conn_data:
-        conn_data = shared.conn_data
-    parcels = get.get_network_parcels(conn_data, network_name, subj_idx)
+def plot_network_matrix(network_name, subj_idx, conn_data=None, clear_triu=True):
+    conn_data = get.get_conn_data(clear_triu=clear_triu) if not conn_data else conn_data
+    parcels = get.get_network_parcels(network_name)
     indices = list(parcels.values())
     fig = plt.figure()
     ax = plt.gca()
-    im = ax.matshow(conn_data['Z'][:, :, subj_idx][np.ix_(indices, indices)])
+    im = ax.matshow(conn_data[:, :, subj_idx][np.ix_(indices, indices)])
     fig.colorbar(im)
-    # plt.matshow(conn_data['Z'][:, :, 0][np.ix_(indices, indices)])
     # Let's adjust the tick labels.
     plt.title(f'Subject: {subj_idx} | Network: {network_name}')
     plt.xticks(
