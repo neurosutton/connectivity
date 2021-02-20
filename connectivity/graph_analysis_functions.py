@@ -76,7 +76,7 @@ def plot_weighted_graph(gw, network=None, color_nodes_by=None, **kwargs):
         "cmap": plt.cm.hsv,
         "edge_vmin": 0,
         "edge_vmax": 1.2,
-        "with_labels": True
+        "with_labels": False
     }
     if network is not None:
         pos = get_position_dict(network)
@@ -290,14 +290,14 @@ def add_thr_edges(G, prop_thr=None):
     Computes MST for whole brain and then adds subset of edges back
     to the MST graph, depending on proportional threshold for highest
     weighted edges.
-    
+
     Parameters
     ----------
     G : nx.Graph
     prop_thr : float
     proportional threshold (optional) for adding nodes to
         the MST result.
-    Returns: 
+    Returns:
     thresholded_network : nx.Graph
         The subsetted network FOR AN INDIVIDUAL that contains the MST
         skeleton and the extra nodes/edges up to the proportional threshold
@@ -324,6 +324,7 @@ def add_thr_edges(G, prop_thr=None):
             print('Likely the Graph needs to be for whole brain or the edge ',
                   'density needs to be re-calculated based on a network ',
                   'subset.')
+            return
         percent_shared_edges = len(shared_edges) / len(mst_edges)
     return thresholded_network, percent_shared_edges
 
@@ -343,9 +344,12 @@ def filter_density_based_network(thresholded_network, subgraph_network=None):
 def create_density_based_network(subj_idx, prop_thr):
     """Calculate the whole-brain MST for an individual and then add back high
        connectivity edges until a threshold is met for each individual"""
-    mat = get.get_network_matrix(
-        '',
-        subj_idx)  # BMS Forced whole brain connectivity, so that other networks of interest can be passed to funcs without overriding MST for whole brain
+    # BMS Forced whole brain connectivity, so that other networks of interest
+    # can be passed to funcs without overriding MST for whole brain
+    print(f'Making density network: {subj_idx=} {prop_thr=}')
+    mat = get.get_network_matrix('', subj_idx)
+    plt.matshow(mat)
+    plt.show()
     G = make_graph_without_nans(mat)
     thresholded_network, percent_shared_edges = add_thr_edges(
         G, prop_thr=prop_thr)
@@ -427,6 +431,7 @@ def collate_graph_measures(
         prop_thr = [prop_thr] if not isinstance(prop_thr, list) else prop_thr
         for thr in prop_thr:
             for subj in subjects:
+                print(f'Working on {thr} for {subj}')
                 df_list.append(
                     individ_graph_msrs(
                         subj,
@@ -532,8 +537,8 @@ def save_long_format_results(
         prop_thr=None,
         subgraph_network=None,
         multiproc=True):
-    """All input arguments the same as collate_graph_measures, 
-    plus output filepath for csv with the results for each 
+    """All input arguments the same as collate_graph_measures,
+    plus output filepath for csv with the results for each
     subject, threshold, network, etc.
     """
     df = collate_graph_measures(

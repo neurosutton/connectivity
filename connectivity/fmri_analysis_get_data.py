@@ -118,6 +118,7 @@ def get_network_matrix(network_name, subj_idx, conn_data=None, prop_thr=None, ne
     conn_data = get_conn_data() if conn_data is None else conn_data
     parcels = get_network_parcels(network_name)
     indices = list(parcels.values())
+    indices.sort()
     matrix = conn_data[:, :, subj_idx][np.ix_(indices, indices)]
     if prop_thr or network_mask is not None:
         if prop_thr:

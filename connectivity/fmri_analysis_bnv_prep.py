@@ -51,8 +51,9 @@ class bnv_analysis():
 
     def clean_labels(self):
         """Reduce mismatches and extraneous information from label file, so that the bare minimum needed for BNV is merged."""
-        self.label_df = self.label_df[['x', 'y', 'z', self.atlas_label]]
+        self.label_df = self.label_df[['x', 'y', 'z', 'NETWORK', self.atlas_label]]
         self.label_df[self.atlas_label] = self.label_df[self.atlas_label].str.lower()
+
 
     def limit_labels(self, network=None):
         """Callable to reduce the labels and x,y,z coordinates to a network of interest."""
