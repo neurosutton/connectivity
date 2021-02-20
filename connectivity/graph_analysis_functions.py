@@ -346,7 +346,6 @@ def create_density_based_network(subj_idx, prop_thr):
        connectivity edges until a threshold is met for each individual"""
     # BMS Forced whole brain connectivity, so that other networks of interest
     # can be passed to funcs without overriding MST for whole brain
-    print(f'Making density network: {subj_idx=} {prop_thr=}')
     mat = get.get_network_matrix('', subj_idx)
     G = make_graph_without_nans(mat)
     thresholded_network, percent_shared_edges = add_thr_edges(
@@ -545,6 +544,7 @@ def save_long_format_results(
         prop_thr=prop_thr,
         subgraph_network=subgraph_network,
         multiproc=multiproc)
+    df['network'] = df['network'].fillna('whole_brain')
     df = df.replace({'nan', np.nan})
     return df.to_csv(output_filepath, index=False)
 
