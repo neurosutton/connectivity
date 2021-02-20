@@ -348,8 +348,6 @@ def create_density_based_network(subj_idx, prop_thr):
     # can be passed to funcs without overriding MST for whole brain
     print(f'Making density network: {subj_idx=} {prop_thr=}')
     mat = get.get_network_matrix('', subj_idx)
-    plt.matshow(mat)
-    plt.show()
     G = make_graph_without_nans(mat)
     thresholded_network, percent_shared_edges = add_thr_edges(
         G, prop_thr=prop_thr)
