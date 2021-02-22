@@ -10,7 +10,6 @@ import numpy as np
 import fnmatch
 import pandas as pd
 from scipy.io import loadmat
-from collections import OrderedDict
 import fmri_analysis_utilities as utils
 import fmri_analysis_load_funcs as faload
 import fmri_analysis_plotting as faplot
