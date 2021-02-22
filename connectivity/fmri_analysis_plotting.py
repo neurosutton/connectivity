@@ -119,11 +119,12 @@ def plot_network_matrix(
     conn_data = get.get_conn_data(
         clear_triu=clear_triu) if not conn_data else conn_data
     parcels = get.get_network_parcels(network_name)
+    # Organize the array by FCN/alphabetical regions for grouped visualization
+    parcels = OrderedDict(sorted(parcels.items()))
     # Speed boost with np.array over list
     indices = np.array(list(parcels.values()))
     fig = plt.figure()
     ax = plt.gca()
-    # indices.sort()
     im = ax.matshow(conn_data[:, :, subj_idx][np.ix_(indices, indices)])
     fig.colorbar(im)
     # Let's adjust the tick labels.
@@ -279,7 +280,7 @@ def plot_auc(study_exp_auc_diff, permuted_diffs, msr, network=None):
     Plots calculated study-related experimental differences and random,
     permuted differences for a given metric.
     """
-    network = network if network else 'Whole_brain'
+    network = network if network else 'whole_brain'
     fig, ax = plt.subplots()
     sns.histplot(x=permuted_diffs, kde=True)
     plt.axvline(study_exp_auc_diff, color='r', linewidth=5)

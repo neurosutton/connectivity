@@ -414,7 +414,7 @@ def collate_graph_measures(
                         name_str][0]
     else:
         subjects = (shared.group1_indices + shared.group2_indices)
-    print(f'Analyzing subjects: {subjects}')
+    print(f'Network: {subgraph_network}\nAnalyzing subjects: {subjects}')
 
     global tmp
     tmp = current_analysis(grouping_col, prop_thr, subgraph_network)
@@ -491,6 +491,7 @@ def individ_graph_msrs(subj, prop_thr=None, grouping_col='group'):
                                               'subj_ix'])])
     tmp_df[['percent_shared_edges', 'threshold', 'subj_ix']
            ] = percent_shared_edges, prop_thr, subj
+    tmp_df['network'] = 'whole_brain'
     tmp_df = utils.subject_converter(tmp_df, orig_subj_col='subj_ix')
     print(f'End {subj} {prop_thr}')
     return tmp_df
@@ -535,7 +536,7 @@ def save_long_format_results(
         subjects=None,
         grouping_col='group',
         prop_thr=np.arange(.8,.99, .5),
-        subgraph_network=None,
+        networks=None,
         multiproc=True):
     """All input arguments the same as collate_graph_measures,
     plus output filepath for csv with the results for each
@@ -543,7 +544,7 @@ def save_long_format_results(
     """
     df_list = []
     
-    for network in subgraph_network:
+    for network in networks:
         for thr in prop_thr:
             # Maintain only one call to collate_graph_measures by effectively eliminating
             # subgraph network argument for whole brain.
@@ -554,10 +555,13 @@ def save_long_format_results(
                 prop_thr=thr,
                 subgraph_network=network,
                 multiproc=multiproc)
-    df['network'] = df['network'].fillna('whole_brain')
-    df = pd.concat(df_list)
-    df = df.replace({'nan', np.nan})
-    return df.to_csv(output_filepath, index=False)
+            df_list.append(df)
+
+            # Intentionally overwrite the file at each iteration, so that if the code crashes,
+            # there is a record of the previous results.
+            df_out = pd.concat(df_list)
+            df_out = df_out.replace({'nan', np.nan})
+            df_out.to_csv(output_filepath, index=False)
 
 
 def summarize_graph_msr_group_diffs(

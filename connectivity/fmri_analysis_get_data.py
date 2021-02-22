@@ -70,8 +70,7 @@ def get_network_parcels(network, mdata=None):
         network_parcels = {k:v for k,v in parcels.items() if k in matching}
     else:
         network_parcels = parcels
-    # Organize the array by FCN/alphabetical regions for grouped visualization
-    network_parcels = OrderedDict(sorted(network_parcels.items()))
+
     return network_parcels
 
 def get_subj_df_data(nonimaging_subjectlevel_data=None):
@@ -118,8 +117,6 @@ def get_network_matrix(network_name, subj_idx, conn_data=None, prop_thr=None, ne
     conn_data = get_conn_data() if conn_data is None else conn_data
     parcels = get_network_parcels(network_name)
     indices = list(parcels.values())
-    #indices.sort()   # I don't think we want to resort the indices, since the order
-    # currently implied is sorted by FCN, alphabetically.
     matrix = conn_data[:, :, subj_idx][np.ix_(indices, indices)]
     if prop_thr or network_mask is not None:
         if prop_thr:
