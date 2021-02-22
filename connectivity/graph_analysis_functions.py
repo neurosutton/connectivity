@@ -534,7 +534,7 @@ def save_long_format_results(
         output_filepath,
         subjects=None,
         grouping_col='group',
-        prop_thr=np.range(.8,.99, .5),
+        prop_thr=np.arange(.8,.99, .5),
         subgraph_network=None,
         multiproc=True):
     """All input arguments the same as collate_graph_measures,

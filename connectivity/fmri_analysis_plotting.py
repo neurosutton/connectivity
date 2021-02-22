@@ -73,8 +73,10 @@ def plot_cohort_comparison_over_thresholds(
         ---------------------
         1. add * markers for significance testing above the error bars
         - The significance testing at a given thresh can be done like this (cdf = comparison_df):
-        g1 = cdf[cdf['group'] == group_names[0]][cdf['threshold']==thresh]['connectivity']
-        g2 = cdf[cdf['group'] == group_names[1]][cdf['threshold']==thresh]['connectivity']
+        g1 = cdf[cdf['group'] == group_names[0]
+            ][cdf['threshold']==thresh]['connectivity']
+        g2 = cdf[cdf['group'] == group_names[1]
+            ][cdf['threshold']==thresh]['connectivity']
         ttest_ind(g1, g2)
         - So this needs to loop over each threshold, calculate the p value, and then place the
           asterix in the right position
@@ -109,13 +111,20 @@ def plot_cohort_comparison_over_thresholds(
     plt.show()
 
 
-def plot_network_matrix(network_name, subj_idx, conn_data=None, clear_triu=True):
-    conn_data = get.get_conn_data(clear_triu=clear_triu) if not conn_data else conn_data
+def plot_network_matrix(
+        network_name,
+        subj_idx,
+        conn_data=None,
+        clear_triu=True):
+    conn_data = get.get_conn_data(
+        clear_triu=clear_triu) if not conn_data else conn_data
     parcels = get.get_network_parcels(network_name)
-    indices = np.array(list(parcels.values())) # Speed boost with np.array over list
+    # Speed boost with np.array over list
+    indices = np.array(list(parcels.values()))
     fig = plt.figure()
     ax = plt.gca()
-    im = ax.matshow(conn_data[:, :, subj_idx][np.ix_(indices, indices)])      
+    # indices.sort()
+    im = ax.matshow(conn_data[:, :, subj_idx][np.ix_(indices, indices)])
     fig.colorbar(im)
     # Let's adjust the tick labels.
     plt.title(f'Subject: {subj_idx} | Network: {network_name}')
@@ -129,7 +138,12 @@ def plot_network_matrix(network_name, subj_idx, conn_data=None, clear_triu=True)
                 len(indices)), list(
                 parcels.keys()), rotation='horizontal')
     else:
-        print ()
+        # Sanity check for what is represented in the matrix.
+        # Can be deleted in the future.
+        check_parc_order = []
+        for i in indices:
+            check_parc_order.append([k for k, v in parcels.items() if v == i])
+        print(check_parc_order)
 
     ax.tick_params(
         axis="x",
@@ -139,18 +153,20 @@ def plot_network_matrix(network_name, subj_idx, conn_data=None, clear_triu=True)
         labeltop=False)
     if network_name in ['wb', 'whole_brain', 'whole brain']:
         # Broken Polygon drawing is not correct currently.
-        vertices, codes = add_squares()
+        codes, vertices = add_squares()
         path = Path(vertices, codes)
         pathpatch = PathPatch(path, facecolor='None', edgecolor='red')
         ax.add_patch(pathpatch)
     plt.show()
+    print(
+        f'Order for FCN along diagonal is:\n{sorted(set([fcn.split("_")[0] for fcn in parcels.keys()]))}')
 
 
 def add_squares(network='wb'):
     """
-    Plot squares around network nodes using naming convention and strategy from 
+    Plot squares around network nodes using naming convention and strategy from
     https://matplotlib.org/stable/gallery/shapes_and_collections/compound_path.html#sphx-glr-gallery-shapes-and-collections-compound-path-py
-    
+
     Parameters
     ----------
     None
@@ -166,7 +182,7 @@ def add_squares(network='wb'):
     # Turn the parcel OrderedDict into a df, so that network corners
     # can be identified by value in index (not np_ix, which is where
     # the data is pulled from in mdata)
-    df = pd.DataFrame(parcels.items(), columns = ['label','np_ix'])
+    df = pd.DataFrame(parcels.items(), columns=['label', 'np_ix'])
     codes = []
     vertices = []
     for n in unique_networks:
@@ -178,10 +194,10 @@ def add_squares(network='wb'):
         corner3 = (np.max(ix), np.max(ix))
         corner4 = (np.max(ix), np.min(ix))
 
-        codes += [Path.MOVETO] + [Path.LINETO]*2 + [Path.CLOSEPOLY]
-        vertices += corner1, corner2, corner3, corner4, corner1
-    print(codes, vertices)
+        codes += [Path.MOVETO] + [Path.LINETO] * 3 + [Path.CLOSEPOLY]
+        vertices += (corner1, corner2, corner3, corner4, corner1)
     return codes, vertices
+
 
 def plot_cohort_network_matrix(conn_data, network_name, subj_idx_list):
     cohort_matrices = []  # need to collect all the matrices to add
