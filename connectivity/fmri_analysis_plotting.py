@@ -180,6 +180,8 @@ def add_squares(network='wb'):
     """
 
     parcels = get.get_network_parcels(network)
+    # Organize the array by FCN/alphabetical regions for grouped visualization
+    parcels = OrderedDict(sorted(parcels.items()))
     unique_networks = set([k.split("_")[0] for k in parcels.keys()])
     # Turn the parcel OrderedDict into a df, so that network corners
     # can be identified by value in index (not np_ix, which is where
