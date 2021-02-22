@@ -321,8 +321,9 @@ def add_thr_edges(G, prop_thr=None):
             else:
                 shared_edges.append(edge)
         except BaseException:
-            print('Likely the Graph needs to be for whole brain or the edge ',
-                  'density needs to be re-calculated based on a network ',
+            print('Error occured. Trying to add edges to a non-whole brain ',
+                  'graph. If you did enter the whole brain graph, the edge ',
+                  'density may need to be re-calculated based on a network ',
                   'subset.')
             return
         percent_shared_edges = len(shared_edges) / len(mst_edges)
@@ -346,7 +347,7 @@ def create_density_based_network(subj_idx, prop_thr):
        connectivity edges until a threshold is met for each individual"""
     # BMS Forced whole brain connectivity, so that other networks of interest
     # can be passed to funcs without overriding MST for whole brain
-    mat = get.get_network_matrix('', subj_idx)
+    mat = get.get_network_matrix('whole_brain', subj_idx)
     G = make_graph_without_nans(mat)
     thresholded_network, percent_shared_edges = add_thr_edges(
         G, prop_thr=prop_thr)
@@ -394,6 +395,7 @@ def collate_graph_measures(
     """
     Workhorse method
     """
+    # Set subjects to go through the methods
     if subjects is not None:
         if isinstance(subjects, np.ndarray):
             subjects = list(subjects)
@@ -413,6 +415,7 @@ def collate_graph_measures(
     else:
         subjects = (shared.group1_indices + shared.group2_indices)
     print(f'Analyzing subjects: {subjects}')
+
     global tmp
     tmp = current_analysis(grouping_col, prop_thr, subgraph_network)
     if multiproc:
@@ -531,20 +534,24 @@ def save_long_format_results(
         output_filepath,
         subjects=None,
         grouping_col='group',
-        prop_thr=None,
+        prop_thr=np.range(.8,.99, .5),
         subgraph_network=None,
         multiproc=True):
     """All input arguments the same as collate_graph_measures,
     plus output filepath for csv with the results for each
     subject, threshold, network, etc.
     """
-    df = collate_graph_measures(
-        subjects=subjects,
-        grouping_col=grouping_col,
-        prop_thr=prop_thr,
-        subgraph_network=subgraph_network,
-        multiproc=multiproc)
-    df['network'] = df['network'].fillna('whole_brain')
+    df_list = []
+    for network in subgraph_network:
+        for thr in prop_thr:
+            df = collate_graph_measures(
+                subjects=subjects,
+                grouping_col=grouping_col,
+                prop_thr=thr,
+                subgraph_network=network,
+                multiproc=multiproc)
+            df['network'] = df['network'].fillna('whole_brain')
+    df = pd.concat(df_list)
     df = df.replace({'nan', np.nan})
     return df.to_csv(output_filepath, index=False)
 

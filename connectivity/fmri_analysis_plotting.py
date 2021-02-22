@@ -112,22 +112,25 @@ def plot_cohort_comparison_over_thresholds(
 def plot_network_matrix(network_name, subj_idx, conn_data=None, clear_triu=True):
     conn_data = get.get_conn_data(clear_triu=clear_triu) if not conn_data else conn_data
     parcels = get.get_network_parcels(network_name)
-    indices = list(parcels.values())
+    indices = np.array(list(parcels.values())) # Speed boost with np.array over list
     fig = plt.figure()
     ax = plt.gca()
     im = ax.matshow(conn_data[:, :, subj_idx][np.ix_(indices, indices)])      
     fig.colorbar(im)
     # Let's adjust the tick labels.
     plt.title(f'Subject: {subj_idx} | Network: {network_name}')
-    plt.xticks(
-        np.arange(
-            len(indices)), list(
-            parcels.keys()), rotation='vertical')
-    plt.yticks(
-        np.arange(
-            len(indices)), list(
-            parcels.keys()), rotation='horizontal')
-    # plt.colorbar()
+    if len(indices) < 20:
+        plt.xticks(
+            np.arange(
+                len(indices)), list(
+                parcels.keys()), rotation='vertical')
+        plt.yticks(
+            np.arange(
+                len(indices)), list(
+                parcels.keys()), rotation='horizontal')
+    else:
+        print ()
+
     ax.tick_params(
         axis="x",
         bottom=True,
@@ -176,7 +179,7 @@ def add_squares(network='wb'):
         corner4 = (np.max(ix), np.min(ix))
 
         codes += [Path.MOVETO] + [Path.LINETO]*2 + [Path.CLOSEPOLY]
-        vertices += [corner1, corner2, corner3, corner4, (1,1)]
+        vertices += corner1, corner2, corner3, corner4, corner1
     print(codes, vertices)
     return codes, vertices
 
