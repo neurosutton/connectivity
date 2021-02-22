@@ -542,15 +542,19 @@ def save_long_format_results(
     subject, threshold, network, etc.
     """
     df_list = []
+    
     for network in subgraph_network:
         for thr in prop_thr:
+            # Maintain only one call to collate_graph_measures by effectively eliminating
+            # subgraph network argument for whole brain.
+            network = None if network in ['wb','whole_brain','whole brain'] else network
             df = collate_graph_measures(
                 subjects=subjects,
                 grouping_col=grouping_col,
                 prop_thr=thr,
                 subgraph_network=network,
                 multiproc=multiproc)
-            df['network'] = df['network'].fillna('whole_brain')
+    df['network'] = df['network'].fillna('whole_brain')
     df = pd.concat(df_list)
     df = df.replace({'nan', np.nan})
     return df.to_csv(output_filepath, index=False)
