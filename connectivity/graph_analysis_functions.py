@@ -320,11 +320,14 @@ def add_thr_edges(G, prop_thr=None):
                 thresholded_network.add_edge(edge[0], edge[1], weight=wt)
             else:
                 shared_edges.append(edge)
-        except BaseException:
+        except BaseException as e:
+            # Rethrow the error until debugged forever.
+            print (e)
             print('Error occured. Trying to add edges to a non-whole brain ',
                   'graph. If you did enter the whole brain graph, the edge ',
                   'density may need to be re-calculated based on a network ',
                   'subset.')
+            print(f'GRAPH edges = {n_edges_density}\nMST edges = {len(mst_edges)}')
             return
         percent_shared_edges = len(shared_edges) / len(mst_edges)
     return thresholded_network, percent_shared_edges
@@ -419,34 +422,34 @@ def collate_graph_measures(
     global tmp
     tmp = current_analysis(grouping_col, prop_thr, subgraph_network)
     if multiproc:
-        with utils.parallel_setup() as pool:
-            df = pd.concat(pool.map(parallel_graph_msr, subjects))
-        if subgraph_network:
+        if not subgraph_network:
+            with utils.parallel_setup() as pool:
+                df = pd.concat(pool.map(parallel_graph_msr, subjects))
+        else:
             with utils.parallel_setup() as pool:
                 df_subgraph = pd.concat(
                     pool.map(parallel_subgraph_msr, subjects))
             df = pd.concat([df, df_subgraph])
     else:
         df_list = []
-        prop_thr = [prop_thr] if not isinstance(prop_thr, list) else prop_thr
-        for thr in prop_thr:
-            for subj in subjects:
-                print(f'Working on {thr} for {subj}')
+        for subj in subjects:
+            print(f'Working on {thr} for {subj}')
+            if not subgraph_network:
                 df_list.append(
                     individ_graph_msrs(
                         subj,
                         prop_thr=thr,
                         grouping_col=tmp.grouping_col))
-                if subgraph_network:
-                    if isinstance(subgraph_network, str):
-                        subgraph_network = [subgraph_network]
-                    for network in subgraph_network:
-                        df_list.append(
-                            individ_subgraph_msrs(
-                                network,
-                                subj,
-                                prop_thr=thr,
-                                grouping_col=tmp.grouping_col))
+            else:
+                if isinstance(subgraph_network, str):
+                    subgraph_network = [subgraph_network]
+                for network in subgraph_network:
+                    df_list.append(
+                        individ_subgraph_msrs(
+                            network,
+                            subj,
+                            prop_thr=thr,
+                            grouping_col=tmp.grouping_col))
         df = pd.concat(df_list)
     df = df.replace({'nan', np.nan})
     return df
@@ -546,6 +549,7 @@ def save_long_format_results(
     parcels = get.get_network_parcels('whole_brain')
     all_networks  = sorted(set([fcn.split("_")[0] for fcn in parcels.keys()]))
     networks = all_networks if not networks else networks
+    prop_thr = list(prop_thr) if not isinstance(prop_thr, list) else prop_thr
     for network in networks:
         for thr in prop_thr:
             # Maintain only one call to collate_graph_measures by effectively eliminating
