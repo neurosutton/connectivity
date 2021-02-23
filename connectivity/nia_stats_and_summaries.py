@@ -97,17 +97,22 @@ def _helper_sgd_grouper(df, msr_dict, group_cols, groups, subgroup_col, subgroup
                             & (df['threshold'] == thr),:].index
             grp2_ix = df.loc[(df[group_cols[0]] == groups[1]) 
                             & (df[subgroup_col] == subgroups[sg]) 
-                            & (df['threshold'] == thr),:].index 
+                            & (df['threshold'] == thr),:].index
+            result = (df.loc[(df['threshold'] == thr),:]
+                                            .groupby(group_cols[0])
+                                            .agg(msr_dict)
+                                            .round(2).T
+                                            .unstack()) 
         else:
             grp1_ix = df.loc[(df[group_cols[0]] == groups[0]) 
                             & (df[subgroup_col] == subgroups[sg]),:].index
             grp2_ix = df.loc[(df[group_cols[0]] == groups[1]) 
                             & (df[subgroup_col] == subgroups[sg]),:].index
-        result = (df.loc[df[group_cols[1]] == subgroups[sg],:]
-                                        .groupby(group_cols[0])
-                                        .agg(msr_dict)
-                                        .round(2).T
-                                        .unstack())
+            result = (df.loc[df[group_cols[1]] == subgroups[sg],:]
+                                            .groupby(group_cols[0])
+                                            .agg(msr_dict)
+                                            .round(2).T
+                                            .unstack())
         df_list.append(_helper_sgd_stats(df, grp1_ix, grp2_ix, result, msr_dict, grouper=subgroup_col, grp_val=subgroups[sg], prop_thr=thr))
     return df_list
 

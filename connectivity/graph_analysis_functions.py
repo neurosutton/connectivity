@@ -535,7 +535,7 @@ def save_long_format_results(
         output_filepath,
         subjects=None,
         grouping_col='group',
-        prop_thr=np.arange(.8,.99, .5),
+        prop_thr=np.arange(.05,.99, .5),
         networks=None,
         multiproc=True):
     """All input arguments the same as collate_graph_measures,
@@ -543,7 +543,9 @@ def save_long_format_results(
     subject, threshold, network, etc.
     """
     df_list = []
-    
+    parcels = get.get_network_parcels('whole_brain')
+    all_networks  = sorted(set([fcn.split("_")[0] for fcn in parcels.keys()]))
+    networks = all_networks if not networks else networks
     for network in networks:
         for thr in prop_thr:
             # Maintain only one call to collate_graph_measures by effectively eliminating
