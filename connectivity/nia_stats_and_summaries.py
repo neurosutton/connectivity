@@ -54,6 +54,8 @@ def summarize_group_differences(df, group_cols, msrs, thr_based= False, graph=Fa
     msr_dict = {msr: ['mean', 'std', 'count'] for msr in msrs}
     group_cols = [group_cols] if not isinstance(group_cols, list) else group_cols
     groups = list(set(df[group_cols[0]])) # Assumes the first grouper is the main grouper
+
+    df.dropna(how='all', inplace=True)
  
     if len(group_cols) > 1 or thr_based:
         results_list = []
@@ -92,31 +94,25 @@ def _helper_sgd_grouper(df, msr_dict, group_cols, groups, subgroup_col, subgroup
     df_list=[]
     for sg,toss in enumerate(subgroups):
         if thr:
+            # Find the indices in the original dataframe that will correspond to the
+            # data for the doubly grouped comparisons.
             grp1_ix = df.loc[(df[group_cols[0]] == groups[0]) 
                             & (df[subgroup_col] == subgroups[sg]) 
                             & (df['threshold'] == thr),:].index
             grp2_ix = df.loc[(df[group_cols[0]] == groups[1]) 
                             & (df[subgroup_col] == subgroups[sg]) 
                             & (df['threshold'] == thr),:].index
-            result = (df.loc[(df['threshold'] == thr),:]
-                                            .groupby(group_cols[0])
-                                            .agg(msr_dict)
-                                            .round(2).T
-                                            .unstack()) 
+
         else:
             grp1_ix = df.loc[(df[group_cols[0]] == groups[0]) 
                             & (df[subgroup_col] == subgroups[sg]),:].index
             grp2_ix = df.loc[(df[group_cols[0]] == groups[1]) 
                             & (df[subgroup_col] == subgroups[sg]),:].index
-            result = (df.loc[df[group_cols[1]] == subgroups[sg],:]
-                                            .groupby(group_cols[0])
-                                            .agg(msr_dict)
-                                            .round(2).T
-                                            .unstack())
-        df_list.append(_helper_sgd_stats(df, grp1_ix, grp2_ix, result, msr_dict, grouper=subgroup_col, grp_val=subgroups[sg], prop_thr=thr))
+
+        df_list.append(_helper_sgd_stats(df, grp1_ix, grp2_ix, msr_dict, orig_grouper=group_cols[0], new_grouper=subgroup_col, grp_val=subgroups[sg], prop_thr=thr))
     return df_list
 
-def _helper_sgd_stats(df, grp1_ix, grp2_ix, result, msr_dict, grouper=None, grp_val=None, prop_thr=None):
+def _helper_sgd_stats(df, grp1_ix, grp2_ix, msr_dict, orig_grouper=None, new_grouper=None, grp_val=None, prop_thr=None):
     """
     Helper function for summarize_group_differences.
 
@@ -130,18 +126,29 @@ def _helper_sgd_stats(df, grp1_ix, grp2_ix, result, msr_dict, grouper=None, grp_
     summarized df
     """
     for msr in msr_dict.keys():
-        grp1 = df.loc[df.index.isin(grp1_ix), msr].dropna()
-        grp2 = df.loc[df.index.isin(grp2_ix), msr].dropna()
-        try:
-            result.loc[msr, ('stats', 'pvalue')] = ttest_ind(
-                grp1, grp2)[-1].round(3)
-            if grouper:
-                result.loc[msr, ('', grouper)] = grp_val
-            if prop_thr and not grouper == 'threshold':
-                result.loc[msr, ('', 'threshold')] = prop_thr
-        except Exception as e:
+        # Narrow the df to entries that should be in the pvalue comparison.
+        tmp = df.loc[df.index.isin(grp1_ix.union(grp2_ix)),:].dropna(subset=[msr])
+        if tmp.shape[0] > 10:
+            result = (tmp.groupby(orig_grouper)
+                        .agg(msr_dict)
+                        .round(2).T
+                        .unstack())
+            grp1 = df.loc[df.index.isin(grp1_ix), msr].dropna()
+            grp2 = df.loc[df.index.isin(grp2_ix), msr].dropna()
+            try:
+                if new_grouper:
+                    result.loc[msr, ('', new_grouper)] = grp_val
+                if prop_thr and not new_grouper == 'threshold':
+                    result.loc[msr, ('', 'threshold')] = prop_thr
+                result.loc[msr, ('stats', 'pvalue')] = ttest_ind(
+                    grp1, grp2)[-1].round(3)
+            except Exception as e:
+                pass
+            return result
+        else:
+            #print(f'{tmp.shape[0]} is too few responses to test statistically.')
             pass
-    return result
+
 
 
 def calculate_auc(

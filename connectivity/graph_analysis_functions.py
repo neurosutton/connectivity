@@ -427,9 +427,8 @@ def collate_graph_measures(
                 df = pd.concat(pool.map(parallel_graph_msr, subjects))
         else:
             with utils.parallel_setup() as pool:
-                df_subgraph = pd.concat(
+                df = pd.concat(
                     pool.map(parallel_subgraph_msr, subjects))
-            df = pd.concat([df, df_subgraph])
     else:
         df_list = []
         for subj in subjects:
@@ -548,7 +547,7 @@ def save_long_format_results(
     df_list = []
     parcels = get.get_network_parcels('whole_brain')
     all_networks  = sorted(set([fcn.split("_")[0] for fcn in parcels.keys()]))
-    networks = all_networks if not networks else networks
+    networks = all_networks.append(['whole_brain']) if not networks else networks
     prop_thr = list(prop_thr) if not isinstance(prop_thr, list) else prop_thr
     for network in networks:
         for thr in prop_thr:
