@@ -19,7 +19,8 @@ from tqdm import tqdm
 import random
 
 
-def summarize_group_differences(df, group_cols, msrs, thr_based= False, graph=False):
+def summarize_group_differences(df, group_cols, msrs, thr_based=False,
+                                graph=False, exclude=None):
     """
     Compare group differences and produce a table with the
     corresponding statistical tests.
@@ -37,6 +38,8 @@ def summarize_group_differences(df, group_cols, msrs, thr_based= False, graph=Fa
         Run the stats at each threshold separately.
     graph : boolean
         Returns a plot of group differences, if True.
+    exclude : list
+        List of subjects (by index) to exclude
 
     Returns
     -------
@@ -53,10 +56,13 @@ def summarize_group_differences(df, group_cols, msrs, thr_based= False, graph=Fa
     msrs = [msrs] if not isinstance(msrs, list) else msrs
     msr_dict = {msr: ['mean', 'std', 'count'] for msr in msrs}
     group_cols = [group_cols] if not isinstance(group_cols, list) else group_cols
-    groups = list(set(df[group_cols[0]])) # Assumes the first grouper is the main grouper
+    groups = list(set(df[group_cols[0]]))  # Assumes 1st grouper is main grouper
 
     df.dropna(how='all', inplace=True)
- 
+
+    if exclude:
+        df = df.query('subj_ix not in @exclude')
+
     if len(group_cols) > 1 or thr_based:
         results_list = []
         if len(group_cols) > 1:
@@ -76,7 +82,7 @@ def summarize_group_differences(df, group_cols, msrs, thr_based= False, graph=Fa
         result = pd.concat(results_list)
     else:
         grp1_ix = df.loc[(df[group_cols[0]] == groups[0])].index
-        grp2_ix = df.loc[(df[group_cols[0]] == groups[1])].index                       
+        grp2_ix = df.loc[(df[group_cols[0]] == groups[1])].index
         result = df.groupby(group_cols).agg(msr_dict).round(2).T.unstack()
         result = _helper_sgd_stats(df, grp1_ix, grp2_ix, result, msr_dict)
 
@@ -96,17 +102,17 @@ def _helper_sgd_grouper(df, msr_dict, group_cols, groups, subgroup_col, subgroup
         if thr:
             # Find the indices in the original dataframe that will correspond to the
             # data for the doubly grouped comparisons.
-            grp1_ix = df.loc[(df[group_cols[0]] == groups[0]) 
-                            & (df[subgroup_col] == subgroups[sg]) 
+            grp1_ix = df.loc[(df[group_cols[0]] == groups[0])
+                            & (df[subgroup_col] == subgroups[sg])
                             & (df['threshold'] == thr),:].index
-            grp2_ix = df.loc[(df[group_cols[0]] == groups[1]) 
-                            & (df[subgroup_col] == subgroups[sg]) 
+            grp2_ix = df.loc[(df[group_cols[0]] == groups[1])
+                            & (df[subgroup_col] == subgroups[sg])
                             & (df['threshold'] == thr),:].index
 
         else:
-            grp1_ix = df.loc[(df[group_cols[0]] == groups[0]) 
+            grp1_ix = df.loc[(df[group_cols[0]] == groups[0])
                             & (df[subgroup_col] == subgroups[sg]),:].index
-            grp2_ix = df.loc[(df[group_cols[0]] == groups[1]) 
+            grp2_ix = df.loc[(df[group_cols[0]] == groups[1])
                             & (df[subgroup_col] == subgroups[sg]),:].index
 
         df_list.append(_helper_sgd_stats(df, grp1_ix, grp2_ix, msr_dict, orig_grouper=group_cols[0], new_grouper=subgroup_col, grp_val=subgroups[sg], prop_thr=thr))
@@ -118,11 +124,11 @@ def _helper_sgd_stats(df, grp1_ix, grp2_ix, msr_dict, orig_grouper=None, new_gro
 
     Parameters
     ----------
-    Inputs built to depend on arguments defined in 
+    Inputs built to depend on arguments defined in
     summarize_group_differences.
 
     Returns
-    ------- 
+    -------
     summarized df
     """
     for msr in msr_dict.keys():
