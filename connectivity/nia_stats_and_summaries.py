@@ -165,7 +165,7 @@ def calculate_auc(
         bootstrap=5000,
         msrs=None,
         subgroups=None,
-        exclude=None):
+        exclude=None, threshold_range=None):
     """Perform permutation-based statistical testing of graph measure AUCs.
 
     Parameters
@@ -181,6 +181,7 @@ def calculate_auc(
     msrs : list, optional
     subgroups :
     exclude : list of subject indices, optional
+    threshold_range : tuple containing a lower and upper threshold to include
 
     Returns
     -------
@@ -189,12 +190,18 @@ def calculate_auc(
     """
     # In the whole brain case, method will fail without specifying dtype.
     df['network'] = df['network'].astype(str)
+
+    if threshold_range is not None:
+        df = df.query('threshold >= @threshold_range[0] and threshold <= @threshold_range[1]')
+
     if exclude is not None:
         try:
             df = df.query('subj_ix not in @exclude')
         except TypeError:
             print('No exclusions applied. Might not have passed ',
                   f'the right data type ({type(exclude)}).')
+
+    network = 'whole_brain' if network is None else network
     if network:
         tmp = df[df['network'].str.contains(
             network, case=False)].dropna(how='all')
