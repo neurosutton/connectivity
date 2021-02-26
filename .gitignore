@@ -7,3 +7,4 @@ user_notes_*
 .spyproject/
 shared.py
 .vs/
+*.vs*
