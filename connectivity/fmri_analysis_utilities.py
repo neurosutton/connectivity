@@ -31,6 +31,7 @@ def get_long_format_results():
     Returns
     De-duplicated dataframe with all previous results
     """
+    import shared
     prev_analysis = glob.glob(os.path.join(shared.data_dir,'*long_format.csv'))
     if not prev_analysis:
         print('No previous analyses.')
