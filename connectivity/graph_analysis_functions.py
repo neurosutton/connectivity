@@ -1,27 +1,27 @@
-import shared
-from tqdm import tqdm
-import nia_stats_and_summaries as nss
-import networkx as nx
-import numpy as np
-from networkx.algorithms import community
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import pandas as pd
-import seaborn as sns
-from scipy.stats import ttest_ind
-import networkx.algorithms.community as nx_comm
-from sklearn import metrics
-from random import shuffle
-from networkx.algorithms import community
-
 # BMS
 from collections import OrderedDict
+from random import shuffle
+
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import networkx as nx
+import networkx.algorithms.community as nx_comm
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from networkx.algorithms import community
+from scipy.stats import ttest_ind
+from sklearn import metrics
+from tqdm import tqdm
+
+import fmri_analysis_bnv_prep as bnv_prep
 import fmri_analysis_get_data as get
 import fmri_analysis_manipulations as fam
-import fmri_analysis_bnv_prep as bnv_prep
 import fmri_analysis_utilities as utils
+import nia_stats_and_summaries as nss
+import shared
 utils.check_data_loaded()
-# >>>END BMS
+
 
 
 def plot_weighted_graph(gw, network=None, color_nodes_by=None, **kwargs):
@@ -383,14 +383,14 @@ def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None):
         if to_run:
             communities = nx.algorithms.community.modularity_max.greedy_modularity_communities(
         G)
-            connected_dict = {'nx_communities' = [communities],
-                              'nx_num_of_comm' = len(communities),
-                              'modularity' = nx.algorithms.community.quality.modularity(
+            connected_dict = {'nx_communities' : [communities],
+                              'nx_num_of_comm' : len(communities),
+                              'modularity' : nx.algorithms.community.quality.modularity(
             G, communities),
-                              'shortest_path' = nx.algorithms.shortest_paths.generic.average_shortest_path_length(
+                              'shortest_path' : nx.algorithms.shortest_paths.generic.average_shortest_path_length(
             G, method='dijkstra'),
-                              'local_efficiency' = nx.algorithms.efficiency_measures.local_efficiency(
-            G)
+                              'local_efficiency' : nx.algorithms.efficiency_measures.local_efficiency(
+            G)}
             for msr in to_run:
                 # Should be evaluated now
                 individ_graph_msr_dict[msr] = connected_dict[msr]
@@ -407,14 +407,14 @@ def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None):
         subgraph = largest_subgraph(G)
         to_run = [msr for msr in possible_msrs if msr not in cmplt_msrs]
         if to_run:
-            discnntd_dict = {'sg_num_total_edges' = len(G.edges),
-                            'sg_num_total_nodes' = len(G.nodes),
-                            'sg_num_connected_comp' = nx.algorithms.components.number_connected_components(G),
-                            'sg_largest_component' = len(subgraph),
-                            'sg_average_clustering' = nx.average_clustering(subgraph),
-                            'sg_shortest_path_length' = nx.average_shortest_path_length(subgraph),
-                            'sg_global_efficiency' = nx.global_efficiency(subgraph),
-                            'mean_degree' = np.nanmean(nx.degree(G))}
+            discnntd_dict = {'sg_num_total_edges' : len(G.edges),
+                            'sg_num_total_nodes' : len(G.nodes),
+                            'sg_num_connected_comp' : nx.algorithms.components.number_connected_components(G),
+                            'sg_largest_component' : len(subgraph),
+                            'sg_average_clustering' : nx.average_clustering(subgraph),
+                            'sg_shortest_path_length' : nx.average_shortest_path_length(subgraph),
+                            'sg_global_efficiency' : nx.global_efficiency(subgraph),
+                            'mean_degree' : np.nanmean(nx.degree(G))}
             for msr in to_run:
                  individ_graph_msr_dict[msr] = discnntd_dict[msr]
             individ_graph_msr_dict['network'] = subgraph_name
@@ -469,12 +469,12 @@ def collate_graph_measures(
     else:
         df_list = []
         for subj in subjects:
-            print(f'Working on {thr} for {subj}')
+            print(f'Working on {prop_thr} for {subj}')
             if not subgraph_network:
                 df_list.append(
                     individ_graph_msrs(
                         subj,
-                        prop_thr=thr,
+                        prop_thr=prop_thr,
                         grouping_col=tmp.grouping_col))
             else:
                 if isinstance(subgraph_network, str):
@@ -484,7 +484,7 @@ def collate_graph_measures(
                         individ_subgraph_msrs(
                             network,
                             subj,
-                            prop_thr=thr,
+                            prop_thr=prop_thr,
                             grouping_col=tmp.grouping_col))
         df = pd.concat(df_list)
     df = df.replace({'nan', np.nan})

@@ -20,7 +20,7 @@ import random
 
 
 def summarize_group_differences(df, group_cols, msrs, thr_based=False,
-                                graph=False, exclude=None):
+                                exclude=None):
     """
     Compare group differences and produce a table with the
     corresponding statistical tests.
@@ -36,8 +36,6 @@ def summarize_group_differences(df, group_cols, msrs, thr_based=False,
         Metrics that are to be statistically compared.
     thr_based : boolean
         Run the stats at each threshold separately.
-    graph : boolean
-        Returns a plot of group differences, if True.
     exclude : list
         List of subjects (by index) to exclude
 
@@ -45,8 +43,6 @@ def summarize_group_differences(df, group_cols, msrs, thr_based=False,
     -------
     result : dataframe
         Summary table of group differences with p-values
-
-    (optional) plot of group differences
 
     Example usage
     -------------
@@ -103,15 +99,6 @@ def summarize_group_differences(df, group_cols, msrs, thr_based=False,
         grp2_ix = df.loc[(df[group_cols[0]] == groups[1])].index
         result = df.groupby(group_cols).agg(msr_dict).round(2).T.unstack()
         result = _helper_sgd_stats(df, grp1_ix, grp2_ix, result, msr_dict)
-
-    if graph:
-        # TODO See if the logic for the graph holds for the
-        # threshold/multigrouper case
-        keep = msrs + [group_col]
-        tmp = df[keep]
-        sns.pairplot(tmp,hue=group_col, palette='winter')
-        plt.xticks(rotation=80)
-        plt.show()
     return result
 
 
