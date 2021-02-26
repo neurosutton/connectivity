@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import pandas as pd
 import numpy as np
 import fmri_analysis_get_data as get
