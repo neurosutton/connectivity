@@ -13,6 +13,7 @@ from networkx.algorithms import community
 from scipy.stats import ttest_ind
 from sklearn import metrics
 from tqdm import tqdm
+import os
 
 import fmri_analysis_bnv_prep as bnv_prep
 import fmri_analysis_get_data as get
