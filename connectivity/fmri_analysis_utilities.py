@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import fmri_analysis_get_data as get
 from importlib import reload
-import os
+import os, glob
 from datetime import datetime
 
 
@@ -22,6 +22,26 @@ def filter_df(df,criteria={}):
     df.dropna(how='all', inplace=True)
     # Other criteria as we build out the pipelines
     return df
+
+def get_long_format_results():
+    """
+    Locate and concatenate previous analyses. Useful for adding more 
+    fine-grained thresholding or a new network later.
+
+    Returns
+    De-duplicated dataframe with all previous results
+    """
+    prev_analysis = glob.glob(os.path.join(shared.data_dir,'*long_format.csv'))
+    if not prev_analysis:
+        print('No previous analyses.')
+    else:
+        df_list = []
+        for f in prev_analysis:
+            df = pd.DataFrame(pd.read_csv(f))
+            df_list.append(df)
+        df = pd.concat(df_list).drop_duplicates()
+        df.dropna(how='all', inplace=True) # De-blank essentially
+        return df
 
 
 def match_subj_group(subj_ix):
