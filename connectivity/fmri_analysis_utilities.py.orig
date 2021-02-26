@@ -177,3 +177,4 @@ def nan_bouncer(x, axis=0):
     idx = tuple(np.ogrid[tuple(map(slice, x.shape[1:]))])
     res = x[(np.argsort(~mask, axis=0, kind='mergesort')[cut:],) + idx] 
     return res if axis == 0 else np.moveaxis(res, 0, axis)
+>>>>>>> 52ff4b9ae5a6b2c51444039d3d0b9c99cbe12b12
