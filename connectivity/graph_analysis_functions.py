@@ -562,7 +562,7 @@ def graph_msr_group_diffs(
     df_list = []
     for thr in tqdm(prop_thr_list):
         tmp_df = collate_graph_measures(
-            network, subjects=limit_subjs, prop_thr=thr)
+            subgraph_network=network, subjects=limit_subjs, prop_thr=thr)
         df_list.append(tmp_df)
     df = pd.concat(df_list)
 
@@ -588,8 +588,7 @@ def save_long_format_results(
     df_list = []
     parcels = get.get_network_parcels('whole_brain')
     all_networks = sorted(set([fcn.split("_")[0] for fcn in parcels.keys()]))
-    networks = all_networks.append(
-        ['whole_brain']) if not networks else networks
+    networks = all_networks + ['whole_brain'] if not networks else networks
     prop_thr = list(prop_thr) if not isinstance(prop_thr, list) else prop_thr
     for network in networks:
         for thr in prop_thr:
