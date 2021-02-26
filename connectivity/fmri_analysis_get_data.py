@@ -109,7 +109,7 @@ def get_subject_scores(measure):
     """Gather cognitive or medical scores."""
     scores = {}
     scores_df = pd.DataFrame(columns=['index', 'subject', measure])
-    subj_data, x, x = get_subjget_subj_df_data()
+    subj_data, x, x = get_subj_df_data()
 
     for row in subj_data.index:
         if not np.isnan(float(subj_data[subj_data.index == row][measure])):
@@ -210,7 +210,7 @@ def get_cohort_comparison_over_thresholds(
     comp_df = pd.DataFrame(columns=['threshold', 'group', 'connectivity'])
     df_idx = 0
     for value in thr_range:
-        network_mask = make_proportional_threshold_mask(
+        network_mask = fam.make_proportional_threshold_mask(
             network_name, value, exclude_negatives=exclude_negatives)
         matrix_1 = get_cohort_network_matrices(
             network_name,

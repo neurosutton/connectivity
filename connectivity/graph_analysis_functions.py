@@ -422,11 +422,6 @@ def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None):
             individ_graph_msr_dict['threshold'] = prop_thr
     return individ_graph_msr_dict
 
-
-
-
-
-
 def collate_graph_measures(
         subjects=None,
         grouping_col='group',
@@ -598,6 +593,7 @@ def save_long_format_results(
                 'wb', 'whole_brain', 'whole brain'] else network
             df = collate_graph_measures(
                 subgraph_network=network,
+                prop_thr=thr,
                 multiproc=multiproc)
             df_list.append(df)
 
