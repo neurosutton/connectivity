@@ -1,3 +1,4 @@
+import shared
 from tqdm import tqdm
 import nia_stats_and_summaries as nss
 import networkx as nx
@@ -20,7 +21,6 @@ import fmri_analysis_manipulations as fam
 import fmri_analysis_bnv_prep as bnv_prep
 import fmri_analysis_utilities as utils
 utils.check_data_loaded()
-import shared
 # >>>END BMS
 
 # CREATE A FUNCTION TO SIMPLIFY PLOTTING and GRAPH MEASURES
@@ -244,6 +244,7 @@ def get_position_dict(network):
     return position_dict
 '''
 
+
 def add_node_weights(G, msr_name, nx_func):
     """
     Helper function to add weights (values) and a dictionary key
@@ -322,12 +323,13 @@ def add_thr_edges(G, prop_thr=None):
                 shared_edges.append(edge)
         except BaseException as e:
             # Rethrow the error until debugged forever.
-            print (e)
+            print(e)
             print('Error occured. Trying to add edges to a non-whole brain ',
                   'graph. If you did enter the whole brain graph, the edge ',
                   'density may need to be re-calculated based on a network ',
                   'subset.')
-            print(f'GRAPH edges = {n_edges_density}\nMST edges = {len(mst_edges)}')
+            print(
+                f'GRAPH edges = {n_edges_density}\nMST edges = {len(mst_edges)}')
             return
         percent_shared_edges = len(shared_edges) / len(mst_edges)
     return thresholded_network, percent_shared_edges
@@ -537,7 +539,7 @@ def save_long_format_results(
         output_filepath,
         subjects=None,
         grouping_col='group',
-        prop_thr=np.arange(.05,.99, .5),
+        prop_thr=np.arange(.05, .99, .5),
         networks=None,
         multiproc=True):
     """All input arguments the same as collate_graph_measures,
@@ -546,14 +548,16 @@ def save_long_format_results(
     """
     df_list = []
     parcels = get.get_network_parcels('whole_brain')
-    all_networks  = sorted(set([fcn.split("_")[0] for fcn in parcels.keys()]))
-    networks = all_networks.append(['whole_brain']) if not networks else networks
+    all_networks = sorted(set([fcn.split("_")[0] for fcn in parcels.keys()]))
+    networks = all_networks.append(
+        ['whole_brain']) if not networks else networks
     prop_thr = list(prop_thr) if not isinstance(prop_thr, list) else prop_thr
     for network in networks:
         for thr in prop_thr:
             # Maintain only one call to collate_graph_measures by effectively eliminating
             # subgraph network argument for whole brain.
-            network = None if network in ['wb','whole_brain','whole brain'] else network
+            network = None if network in [
+                'wb', 'whole_brain', 'whole brain'] else network
             df = collate_graph_measures(
                 subjects=subjects,
                 grouping_col=grouping_col,

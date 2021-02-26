@@ -42,9 +42,9 @@ def parallel_setup():
     import math
     cores = mp.cpu_count()
     if cores <= 8:
-        job_limit = math.ceil(.25*cores)
+        job_limit = math.ceil(.25 * cores)
     else:
-        job_limit = math.ceil(.3*cores)  # Play nice with other super users.
+        job_limit = math.ceil(.3 * cores)  # Play nice with other super users.
     return mp.Pool(job_limit)
 
 
@@ -55,7 +55,7 @@ def roiIx_to_name_translator():
 def save_df(df, filename):
     import shared
     now = datetime.now().strftime('%y%m%d%H%M')
-    out_filename = os.path.join(shared.main_dir, str(now)+filename)
+    out_filename = os.path.join(shared.main_dir, str(now) + filename)
     df.to_csv(out_filename, index=False)
 
 
@@ -64,7 +64,7 @@ def subject_converter(df, orig_subj_col='subj',
     import shared
     demos = pd.DataFrame(pd.read_csv(shared.nonimaging_subjectlevel_data))
     demos.reset_index(inplace=True)
-    df = df.merge(demos[add_characteristics+['index']],
+    df = df.merge(demos[add_characteristics + ['index']],
                   left_on=orig_subj_col, right_on='index')
     return df
 
