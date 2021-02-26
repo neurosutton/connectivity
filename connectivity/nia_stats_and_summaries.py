@@ -18,7 +18,6 @@ from sklearn import metrics
 from tqdm import tqdm
 import random
 
-<<<<<<< HEAD
 
 def summarize_group_differences(df, group_cols, msrs, thr_based=False,
                                 graph=False, exclude=None):
@@ -108,19 +107,6 @@ def summarize_group_differences(df, group_cols, msrs, thr_based=False,
     if graph:
         # TODO See if the logic for the graph holds for the
         # threshold/multigrouper case
-=======
-def summarize_group_differences(df, group_col, msrs, graph=False):
-    msr_dict={msr:['mean','std','count'] for msr in msrs}
-    result=df.groupby(group_col).agg(msr_dict).round(2).T.unstack()
-    groups = list(set(df[group_col]))
-    for msr in msr_dict.keys():
-        grp1=df.loc[(df[group_col]==groups[0]),msr].dropna()
-        grp2=df.loc[(df[group_col]==groups[1]),msr].dropna()
-        result.loc[msr,('stats','pvalue')] = ttest_ind(grp1,grp2)[-1].round(3)
-    print(result)
-
-    if graph:
->>>>>>> 52ff4b9ae5a6b2c51444039d3d0b9c99cbe12b12
         keep = msrs + [group_col]
         tmp = df[keep]
         sns.pairplot(tmp,hue=group_col, palette='winter')
@@ -129,7 +115,6 @@ def summarize_group_differences(df, group_col, msrs, graph=False):
     return result
 
 
-<<<<<<< HEAD
 def _helper_sgd_grouper(
         df,
         msr_dict,
@@ -278,12 +263,6 @@ def calculate_auc(
             and (len(tmp[msr].dropna()) > 0)]
     print(f'Working through {sorted(msrs)} for FCN: {network}')
 
-=======
-def calculate_auc(df, network=None, grouping_col='group', name_id_col = 'subject', bootstrap=5000, msrs=None, subgroups=None):
-    """Input: Long format dataframe with subject identifiers and various measures that are to be permuted. In general, using this package will denote the permuted measures with gm for graph measure."""
-    msrs = [msr for msr in df.columns if 'gm' in msr]
-    df['network'] = df['network'].astype(str) # In the whole brain case, method will fail without specifying dtype.
->>>>>>> 52ff4b9ae5a6b2c51444039d3d0b9c99cbe12b12
     for msr in sorted(msrs):
 
         if subgroups:
