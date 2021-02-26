@@ -37,18 +37,11 @@ class bnv_analysis():
 
     def clean_labels(self):
         """Reduce mismatches and extraneous information from label file, so that the bare minimum needed for BNV is merged."""
-<<<<<<< HEAD
         self.label_df = self.label_df[[
             'x', 'y', 'z', 'NETWORK', self.atlas_label]]
         self.label_df[self.atlas_label] = self.label_df[self.atlas_label].str.lower()
 
     def limit_labels(self, network=None):
-=======
-        self.label_df = self.label_df[['x','y','z',self.atlas_label]]
-        self.label_df[self.atlas_label] = self.label_df[self.atlas_label].str.lower()
-
-    def limit_labels(self,network=None):
->>>>>>> 52ff4b9ae5a6b2c51444039d3d0b9c99cbe12b12
         """Callable to reduce the labels and x,y,z coordinates to a network of interest."""
         if self.label_df.shape[1] > 4:
             self.clean_labels()
@@ -157,17 +150,10 @@ class bnv_analysis():
 
         group_name = ''.join(self.group) if self.group else 'sample'
 
-<<<<<<< HEAD
         np.savetxt(os.path.join(shared.conn_dir, str(shared.date) + '_' + self.network + '_' + \
                    group_name + '_' + str(self.prop_thr).split('.')[-1] + '_pval_bnv.edge'), edges, delimiter='\t')
         np.savetxt(os.path.join(shared.conn_dir, str(shared.date) + '_' + self.network + '_' + group_name + \
                    '_' + str(self.prop_thr).split('.')[-1] + '_binary_pval_bnv.edge'), edges_bin, delimiter='\t')
-=======
-        np.savetxt(os.path.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + group_name + '_' + str(self.prop_thr).split('.')[-1]  + '_pval_bnv.edge'),edges,delimiter='\t')
-        np.savetxt(os.path.join(shared.conn_dir,str(shared.date)+ '_' + self.network + '_' + group_name + '_'+ str(self.prop_thr).split('.')[-1]  + '_binary_pval_bnv.edge'),edges_bin,delimiter='\t')
-
-
->>>>>>> 52ff4b9ae5a6b2c51444039d3d0b9c99cbe12b12
 
     def run_bnv_prep(self,statistical_edges=False):
         self.clean_labels()
