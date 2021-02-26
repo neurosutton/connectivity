@@ -1,10 +1,7 @@
-<<<<<<< HEAD
 import shared
 from tqdm import tqdm
 import nia_stats_and_summaries as nss
 import networkx as nx
-=======
->>>>>>> 52ff4b9ae5a6b2c51444039d3d0b9c99cbe12b12
 import numpy as np
 from networkx.algorithms import community
 import matplotlib as mpl
@@ -591,26 +588,15 @@ def save_long_format_results(
     parcels = get.get_network_parcels('whole_brain')
     all_networks = sorted(set([fcn.split("_")[0] for fcn in parcels.keys()]))
     networks = all_networks.append(
-<<<<<<< HEAD
         ['whole_brain']) if not networks else networks
-=======
-    ['whole_brain']) if not networks else networks
->>>>>>> 52ff4b9ae5a6b2c51444039d3d0b9c99cbe12b12
     prop_thr = list(prop_thr) if not isinstance(prop_thr, list) else prop_thr
     for network in networks:
         for thr in prop_thr:
             # Maintain only one call to collate_graph_measures by effectively eliminating
             # subgraph network argument for whole brain.
             network = None if network in [
-<<<<<<< HEAD
                 'wb', 'whole_brain', 'whole brain'] else network
-=======
-    'wb', 'whole_brain', 'whole brain'] else network
->>>>>>> 52ff4b9ae5a6b2c51444039d3d0b9c99cbe12b12
             df = collate_graph_measures(
-                subjects=subjects,
-                grouping_col=grouping_col,
-                prop_thr=thr,
                 subgraph_network=network,
                 multiproc=multiproc)
             df_list.append(df)
