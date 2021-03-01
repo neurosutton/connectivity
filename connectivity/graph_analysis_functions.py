@@ -534,7 +534,7 @@ def graph_msr_group_diffs(
 
 
 def save_long_format_results(
-        output_filepath,
+        output_filename,
         subjects=None,
         grouping_col='group',
         prop_thr=np.arange(.05,.99, .5),
@@ -544,6 +544,9 @@ def save_long_format_results(
     plus output filepath for csv with the results for each
     subject, threshold, network, etc.
     """
+    if not 'long_format' in output_filename:
+        output_filename = os.path.splitext(output_filename)[
+                                           0] + 'long_format.csv'
     df_list = []
     parcels = get.get_network_parcels('whole_brain')
     all_networks  = sorted(set([fcn.split("_")[0] for fcn in parcels.keys()]))
@@ -566,7 +569,8 @@ def save_long_format_results(
             # there is a record of the previous results.
             df_out = pd.concat(df_list)
             df_out = df_out.replace({'nan', np.nan})
-            df_out.to_csv(output_filepath, index=False)
+            # By default, save_df will prepend the date of the analysis
+            utils.save_df(df_out, output_filename)
 
 
 def summarize_graph_msr_group_diffs(
