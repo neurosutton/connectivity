@@ -32,10 +32,10 @@ def get_long_format_results():
     Returns
     De-duplicated dataframe with all previous results
     """
-    import shared
-    prev_analysis = glob.glob(os.path.join(shared.proj_dir,'*long_format.csv'))
+    import shared, glob
+    prev_analysis = glob.glob(os.path.join(shared.main_dir,'*long_format.csv'))
     if not prev_analysis:
-        print('No previous analyses.')
+        print('No previous analyses in {}'.format(os.path.join(shared.main_dir,'*long_format.csv')))
     else:
         df_list = []
         for f in prev_analysis:
@@ -76,9 +76,10 @@ def roiIx_to_name_translator():
 
 def save_df(df, filename):
     import shared
-    now = datetime.now().strftime('%y%m%d%H%M')
-    out_filename = os.path.join(shared.main_dir, str(now)+filename)
+    now = datetime.now().strftime('%y%m%d')
+    out_filename = os.path.join(shared.main_dir, str(now)+"_"+filename)
     df.to_csv(out_filename, index=False)
+    print(f'Analyses available in {out_filename}')
 
 
 def subject_converter(df, orig_subj_col='subj',

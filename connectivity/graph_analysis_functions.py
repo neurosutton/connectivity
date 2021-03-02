@@ -14,6 +14,7 @@ from random import shuffle
 from networkx.algorithms import community
 
 # BMS
+import os
 from collections import OrderedDict
 import fmri_analysis_get_data as get
 import fmri_analysis_manipulations as fam
@@ -359,15 +360,19 @@ def create_density_based_network(subj_idx, prop_thr):
 
 def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None):
     df = utils.get_long_format_results()
-    if subgraph_name:
-        # Eliminate the columns that have empty entries
-        tmp = df.loc[(df['threshold'] == prop_thr) and (
-            df['network'] == subgraph_name), :].dropna(axis=1)
-    elif prop_thr:
-        tmp = df.loc[(df['threshold'] == prop_thr), :].dropna(axis=1)
+    if df.shape[0]>1:
+        if subgraph_name and prop_thr:
+            print(f'Checking if {subgraph_name} has already been calculated')
+            # Eliminate the columns that have empty entries
+            tmp = df.loc[((df['threshold'] == prop_thr) and (
+                df['network'] == subgraph_name)), :].dropna(axis="columns")
+        elif prop_thr:
+            tmp = df.loc[(df['threshold'] == prop_thr), :].dropna(axis="columns")
+        else:
+            tmp = df.dropna(axis='columns')
+        cmplt_msrs = tmp.columns
     else:
-        tmp = df.dropna(axis=1)
-    cmplt_msrs = tmp.columns
+        cmplt_msrs = []
 
     # Instantiate a new graph measure dictionary
     individ_graph_msr_dict = {}
@@ -383,17 +388,18 @@ def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None):
         if to_run:
             communities = nx.algorithms.community.modularity_max.greedy_modularity_communities(
         G)
-            connected_dict = {'nx_communities' : [communities],
-                              'nx_num_of_comm' : len(communities),
-                              'modularity' : nx.algorithms.community.quality.modularity(
-            G, communities),
-                              'shortest_path' : nx.algorithms.shortest_paths.generic.average_shortest_path_length(
-            G, method='dijkstra'),
-                              'local_efficiency' : nx.algorithms.efficiency_measures.local_efficiency(
-            G)}
+            connected_dict = {'nx_communities' : '[communities]',
+                              'nx_num_of_comm' : 'len(communities)',
+                              'modularity' : 'nx.algorithms.community.quality.modularity(G, communities)',
+                              'shortest_path' : 'nx.algorithms.shortest_paths.generic.average_shortest_path_length(G, method="dijkstra")',
+                              'local_efficiency' : 'nx.algorithms.efficiency_measures.local_efficiency(G)'
+                              #'mean_fc' : sum(G.degree(weight='weight'))/float(len(G))}
+            }
             for msr in to_run:
                 # Should be evaluated now
-                individ_graph_msr_dict[msr] = connected_dict[msr]
+                individ_graph_msr_dict[msr] = eval(connected_dict[msr])
+        else:
+            print('All measures already calculated')
 
     if not nx.is_connected(G) or subgraph_name:
         possible_msrs = ['sg_num_total_edges',
@@ -407,16 +413,17 @@ def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None):
         subgraph = largest_subgraph(G)
         to_run = [msr for msr in possible_msrs if msr not in cmplt_msrs]
         if to_run:
-            discnntd_dict = {'sg_num_total_edges' : len(G.edges),
-                            'sg_num_total_nodes' : len(G.nodes),
-                            'sg_num_connected_comp' : nx.algorithms.components.number_connected_components(G),
-                            'sg_largest_component' : len(subgraph),
-                            'sg_average_clustering' : nx.average_clustering(subgraph),
-                            'sg_shortest_path_length' : nx.average_shortest_path_length(subgraph),
-                            'sg_global_efficiency' : nx.global_efficiency(subgraph),
-                            'mean_degree' : np.nanmean(nx.degree(G))}
+            discnntd_dict = {'sg_num_total_edges' : 'len(G.edges)',
+                            'sg_num_total_nodes' : 'len(G.nodes)',
+                            'sg_num_connected_comp' : 'nx.algorithms.components.number_connected_components(G)',
+                            'sg_largest_component' : 'len(subgraph)',
+                            'sg_average_clustering' : 'nx.average_clustering(subgraph)',
+                            'sg_shortest_path_length' : 'nx.average_shortest_path_length(subgraph)',
+                            'sg_global_efficiency' : 'nx.global_efficiency(subgraph)',
+                            'mean_degree' : 'np.nanmean(nx.degree(G))'}
             for msr in to_run:
-                 individ_graph_msr_dict[msr] = discnntd_dict[msr]
+                # Should be evaluated now
+                individ_graph_msr_dict[msr] = eval(connected_dict[msr])
             individ_graph_msr_dict['network'] = subgraph_name
             individ_graph_msr_dict['threshold'] = prop_thr
     return individ_graph_msr_dict
@@ -450,8 +457,8 @@ def collate_graph_measures(
                         name_str][0]
     else:
         subjects = (shared.group1_indices + shared.group2_indices)
-    print(f'Network: {subgraph_network}\nAnalyzing subjects: {subjects}')
-
+    print(f'Network: {subgraph_network}\nAnalyzing subjects: {subjects}')    
+    
     global tmp
     tmp = current_analysis(grouping_col, prop_thr, subgraph_network)
     if multiproc:
@@ -562,7 +569,7 @@ def graph_msr_group_diffs(
     df = pd.concat(df_list)
 
     if save:
-        utils.save_df(df, 'long_graph_msrs.csv')
+        utils.save_df(df, '_long_graph_msrs.csv')
     return df
 
 
@@ -570,7 +577,7 @@ def save_long_format_results(
         output_filename,
         subjects=None,
         grouping_col='group',
-        prop_thr=np.arange(.05,.99, .5),
+        prop_thr=np.arange(.05, .99, .05),
         networks=None,
         multiproc=True):
     """All input arguments the same as collate_graph_measures,
@@ -579,11 +586,15 @@ def save_long_format_results(
     """
     if not 'long_format' in output_filename:
         output_filename = os.path.splitext(output_filename)[
-                                           0] + 'long_format.csv'
+                                           0] + '_long_format.csv'
+
+    # Since calculating the graph measures now checks for previously analyzed
+    # data and excludes repetitve calculations, import the 
+    orig_df = utils.get_long_format_results()
+
     df_list = []
     parcels = get.get_network_parcels('whole_brain')
-    all_networks  = sorted(set([fcn.split("_")[0] for fcn in parcels.keys()]))
-    networks = all_networks.append(['whole_brain']) if not networks else networks
+    networks = sorted(set([fcn.split("_")[0] for fcn in parcels.keys()])) + ['whole_brain'] if not networks else networks
     prop_thr = list(prop_thr) if not isinstance(prop_thr, list) else prop_thr
     for network in networks:
         for thr in prop_thr:
@@ -602,6 +613,7 @@ def save_long_format_results(
             # there is a record of the previous results.
             df_out = pd.concat(df_list)
             df_out = df_out.replace({'nan', np.nan})
+            df_out = pd.concat([orig_df,df_out])
             # By default, save_df will prepend the date of the analysis
             utils.save_df(df_out, output_filename)
 
