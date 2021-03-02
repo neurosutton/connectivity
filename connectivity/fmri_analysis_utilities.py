@@ -26,23 +26,31 @@ def filter_df(df, criteria={}):
 
 def get_long_format_results():
     """
-    Locate and concatenate previous analyses. Useful for adding more 
+    Locate and concatenate previous analyses. Useful for adding more
     fine-grained thresholding or a new network later.
 
     Returns
     De-duplicated dataframe with all previous results
     """
-    import shared, glob
-    prev_analysis = glob.glob(os.path.join(shared.main_dir,'*long_format.csv'))
+    import shared
+    import glob
+    prev_analysis = glob.glob(
+        os.path.join(
+            shared.main_dir,
+            '*long_format.csv'))
     if not prev_analysis:
-        print('No previous analyses in {}'.format(os.path.join(shared.main_dir,'*long_format.csv')))
+        print(
+            'No previous analyses in {}'.format(
+                os.path.join(
+                    shared.main_dir,
+                    '*long_format.csv')))
     else:
         df_list = []
         for f in prev_analysis:
             df = pd.DataFrame(pd.read_csv(f))
             df_list.append(df)
         df = pd.concat(df_list).drop_duplicates()
-        df.dropna(how='all', inplace=True) # De-blank essentially
+        df.dropna(how='all', inplace=True)  # De-blank essentially
         return df
 
 
@@ -64,9 +72,9 @@ def parallel_setup():
     import math
     cores = mp.cpu_count()
     if cores <= 8:
-        job_limit = math.ceil(.25*cores)
+        job_limit = math.ceil(.25 * cores)
     else:
-        job_limit = math.ceil(.3*cores)  # Play nice with other super users.
+        job_limit = math.ceil(.3 * cores)  # Play nice with other super users.
     return mp.Pool(job_limit)
 
 
@@ -77,7 +85,7 @@ def roiIx_to_name_translator():
 def save_df(df, filename):
     import shared
     now = datetime.now().strftime('%y%m%d')
-    out_filename = os.path.join(shared.main_dir, str(now)+"_"+filename)
+    out_filename = os.path.join(shared.main_dir, str(now) + "_" + filename)
     df.to_csv(out_filename, index=False)
     print(f'Analyses available in {out_filename}')
 
@@ -87,7 +95,7 @@ def subject_converter(df, orig_subj_col='subj',
     import shared
     demos = pd.DataFrame(pd.read_csv(shared.nonimaging_subjectlevel_data))
     demos.reset_index(inplace=True)
-    df = df.merge(demos[add_characteristics+['index']],
+    df = df.merge(demos[add_characteristics + ['index']],
                   left_on=orig_subj_col, right_on='index')
     return df
 

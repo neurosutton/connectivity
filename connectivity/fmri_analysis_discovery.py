@@ -16,28 +16,47 @@ from scipy.stats.stats import pearsonr
 from scipy.stats.stats import spearmanr
 import fmri_analysis_functions_pd as faf
 
-with open(op.join(op.dirname(op.realpath(__file__)),'directory_defs.json')) as f:
+with open(op.join(op.dirname(op.realpath(__file__)), 'directory_defs.json')) as f:
     defs = json.load(f)
     conn_dir = defs['conn_dir']
     main_dir = defs['main_dir']
 data_dir = op.join(conn_dir)
 conn_file = 'resultsROI_Condition001.mat'
-subject_file =  op.join(main_dir,'eses_subjects_202008.csv')
+subject_file = op.join(main_dir, 'eses_subjects_202008.csv')
 
 mdata = loadmat(op.join(data_dir, conn_file))
 subj_data = pd.read_csv(subject_file)
-eses_indices = [i for i, x in enumerate(list(subj_data['group'])) if x == 'eses']
+eses_indices = [i for i, x in enumerate(
+    list(subj_data['group'])) if x == 'eses']
 hc_indices = [i for i, x in enumerate(list(subj_data['group'])) if x == 'hc']
 
 
 subj_data
-faf.plot_cohort_comparison(mdata, '', eses_indices, hc_indices, vmin=-0.6, vmax=0.6)
+faf.plot_cohort_comparison(
+    mdata,
+    '',
+    eses_indices,
+    hc_indices,
+    vmin=-0.6,
+    vmax=0.6)
 
 subj_data.head()
 
-faf.plot_cohort_comparison(mdata, 'Language_R', eses_indices, hc_indices, vmin=-0.6, vmax=0.6)
+faf.plot_cohort_comparison(
+    mdata,
+    'Language_R',
+    eses_indices,
+    hc_indices,
+    vmin=-0.6,
+    vmax=0.6)
 
-faf.plot_cohort_comparison(mdata, '', eses_indices, hc_indices, vmin=-0.6, vmax=0.6)
+faf.plot_cohort_comparison(
+    mdata,
+    '',
+    eses_indices,
+    hc_indices,
+    vmin=-0.6,
+    vmax=0.6)
 
 hc_indices = [i for i, x in enumerate(list(subj_data['group'])) if x == 'hc']
 
@@ -79,7 +98,6 @@ faf.plot_score_by_network(subject_file, 'np_exec', mdata, 'Fronto')
 faf.plot_score_by_network(subject_file, 'np_global', mdata, 'Default')
 
 
-
 scores = faf.get_subject_scores(subject_file, 'np_exec')
 
 # index #28 (eses_29) has a thalamic stroke, which seems to have led to massive
@@ -110,22 +128,54 @@ sns.regplot(conn_values, score_values)
 
 # quick check to show network-specific strenght by subject..
 reload(faf)
-faf.plot_network_strength_by_subject(subject_file, mdata, 'Default', abs=False, sign='positive')
+faf.plot_network_strength_by_subject(
+    subject_file,
+    mdata,
+    'Default',
+    abs=False,
+    sign='positive')
 
-faf.describe_cohort_networks(mdata, '', eses_indices, hc_indices, name_1='ESES', name_2='HC')
+faf.describe_cohort_networks(
+    mdata,
+    '',
+    eses_indices,
+    hc_indices,
+    name_1='ESES',
+    name_2='HC')
 
-faf.describe_cohort_networks(mdata, 'Default', eses_indices, hc_indices, name_1='ESES', name_2='HC', comparison='all', sign='positive')
-ms = faf.get_cohort_network_matrices(mdata, 'Default', eses_indices, mean='subject')
+faf.describe_cohort_networks(
+    mdata,
+    'Default',
+    eses_indices,
+    hc_indices,
+    name_1='ESES',
+    name_2='HC',
+    comparison='all',
+    sign='positive')
+ms = faf.get_cohort_network_matrices(
+    mdata, 'Default', eses_indices, mean='subject')
 ms.shape
 ms
 
-faf.get_cohort_network_matrices(mdata, 'Default', eses_indices, mean='subject', sign='positive')
+faf.get_cohort_network_matrices(
+    mdata,
+    'Default',
+    eses_indices,
+    mean='subject',
+    sign='positive')
 
 eses_indices
 eses_nmri = [0, 1, 3, 4, 19, 23, 24, 26, 29]
 
-faf.describe_cohort_networks(mdata, 'Cingulo', eses_nmri, hc_indices, name_1='ESES', name_2='HC', comparison='subject', sign='positive')
-
+faf.describe_cohort_networks(
+    mdata,
+    'Cingulo',
+    eses_nmri,
+    hc_indices,
+    name_1='ESES',
+    name_2='HC',
+    comparison='subject',
+    sign='positive')
 
 
 # Let's look at some more of the network/function relationships.

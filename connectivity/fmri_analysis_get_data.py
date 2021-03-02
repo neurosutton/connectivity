@@ -60,7 +60,7 @@ def get_conn_data(mdata=None, roi_count=None, clear_triu=True, subset=[]):
 
 
 def get_network_parcels(network, mdata=None):
-    """Returns parcel names and indices with HCP remaining in the 
+    """Returns parcel names and indices with HCP remaining in the
     name and indexed to work with numpy-based functions.
     Output: {atlas_name.roi (str): numpy index of ROI (int)}
     """
@@ -148,8 +148,9 @@ def get_network_matrix(
         matrix[matrix == 0] = np.nan
     if normalize is not False:
         # for start, will just assume it's 'self'
+        # Does this matrix need to be sorted per "indices"
         self_norm_value = np.nanmean(
-            utils.drop_negatives(conn_data[:, :, subj_idx])) # Does this matrix need to be sorted per "indices"
+            utils.drop_negatives(conn_data[:, :, subj_idx]))
         matrix = matrix / np.absolute(self_norm_value)
     return matrix
 
