@@ -247,11 +247,13 @@ def calculate_auc(
                   f'the right data type ({type(exclude)}).')
 
     network = 'whole_brain' if network is None else network
-    if network:
-        tmp = df[df['network'].str.contains(
-            network, case=False)].dropna(how='all')
-    else:
-        tmp = df[df['network'].replace({'nan': np.NaN}).isna()]
+
+#     if network:
+    tmp = df[df['network'].str.contains(
+        network, case=False)].dropna(how='all')
+#     else:
+#        tmp = df[df['network'].replace({'nan': np.NaN}).isna()]
+
     print(f'Drawing from {df.shape} data points')
 
     if not msrs:

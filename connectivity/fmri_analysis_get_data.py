@@ -195,7 +195,6 @@ def get_cohort_network_matrices(
 
 def get_cohort_comparison_over_thresholds(
         network_name,
-        group_indices,
         thr_range=None,
         thr_increment=None,
         conn_data=None,
@@ -210,7 +209,7 @@ def get_cohort_comparison_over_thresholds(
     comp_df = pd.DataFrame(columns=['threshold', 'group', 'connectivity'])
     df_idx = 0
     for value in thr_range:
-        network_mask = make_proportional_threshold_mask(
+        network_mask = fam.make_proportional_threshold_mask(
             network_name, value, exclude_negatives=exclude_negatives)
         matrix_1 = get_cohort_network_matrices(
             network_name,
