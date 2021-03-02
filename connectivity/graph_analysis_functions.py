@@ -360,22 +360,24 @@ def create_density_based_network(subj_idx, prop_thr):
     return thresholded_network, percent_shared_edges
 
 
-def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None):
+def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None, subj=None):
     df = utils.get_long_format_results()
-    if df.shape[0] > 1:
+    cmplt_msrs = []
+    if df is not None:
         if subgraph_name and prop_thr:
-            print(f'Checking if {subgraph_name} has already been calculated')
             # Eliminate the columns that have empty entries
-            tmp = df.loc[((df['threshold'] == prop_thr) and (
-                df['network'] == subgraph_name)), :].dropna(axis="columns")
+            tmp = df.loc[(df['threshold'] == prop_thr) & (
+                df['network'] == subgraph_name) &
+                (df['subj_ix'] == subj), :].dropna(axis='columns')
         elif prop_thr:
-            tmp = df.loc[(df['threshold'] == prop_thr),
-                         :].dropna(axis="columns")
+            tmp = df.loc[(df['threshold'] == prop_thr &
+                         df['subj_ix'] == subj),
+                         :].dropna(axis='columns')
         else:
-            tmp = df.dropna(axis='columns')
-        cmplt_msrs = tmp.columns
-    else:
-        cmplt_msrs = []
+            tmp = df.loc[df['subj_ix'] == subj,:].dropna(axis='columns')
+
+        if not tmp.empty:
+            cmplt_msrs = tmp.columns 
 
     # Instantiate a new graph measure dictionary
     individ_graph_msr_dict = {}
@@ -395,14 +397,13 @@ def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None):
                               'nx_num_of_comm': 'len(communities)',
                               'modularity': 'nx.algorithms.community.quality.modularity(G, communities)',
                               'shortest_path': 'nx.algorithms.shortest_paths.generic.average_shortest_path_length(G, method="dijkstra")',
-                              'local_efficiency': 'nx.algorithms.efficiency_measures.local_efficiency(G)'
-                              # 'mean_fc' : sum(G.degree(weight='weight'))/float(len(G))}
+                              'local_efficiency': 'nx.algorithms.efficiency_measures.local_efficiency(G)',
+                              # 'mean_fc' : sum(G.degree(weight='weight'))/float(len(G))},
+                              'threshold' : 'prop_thr'
                               }
             for msr in to_run:
                 # Should be evaluated now
                 individ_graph_msr_dict[msr] = eval(connected_dict[msr])
-        else:
-            print('All measures already calculated')
 
     if not nx.is_connected(G) or subgraph_name:
         possible_msrs = ['sg_num_total_edges',
@@ -412,10 +413,12 @@ def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None):
                          'sg_average_clustering',
                          'sg_shortest_path_length',
                          'sg_global_efficiency',
-                         'mean_degree']
-        subgraph = largest_subgraph(G)
+                         'mean_degree',
+                         'network',
+                         'threshold']
         to_run = [msr for msr in possible_msrs if msr not in cmplt_msrs]
         if to_run:
+            subgraph = largest_subgraph(G)
             discnntd_dict = {
                 'sg_num_total_edges': 'len(G.edges)',
                 'sg_num_total_nodes': 'len(G.nodes)',
@@ -424,12 +427,12 @@ def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None):
                 'sg_average_clustering': 'nx.average_clustering(subgraph)',
                 'sg_shortest_path_length': 'nx.average_shortest_path_length(subgraph)',
                 'sg_global_efficiency': 'nx.global_efficiency(subgraph)',
-                'mean_degree': 'np.nanmean(nx.degree(G))'}
+                'mean_degree': 'np.nanmean(nx.degree(G))',
+                'network' : 'subgraph_name',
+                'threshold' : 'prop_thr'}
             for msr in to_run:
                 # Should be evaluated now
-                individ_graph_msr_dict[msr] = eval(connected_dict[msr])
-            individ_graph_msr_dict['network'] = subgraph_name
-            individ_graph_msr_dict['threshold'] = prop_thr
+                individ_graph_msr_dict[msr] = eval(discnntd_dict[msr])
     return individ_graph_msr_dict
 
 
@@ -529,14 +532,13 @@ def individ_graph_msrs(subj, prop_thr=None, grouping_col='group'):
 
     """
     thr_G, percent_shared_edges = create_density_based_network(subj, prop_thr)
-    igmd = calculate_graph_msrs(thr_G, prop_thr=prop_thr)
+    igmd = calculate_graph_msrs(thr_G, prop_thr=prop_thr, subj=subj)
     tmp_df = pd.DataFrame(igmd, index=[subj])
     tmp_df = pd.concat([tmp_df,
                         pd.DataFrame(columns=['percent_shared_edges',
-                                              'threshold',
                                               'subj_ix'])])
-    tmp_df[['percent_shared_edges', 'threshold', 'subj_ix']
-           ] = percent_shared_edges, prop_thr, subj
+    tmp_df[['percent_shared_edges', 'subj_ix']
+           ] = percent_shared_edges, subj
     tmp_df['network'] = 'whole_brain'
     tmp_df = utils.subject_converter(tmp_df, orig_subj_col='subj_ix')
     print(f'End {subj} {prop_thr}')
@@ -553,7 +555,8 @@ def individ_subgraph_msrs(
     igmd = calculate_graph_msrs(
         subgraph,
         subgraph_name=subgraph_name,
-        prop_thr=prop_thr)
+        prop_thr=prop_thr,
+        subj=subj)
     tmp_subgraph_df = pd.DataFrame(igmd, index=[subj])
     tmp_subgraph_df['subj_ix'] = subj
     tmp_subgraph_df = utils.subject_converter(
@@ -592,18 +595,21 @@ def save_long_format_results(
     subject, threshold, network, etc.
     """
     if 'long_format' not in output_filename:
-        output_filename = os.path.splitext(output_filename)[
-            0] + '_long_format.csv'
+        output_filename = (os.path.splitext(output_filename)[
+                            0] + '_long_format.csv')
 
     # Since calculating the graph measures now checks for previously analyzed
     # data and excludes repetitve calculations, import the
     orig_df = utils.get_long_format_results()
+    if orig_df is None:
+        orig_df = pd.DataFrame(columns = ['network','subject','threshold'])
 
     df_list = []
     parcels = get.get_network_parcels('whole_brain')
     networks = sorted(set([fcn.split("_")[0] for fcn in parcels.keys()])
                       ) + ['whole_brain'] if not networks else networks
-    prop_thr = list(prop_thr) if not isinstance(prop_thr, list) else prop_thr
+    networks = [networks] if not isinstance(networks, list) else networks
+    prop_thr = [prop_thr] if not isinstance(prop_thr, list) else prop_thr
     for network in networks:
         for thr in prop_thr:
             # Maintain only one call to collate_graph_measures by effectively eliminating
@@ -620,32 +626,40 @@ def save_long_format_results(
 
             # Intentionally overwrite the file at each iteration, so that if the code crashes,
             # there is a record of the previous results.
-            df_out = pd.concat(df_list)
+            df_out = pd.concat(df_list).dropna(how='all',axis='columns')
             df_out = df_out.replace({'nan', np.nan})
-            # Ensure data types are compatible
-            for df in [orig_df, df_out]:
-                df[['subject', 'network']] = df[[
-                    'subject', 'network']].astype(str)
-                df['threshhold'] = df['threshold'].astype(float)
-            # Get entries from original DF, but add extra information if
-            # available from new analysis
-            df = orig_df.merge(
-                df_out, on=[
-                    'subject', 'threshold', 'network'], how='left', suffixes=(
-                    '', '_x'))
-            # Get the entries that are only available in the new analysis
-            new_info = orig_df.merge(
-                df_out, on=[
-                    'subject', 'threshold', 'network'], how='right', suffixes=(
-                    '_x', ''), indicator=True)
-            new_info = new_info.loc[new_info['_merge'] == 'right_only', :]
 
-            if new_info.shape[0] > 0:
-                # Stack new data in the same columns as previous analyses
-                df = pd.concat([df, new_info])
+            try:
+                # Ensure data types are compatible            
+                for d in [orig_df, df_out]:
+                    d[['subject', 'network']] = d[[
+                        'subject', 'network']].astype(str)
+                    d['threshhold'] = d['threshold'].astype(float)
+                # Get entries from original DF, but add extra information if
+                # available from new analysis
 
-            # By default, save_df will prepend the date of the analysis
-            utils.save_df(df_out, output_filename)
+                df = orig_df.merge(
+                    df_out, on=[
+                        'subject', 'threshold', 'network'], how='left', suffixes=(
+                        '', '_x'))
+
+                # Get the entries that are only available in the new analysis
+                new_info = orig_df.merge(
+                    df_out, on=[
+                        'subject', 'threshold', 'network'], how='right', suffixes=(
+                        '_x', ''), indicator=True)
+                new_info = new_info.loc[new_info['_merge'] == 'right_only', :].drop(columns='_merge')
+                # Clean up any accidental duplicates
+                new_info = new_info.drop(new_info.filter(regex='_x').columns, axis=1)
+                df = df.drop(df.filter(regex='_x').columns, axis=1)
+
+                if not new_info.empty:
+                    df = pd.concat([df, new_info], copy=False)
+
+                # By default, save_df will prepend the date of the analysis
+                utils.save_df(df, output_filename)
+            except KeyError:
+                print('No new data to add.')
 
 
 def summarize_graph_msr_group_diffs(
