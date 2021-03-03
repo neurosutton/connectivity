@@ -172,7 +172,7 @@ def get_cohort_network_matrices(
        """
     conn_data = get_conn_data() if conn_data is None else conn_data
     utils.check_data_loaded()
-    
+
     cohort_matrices = []  # need to collect all the matrices to add
     for subj in subj_idx:
         matrix = get_network_matrix(

@@ -374,10 +374,10 @@ def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None, subj=None):
                          (df['subj_ix'] == subj),
                          :].dropna(axis='columns')
         else:
-            tmp = df.loc[df['subj_ix'] == subj,:].dropna(axis='columns')
+            tmp = df.loc[df['subj_ix'] == subj, :].dropna(axis='columns')
 
         if not tmp.empty:
-            cmplt_msrs = tmp.columns 
+            cmplt_msrs = tmp.columns
 
     # Instantiate a new graph measure dictionary
     individ_graph_msr_dict = {}
@@ -427,8 +427,8 @@ def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None, subj=None):
                 'sg_shortest_path_length': 'nx.average_shortest_path_length(subgraph)',
                 'sg_global_efficiency': 'nx.global_efficiency(subgraph)',
                 'mean_degree': 'np.nanmean(nx.degree(G))',
-                'network' : 'subgraph_name',
-                'threshold' : 'prop_thr'}
+                'network': 'subgraph_name',
+                'threshold': 'prop_thr'}
             for msr in to_run:
                 # Should be evaluated now
                 individ_graph_msr_dict[msr] = eval(discnntd_dict[msr])
@@ -537,7 +537,7 @@ def individ_graph_msrs(subj, prop_thr=None, grouping_col='group'):
                         pd.DataFrame(columns=['percent_shared_edges',
                                               'threshold',
                                               'subj_ix'])])
-    tmp_df[['percent_shared_edges', 'threshold','subj_ix']
+    tmp_df[['percent_shared_edges', 'threshold', 'subj_ix']
            ] = percent_shared_edges, prop_thr, subj
     tmp_df['network'] = 'whole_brain'
     tmp_df = utils.subject_converter(tmp_df, orig_subj_col='subj_ix')
@@ -596,13 +596,13 @@ def save_long_format_results(
     """
     if 'long_format' not in output_filename:
         output_filename = (os.path.splitext(output_filename)[
-                            0] + '_long_format.csv')
+            0] + '_long_format.csv')
 
     # Since calculating the graph measures now checks for previously analyzed
     # data and excludes repetitve calculations, import the
     orig_df = utils.get_long_format_results()
     if orig_df is None:
-        orig_df = pd.DataFrame(columns = ['network','subject','threshold'])
+        orig_df = pd.DataFrame(columns=['network', 'subject', 'threshold'])
 
     df_list = []
     parcels = get.get_network_parcels('whole_brain')
@@ -627,13 +627,13 @@ def save_long_format_results(
 
             # Intentionally overwrite the file at each iteration, so that if the code crashes,
             # there is a record of the previous results.
-            df_out = pd.concat(df_list).dropna(how='all',axis='columns')
+            df_out = pd.concat(df_list).dropna(how='all', axis='columns')
             df_out = df_out.replace({'nan', np.nan})
 
             try:
-                # Ensure data types are compatible            
-            # Ensure data types are compatible
-                # Ensure data types are compatible            
+                # Ensure data types are compatible
+                # Ensure data types are compatible
+                # Ensure data types are compatible
                 for d in [orig_df, df_out]:
                     d[['subject', 'network']] = d[[
                         'subject', 'network']].astype(str)
@@ -651,14 +651,17 @@ def save_long_format_results(
                     df_out, on=[
                         'subject', 'threshold', 'network'], how='right', suffixes=(
                         '_x', ''), indicator=True)
-                new_info = new_info.loc[new_info['_merge'] == 'right_only', :].drop(columns='_merge')
+                new_info = new_info.loc[new_info['_merge']
+                                        == 'right_only', :].drop(columns='_merge')
                 # Clean up any accidental duplicates
-                new_info = new_info.drop(new_info.filter(regex='_x').columns, axis=1)
+                new_info = new_info.drop(
+                    new_info.filter(
+                        regex='_x').columns, axis=1)
                 df = df.drop(df.filter(regex='_x').columns, axis=1)
 
                 if not new_info.empty:
                     df = pd.concat([df, new_info], copy=False)
-                df = df.loc[:,~df.columns.duplicated()]
+                df = df.loc[:, ~df.columns.duplicated()]
                 # By default, save_df will prepend the date of the analysis
                 utils.save_df(df, output_filename)
             except KeyError:

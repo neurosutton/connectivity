@@ -98,8 +98,7 @@ def plot_cohort_comparison_over_thresholds(
     df = comparison_df.query('network == @network')
     if normalize:
         df = nss.normalize(df)
-        y = y+'_normed'
-        print(df)
+        y = y + '_normed'
     sns.lineplot(
         data=df,
         x='threshold',
