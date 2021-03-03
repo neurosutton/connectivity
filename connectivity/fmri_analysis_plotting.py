@@ -62,6 +62,7 @@ def plot_cohort_comparison_over_thresholds(
         group='group',
         y='connectivity',
         exclude=None,
+        threshold_range=None,
         normalize=False):
     ''' Plot group differences in connectivity strength over a threshold range.
 
@@ -91,6 +92,10 @@ def plot_cohort_comparison_over_thresholds(
         except TypeError:
             print('No exclusions applied. Might not have passed ',
                   f'the right data type ({type(exclude)}).')
+    if threshold_range is not None:
+        comparison_df = comparison_df.query(
+            'threshold >= @threshold_range[0] and threshold <= @threshold_range[1]')
+
     fig, ax = plt.subplots()
     comparison_df.loc[comparison_df.network == 'nan',
                       'network'] = 'whole_brain'
