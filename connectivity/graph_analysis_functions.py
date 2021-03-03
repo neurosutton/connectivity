@@ -370,8 +370,8 @@ def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None, subj=None):
                 df['network'] == subgraph_name) &
                 (df['subj_ix'] == subj), :].dropna(axis='columns')
         elif prop_thr:
-            tmp = df.loc[(df['threshold'] == prop_thr &
-                         df['subj_ix'] == subj),
+            tmp = df.loc[(df['threshold'] == prop_thr) &
+                         (df['subj_ix'] == subj),
                          :].dropna(axis='columns')
         else:
             tmp = df.loc[df['subj_ix'] == subj,:].dropna(axis='columns')
@@ -398,8 +398,7 @@ def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None, subj=None):
                               'modularity': 'nx.algorithms.community.quality.modularity(G, communities)',
                               'shortest_path': 'nx.algorithms.shortest_paths.generic.average_shortest_path_length(G, method="dijkstra")',
                               'local_efficiency': 'nx.algorithms.efficiency_measures.local_efficiency(G)',
-                              # 'mean_fc' : sum(G.degree(weight='weight'))/float(len(G))},
-                              'threshold' : 'prop_thr'
+                              # 'mean_fc' : sum(G.degree(weight='weight'))/float(len(G))}
                               }
             for msr in to_run:
                 # Should be evaluated now
@@ -536,9 +535,10 @@ def individ_graph_msrs(subj, prop_thr=None, grouping_col='group'):
     tmp_df = pd.DataFrame(igmd, index=[subj])
     tmp_df = pd.concat([tmp_df,
                         pd.DataFrame(columns=['percent_shared_edges',
+                                              'threshold',
                                               'subj_ix'])])
-    tmp_df[['percent_shared_edges', 'subj_ix']
-           ] = percent_shared_edges, subj
+    tmp_df[['percent_shared_edges', 'threshold','subj_ix']
+           ] = percent_shared_edges, prop_thr, subj
     tmp_df['network'] = 'whole_brain'
     tmp_df = utils.subject_converter(tmp_df, orig_subj_col='subj_ix')
     print(f'End {subj} {prop_thr}')
@@ -587,7 +587,7 @@ def save_long_format_results(
         output_filename,
         subjects=None,
         grouping_col='group',
-        prop_thr=np.arange(.05, .99, .05),
+        prop_thr=np.arange(.05, .99, .05).tolist(),
         networks=None,
         multiproc=True):
     """All input arguments the same as collate_graph_measures,
@@ -610,6 +610,7 @@ def save_long_format_results(
                       ) + ['whole_brain'] if not networks else networks
     networks = [networks] if not isinstance(networks, list) else networks
     prop_thr = [prop_thr] if not isinstance(prop_thr, list) else prop_thr
+    print(f'Testing {networks} at {prop_thr}')
     for network in networks:
         for thr in prop_thr:
             # Maintain only one call to collate_graph_measures by effectively eliminating
@@ -630,6 +631,8 @@ def save_long_format_results(
             df_out = df_out.replace({'nan', np.nan})
 
             try:
+                # Ensure data types are compatible            
+            # Ensure data types are compatible
                 # Ensure data types are compatible            
                 for d in [orig_df, df_out]:
                     d[['subject', 'network']] = d[[
@@ -655,7 +658,7 @@ def save_long_format_results(
 
                 if not new_info.empty:
                     df = pd.concat([df, new_info], copy=False)
-
+                df = df.loc[:,~df.columns.duplicated()]
                 # By default, save_df will prepend the date of the analysis
                 utils.save_df(df, output_filename)
             except KeyError:
