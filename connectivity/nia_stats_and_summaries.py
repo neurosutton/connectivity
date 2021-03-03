@@ -209,7 +209,9 @@ def calculate_auc(
         bootstrap=5000,
         msrs=None,
         subgroups=None,
-        exclude=None, threshold_range=None):
+        exclude=None, 
+        threshold_range=None,
+        normalize=False):
     """Perform permutation-based statistical testing of graph measure AUCs.
 
     Parameters
@@ -226,6 +228,7 @@ def calculate_auc(
     subgroups :
     exclude : list of subject indices, optional
     threshold_range : tuple containing a lower and upper threshold to include
+    normalize : divide individual scores by population mean for AUC comparisons
 
     Returns
     -------
@@ -248,21 +251,14 @@ def calculate_auc(
 
     network = 'whole_brain' if network is None else network
 
-#     if network:
+    # Pass around the subsetted df for the network
     tmp = df[df['network'].str.contains(
         network, case=False)].dropna(how='all')
-#     else:
-#        tmp = df[df['network'].replace({'nan': np.NaN}).isna()]
 
     print(f'Drawing from {df.shape} data points')
 
     if not msrs:
-        excl_cols = ['subj', 'index', grouping_col, 'group', 'threshold']
-        msrs = [msr for msr in tmp.columns if (
-            not any(substring in msr for substring in excl_cols))
-            and (tmp[msr].dtype in [np.float64, np.int64])
-            and (len(set(tmp[msr])) > 3)
-            and (len(tmp[msr].dropna()) > 0)]
+        msrs = find_msr_cols(tmp, grouping_col=grouping_col)
     print(f'Working through {sorted(msrs)} for FCN: {network}')
 
     for msr in sorted(msrs):
@@ -278,7 +274,7 @@ def calculate_auc(
         group1_members = set(
             tmp.loc[tmp[grouping_col] == groups[0], name_id_col])
         study_exp_auc_diff = auc_group_diff(
-            tmp, group1_members, msr, group_match_col=name_id_col)
+            tmp, group1_members, msr, group_match_col=name_id_col, normalize=normalize)
 
         if study_exp_auc_diff and (not np.isnan(study_exp_auc_diff)):
             print(f'{msr.upper()}')
@@ -297,7 +293,8 @@ def calculate_auc(
                         tmp,
                         permuted_group1_members,
                         msr,
-                        group_match_col=name_id_col))
+                        group_match_col=name_id_col,
+                        normalize=normalize))
 
             prms_lssr = len(
                 [val for val in permuted_diffs if val < study_exp_auc_diff])
@@ -316,12 +313,17 @@ def calculate_auc(
                 network=network)
 
 
-def auc_group_diff(df, group1_list, msr, group_match_col='subj'):
+def auc_group_diff(df, group1_list, msr, group_match_col='subj', normalize=False):
+
     group1_means = df.loc[df[group_match_col].isin(
         group1_list), ['threshold', msr]].groupby('threshold').mean().values
     group2_means = df.loc[~df[group_match_col].isin(
         group1_list), ['threshold', msr]].groupby('threshold').mean().values
     thrs = sorted(set(df['threshold'].dropna()))
+    if normalize:
+        pop_mean = df[['threshold', msr]].groupby('threshold').mean().mean().values[0]
+        group1_means = group1_means/pop_mean
+        group2_means = group2_means/pop_mean
 
     if len(thrs) > 2:
         group1_auc = metrics.auc(thrs, group1_means)
@@ -332,3 +334,43 @@ def auc_group_diff(df, group1_list, msr, group_match_col='subj'):
               'for this comparison.')
         print(df.loc[df[group_match_col].isin(group1_list), [
               'threshold', msr]].groupby('threshold').mean().values)
+
+
+def find_msr_cols(df, grouping_col='group'):
+    """
+    Sort through the column names to find graph measures for further analysis
+
+    Parameters
+    ----------
+    df : Full or subsetted dataframe for further analysis
+
+    Returns
+    -------
+    msrs : list of column names that are related to graph measures
+    """
+
+    excl_cols = ['subj', 'index', grouping_col, 'group', 'threshold']
+    msrs = [msr for msr in df.columns if (
+        not any(substring in msr for substring in excl_cols))
+        and (df[msr].dtype in [np.float64, np.int64])
+        and (len(set(df[msr])) > 3)
+        and (len(df[msr].dropna()) > 0)]
+    return msrs
+
+def normalize(df):
+    """
+    Divide quantities by population mean for each threshold.
+    Parameters
+    ----------
+    df : No restriction on the dataframe to be analyzed. Measures
+         are automatically detected.
+    Returns
+    -------
+    df : Dataframe with extra columns for normalized values.
+    """
+    msrs = find_msr_cols(df)
+    for msr in msrs:
+        for thr in set(df['threshold']):
+            pop_mean = df.loc[df['threshold']==thr,msr].mean(skipna=True)
+            df.loc[df['threshold']==thr,(msr+'_normed')] = df.loc[df['threshold']==thr,msr]/pop_mean
+    return df

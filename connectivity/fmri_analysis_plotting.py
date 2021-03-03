@@ -20,6 +20,7 @@ from collections import OrderedDict
 
 import fmri_analysis_load_funcs as faload
 import fmri_analysis_get_data as get
+import nia_stats_and_summaries as nss
 import shared
 
 
@@ -60,7 +61,8 @@ def plot_cohort_comparison_over_thresholds(
         network=None,
         group='group',
         y='connectivity',
-        exclude=None):
+        exclude=None,
+        normalize=False):
     ''' Plot group differences in connectivity strength over a threshold range.
 
         Parameters
@@ -94,6 +96,10 @@ def plot_cohort_comparison_over_thresholds(
                       'network'] = 'whole_brain'
     network = 'whole_brain' if network is None else network
     df = comparison_df.query('network == @network')
+    if normalize:
+        df = nss.normalize(df)
+        y = y+'_normed'
+        print(df)
     sns.lineplot(
         data=df,
         x='threshold',
