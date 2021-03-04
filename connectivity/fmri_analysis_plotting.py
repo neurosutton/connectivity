@@ -127,6 +127,9 @@ def plot_network_matrix(
         subj_idx,
         conn_data=None,
         clear_triu=True):
+    """
+    """
+
     conn_data = get.get_conn_data(
         clear_triu=clear_triu) if not conn_data else conn_data
     parcels = get.get_network_parcels(network_name)
@@ -164,7 +167,6 @@ def plot_network_matrix(
         labelbottom=True,
         labeltop=False)
     if network_name in ['wb', 'whole_brain', 'whole brain']:
-        # Broken Polygon drawing is not correct currently.
         codes, vertices = add_squares()
         path = Path(vertices, codes)
         pathpatch = PathPatch(path, facecolor='None', edgecolor='red')

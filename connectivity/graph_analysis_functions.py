@@ -614,6 +614,7 @@ def save_long_format_results(
     print(f'Testing {networks} at {prop_thr}')
     for network in networks:
         for thr in prop_thr:
+            thr = np.round(thr, decimals = 2)
             # Maintain only one call to collate_graph_measures by effectively eliminating
             # subgraph network argument for whole brain.
             network = None if network in [
@@ -636,7 +637,7 @@ def save_long_format_results(
                 for d in [orig_df, df_out]:
                     d[['subject', 'network']] = d[[
                         'subject', 'network']].astype(str)
-                    d['threshhold'] = d['threshold'].astype(float)
+                    d['threshold'] = d['threshold'].astype(float)
                 # Get entries from original DF, but add extra information if
                 # available from new analysis
 
