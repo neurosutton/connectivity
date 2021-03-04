@@ -128,7 +128,28 @@ def get_network_matrix(
         network_mask=None,
         exclude_negatives=False,
         normalize=False):
-    '''
+    ''' Return a subject(s) matrix from the conn_data output from CONN.
+
+    Parameters
+    ----------
+    network_name : string, can be 'whole_brain' or a canonical network from HCP
+    subj_idx : int or list of int, numerical subject indices
+    conn_data :
+    prop_thr :
+    network_mask :
+    exclude_negatives :
+    normalize :
+
+    Returns
+    -------
+    An nxn connectivity, either for the individual subj_idx or the mean of
+        matrices from [subj_idx]
+
+    To Do
+    -----
+    cleanup : some parameters, such as prop_thr and network_mask might
+        be obsolute?
+
     Adding a normalize, which can call different types.
         - 'self' will divide by own whole brain mean connectivity
     '''
@@ -137,7 +158,13 @@ def get_network_matrix(
     conn_data = get_conn_data() if conn_data is None else conn_data
     parcels = get_network_parcels(network_name)
     indices = list(parcels.values())
-    matrix = conn_data[:, :, subj_idx][np.ix_(indices, indices)]
+    if not (isinstance(subj_idx, int) or isinstance(subj_idx, list)):
+        raise TypeError('subj_idx must be an integer or list of integers.')
+    if type(subj_idx) is int:
+        matrix = conn_data[:, :, subj_idx][np.ix_(indices, indices)]
+    elif type(subj_idx) is list:
+        matrices = conn_data[:, :, subj_idx]
+        matrix = np.mean(matrices, axis=2)[np.ix_(indices, indices)]
     if prop_thr or network_mask is not None:
         if prop_thr:
             network_mask = fam.make_proportional_threshold_mask(
@@ -210,6 +237,7 @@ def get_cohort_comparison_over_thresholds(
     comp_df = pd.DataFrame(columns=['threshold', 'group', 'connectivity'])
     df_idx = 0
     for value in thr_range:
+        print(f'Working on {value}')
         network_mask = fam.make_proportional_threshold_mask(
             network_name, value, exclude_negatives=exclude_negatives)
         matrix_1 = get_cohort_network_matrices(

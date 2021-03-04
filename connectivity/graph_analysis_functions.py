@@ -65,6 +65,7 @@ def plot_weighted_graph(gw, network=None, color_nodes_by=None, **kwargs):
           in the color_nodes_by section above, fixed by ensuring I was
           using the dict values instead of dict keys (JJB)
     """
+    gc = gw.copy()
     # eweights = [d['weight'] for (u, v, d) in gw.edges(data=True)]
     options = {
         # "edge_color": eweights,
@@ -83,30 +84,30 @@ def plot_weighted_graph(gw, network=None, color_nodes_by=None, **kwargs):
         pos = get_position_dict(network)
         options['pos'] = pos
         # nodes = gw.nodes()
-        for node in list(gw):
+        for node in list(gc):
             if node not in pos.keys():
-                gw.remove_node(node)
+                gc.remove_node(node)
     elif 'pos' in kwargs.keys():
         options['pos'] = kwargs['pos']
 
-    eweights = [d['weight'] for (u, v, d) in gw.edges(data=True)]
+    eweights = [d['weight'] for (u, v, d) in gc.edges(data=True)]
     options['edge_color'] = eweights
 
     if color_nodes_by is not None:
         options['node_color'] = [
-            [v for v in nx.get_node_attributes(gw, color_nodes_by).values()]]
+            [v for v in nx.get_node_attributes(gc, color_nodes_by).values()]]
     elif 'node_weights' in kwargs.keys():
         add_node_weights(
-            gw,
+            gc,
             kwargs['node_weights'][0],
             kwargs['node_weights'][1])
         # TO DO: double check this next bit isn't just taking the node keys
         options['node_color'] = [
             v for v in nx.get_node_attributes(
-                gw, kwargs['node_weights'][0])]
+                gc, kwargs['node_weights'][0])]
 
     fig, ax = plt.subplots(figsize=(16, 16))
-    nx.draw(gw, ax=ax, **options)
+    nx.draw(gc, ax=ax, **options)
     norm = mpl.colors.Normalize(vmin=0, vmax=1.2, clip=False)
     fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap='rainbow'), ax=ax)
     plt.show()
@@ -631,9 +632,7 @@ def save_long_format_results(
             df_out = df_out.replace({'nan', np.nan})
 
             try:
-                # Ensure data types are compatible
-                # Ensure data types are compatible
-                # Ensure data types are compatible
+            # Ensure data types are compatible
                 for d in [orig_df, df_out]:
                     d[['subject', 'network']] = d[[
                         'subject', 'network']].astype(str)
