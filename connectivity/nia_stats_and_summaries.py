@@ -330,10 +330,16 @@ def auc_group_diff(
         group1_list), ['threshold', msr]].groupby('threshold').mean().values
     thrs = sorted(set(df['threshold'].dropna()))
     if normalize:
-        pop_mean = df[['threshold', msr]].groupby(
-            'threshold').mean().mean().values[0]
-        group1_means = group1_means / pop_mean
-        group2_means = group2_means / pop_mean
+        pop_means = df[['threshold', msr]].dropna().groupby(
+            'threshold').mean().values
+        try:
+            group1_means = group1_means / pop_means
+            group2_means = group2_means / pop_means
+        except ValueError:
+            g1_ix = df.loc[df[group_match_col].isin(group1_list), ['threshold', msr]].groupby('threshold').mean().index.values.tolist()
+            g2_ix = df.loc[~df[group_match_col].isin(group1_list), ['threshold', msr]].groupby('threshold').mean().index.values.tolist()
+            print(f'Group one missing values for {set(thrs).symmetric_difference(set(g1_ix))}')
+            print(f'Group two missing values for {set(thrs).symmetric_difference(set(g2_ix))}')
 
     if len(thrs) > 2:
         group1_auc = metrics.auc(thrs, group1_means)
