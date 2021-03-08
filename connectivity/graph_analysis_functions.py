@@ -601,7 +601,7 @@ def save_long_format_results(
 
     # Since calculating the graph measures now checks for previously analyzed
     # data and excludes repetitve calculations, import the
-    orig_df = utils.get_long_format_results()
+    #orig_df = utils.get_long_format_results() # Effectively turns off all the addendums.
     if orig_df is None:
         orig_df = pd.DataFrame(columns=['network', 'subject', 'threshold'])
 
