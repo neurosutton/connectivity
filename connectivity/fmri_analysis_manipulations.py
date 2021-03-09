@@ -28,6 +28,25 @@ def calc_mean_conn_data(
         roi_count=None,
         clear_triu=True,
         subset=[]):
+    """
+    Summarize the connectivity matrix for each included subject (all, 
+    if no subset is provided).
+    Parameters
+    ----------
+    mdata: np.array 
+        connectivities, imported directly from CONN results
+    roi_count: 
+    clear_triu : boolean
+        Deletes the upper triangle. Does not affect means, but can
+        have advserse affects on other measures or representations.
+    subset: list
+        Subject indices to include in the calculation.
+
+    Returns
+    -------
+    nxn np.array of means for each ROI by given population
+    """
+
     conn_data = get.get_conn_data(
         mdata=mdata,
         roi_count=roi_count,
@@ -85,7 +104,16 @@ def get_prop_thr_edges(
         exclude_negatives=False,
         mean_conn_data=None,
         subset=[]):
-    """Create the mask of nodes greater than the proportional threshold on the population-averaged connectivity. The mask will be applied to individuals' matrices."""
+    """Create the mask of nodes greater than the proportional threshold on 
+    the population-averaged connectivity. The mask will be applied to 
+    individuals' matrices.
+
+    Returns
+    -------
+    prop_thr_edges : np.array
+        binary mask of entire connectivity matrix for an individual
+    """
+    
     if mean_conn_data is None:
         mean_conn_data = calc_mean_conn_data(subset=subset)
     thr_value = get_prop_thr_value(

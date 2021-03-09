@@ -68,7 +68,7 @@ def get_network_parcels(network, mdata=None):
 
     parcel_names = [str[0].lower() for str in mdata['names'][0]]
     parcels = {k.split('.')[-1]: v for v, k in enumerate(parcel_names)}
-    if network and network not in ["wb", "whole_brain", "whole brain"]:
+    if network and network not in ["wb", "whole_brain", "whole brain", "wholeBrain"]:
         pattern = network.lower() + '*'
         matching = fnmatch.filter(parcels.keys(), pattern)
         network_parcels = {k: v for k, v in parcels.items() if k in matching}
@@ -157,6 +157,7 @@ def get_network_matrix(
     prop_thr is None if prop_thr == 0 else prop_thr
     conn_data = get_conn_data() if conn_data is None else conn_data
     parcels = get_network_parcels(network_name)
+    print(f'get_network_matrix found {len(parcels)} rois to include for {network_name}.') # validation
     indices = list(parcels.values())
     if not (isinstance(subj_idx, int) or isinstance(subj_idx, list)):
         raise TypeError('subj_idx must be an integer or list of integers.')

@@ -269,11 +269,19 @@ def add_node_weights(G, msr_name, nx_func):
         G.nodes[n][msr_name] = msr_dict[n]
 
 
-def sort_edge_weights(G):
+def sort_edge_weights(G, verbose=False):
     """Helper function. Extract the weights, sort them, and find the matching
     values for a sorted list. Needed for percentile thresholding to supplement
     the MST selection.
+
+    Returns
+    -------
+    sorted edges : list
+        edges sorted by ascending weight
+    sorted weights : list
+        ascending edge weights
     """
+
     weights_dict = {}
     for u, v, weight in G.edges.data("weight"):
         weights_dict[weight] = [u, v]
@@ -283,12 +291,15 @@ def sort_edge_weights(G):
         sorted_edges = sorted([])
         for wt in sorted_weights:
             sorted_edges.append(weights_dict[wt])
+        if verbose:
+            print(f'Sorted edge weights = beginning {sorted_weights[0]} and end {sorted_weights[-1]}')
+            print(f'pop() defaults to the end of the list.')
         return sorted_edges, sorted_weights
     else:
         raise ValueError('Graph did not have sortable weights.\n')
 
 
-def add_thr_edges(G, prop_thr=None):
+def add_thr_edges(G, prop_thr=None, verbose=False):
     """
     Computes MST for whole brain and then adds subset of edges back
     to the MST graph, depending on proportional threshold for highest
@@ -300,7 +311,9 @@ def add_thr_edges(G, prop_thr=None):
     prop_thr : float
     proportional threshold (optional) for adding nodes to
         the MST result.
-    Returns:
+
+    Returns
+    -------
     thresholded_network : nx.Graph
         The subsetted network FOR AN INDIVIDUAL that contains the MST
         skeleton and the extra nodes/edges up to the proportional threshold
@@ -310,10 +323,11 @@ def add_thr_edges(G, prop_thr=None):
         highest percentage of ranked edges.
     """
 
-    n_edges_density = fam.get_edge_count(prop_thr)
+    n_edges_density = fam.get_edge_count(prop_thr) # Same for any FCN at a given
+    # thr, b/c it is based on the whole brain matrix
     thresholded_network = nx.algorithms.tree.mst.maximum_spanning_tree(G)
-    mst_edges = [tuple(m) for m in thresholded_network.edges()]
-    sorted_edges, sorted_weights = sort_edge_weights(G)
+    mst_edges = [tuple(m) for m in thresholded_network.edges()] # For debugging
+    sorted_edges, sorted_weights = sort_edge_weights(G, verbose=verbose)
     shared_edges = []
     while len(thresholded_network.edges()) < n_edges_density:
         try:
@@ -362,7 +376,8 @@ def create_density_based_network(subj_idx, prop_thr):
 
 
 def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None, subj=None):
-    df = utils.get_long_format_results()
+    df = None # To override option to append data
+    #df = utils.get_long_format_results()
     cmplt_msrs = []
     if df is not None:
         if subgraph_name and prop_thr:
@@ -382,6 +397,7 @@ def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None, subj=None):
 
     # Instantiate a new graph measure dictionary
     individ_graph_msr_dict = {}
+    print(f'calc_graph_msrs G is connected: {nx.is_connected(G)}')
     if nx.is_connected(G):
         possible_msrs = ['nx_communities',
                          'nx_num_of_comm',
@@ -450,6 +466,7 @@ def collate_graph_measures(
         if isinstance(subjects, np.ndarray):
             subjects = list(subjects)
         elif isinstance(subjects, int):
+            # Case from save_long_format_results when single subject is passed
             subjects = [subjects]
         elif not isinstance(subjects, list):
             # The case where group name was used for the list of subjects
@@ -601,20 +618,24 @@ def save_long_format_results(
 
     # Since calculating the graph measures now checks for previously analyzed
     # data and excludes repetitve calculations, import the
+    orig_df=None
     #orig_df = utils.get_long_format_results() # Effectively turns off all the addendums.
     if orig_df is None:
         orig_df = pd.DataFrame(columns=['network', 'subject', 'threshold'])
 
     df_list = []
     parcels = get.get_network_parcels('whole_brain')
+    print(f'Testing {len(parcels)} ROIs') # Validating
     networks = sorted(set([fcn.split("_")[0] for fcn in parcels.keys()])
                       ) + ['whole_brain'] if not networks else networks
     networks = [networks] if not isinstance(networks, list) else networks
     prop_thr = [prop_thr] if not isinstance(prop_thr, list) else prop_thr
-    print(f'Testing {networks} at {prop_thr}')
+
     for network in networks:
         for thr in prop_thr:
+            # Round the threshold to avoid strange, long floats.
             thr = np.round(thr, decimals = 2)
+            print(f'Testing {networks} at {thr}')
             # Maintain only one call to collate_graph_measures by effectively eliminating
             # subgraph network argument for whole brain.
             network = None if network in [
