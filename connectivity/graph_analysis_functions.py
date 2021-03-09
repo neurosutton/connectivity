@@ -397,7 +397,6 @@ def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None, subj=None):
 
     # Instantiate a new graph measure dictionary
     individ_graph_msr_dict = {}
-    print(f'calc_graph_msrs G is connected: {nx.is_connected(G)}')
     if nx.is_connected(G):
         possible_msrs = ['nx_communities',
                          'nx_num_of_comm',

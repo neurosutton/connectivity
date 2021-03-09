@@ -249,7 +249,7 @@ def calculate_auc(
             print('No exclusions applied. Might not have passed ',
                   f'the right data type ({type(exclude)}).')
 
-    network = 'whole_brain' if network is None else network
+    network = 'whole_brain' if (network is None) or (network == '') else network
 
     # Pass around the subsetted df for the network
     tmp = df[df['network'].str.contains(
