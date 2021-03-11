@@ -209,7 +209,7 @@ def calculate_auc(
         bootstrap=5000,
         msrs=None,
         subgroups=None,
-        exclude=None, 
+        exclude=None,
         threshold_range=None,
         normalize=False):
     """Perform permutation-based statistical testing of graph measure AUCs.
@@ -249,7 +249,7 @@ def calculate_auc(
             print('No exclusions applied. Might not have passed ',
                   f'the right data type ({type(exclude)}).')
 
-    network = 'whole_brain' if network is None else network
+    network = 'whole_brain' if (network is None) or (network == '') else network
 
     # Pass around the subsetted df for the network
     tmp = df[df['network'].str.contains(
@@ -274,7 +274,11 @@ def calculate_auc(
         group1_members = set(
             tmp.loc[tmp[grouping_col] == groups[0], name_id_col])
         study_exp_auc_diff = auc_group_diff(
-            tmp, group1_members, msr, group_match_col=name_id_col, normalize=normalize)
+            tmp,
+            group1_members,
+            msr,
+            group_match_col=name_id_col,
+            normalize=normalize)
 
         if study_exp_auc_diff and (not np.isnan(study_exp_auc_diff)):
             print(f'{msr.upper()}')
@@ -313,7 +317,12 @@ def calculate_auc(
                 network=network)
 
 
-def auc_group_diff(df, group1_list, msr, group_match_col='subj', normalize=False):
+def auc_group_diff(
+        df,
+        group1_list,
+        msr,
+        group_match_col='subj',
+        normalize=False):
 
     group1_means = df.loc[df[group_match_col].isin(
         group1_list), ['threshold', msr]].groupby('threshold').mean().values
@@ -321,9 +330,16 @@ def auc_group_diff(df, group1_list, msr, group_match_col='subj', normalize=False
         group1_list), ['threshold', msr]].groupby('threshold').mean().values
     thrs = sorted(set(df['threshold'].dropna()))
     if normalize:
-        pop_mean = df[['threshold', msr]].groupby('threshold').mean().mean().values[0]
-        group1_means = group1_means/pop_mean
-        group2_means = group2_means/pop_mean
+        pop_means = df[['threshold', msr]].dropna().groupby(
+            'threshold').mean().values
+        try:
+            group1_means = group1_means / pop_means
+            group2_means = group2_means / pop_means
+        except ValueError:
+            g1_ix = df.loc[df[group_match_col].isin(group1_list), ['threshold', msr]].groupby('threshold').mean().index.values.tolist()
+            g2_ix = df.loc[~df[group_match_col].isin(group1_list), ['threshold', msr]].groupby('threshold').mean().index.values.tolist()
+            print(f'Group one missing values for {set(thrs).symmetric_difference(set(g1_ix))}')
+            print(f'Group two missing values for {set(thrs).symmetric_difference(set(g2_ix))}')
 
     if len(thrs) > 2:
         group1_auc = metrics.auc(thrs, group1_means)
@@ -357,20 +373,27 @@ def find_msr_cols(df, grouping_col='group'):
         and (len(df[msr].dropna()) > 0)]
     return msrs
 
-def normalize(df):
+
+def normalize(df, msrs=None):
     """
     Divide quantities by population mean for each threshold.
     Parameters
     ----------
-    df : No restriction on the dataframe to be analyzed. Measures
-         are automatically detected.
+    df : Assumes that network, threshold, and some graph measure
+         exists in the column headers. Measures are automatically 
+         detected, but can also be provided.
+    msrs (optional): Specific measure(s) to normalize
     Returns
     -------
     df : Dataframe with extra columns for normalized values.
     """
-    msrs = find_msr_cols(df)
-    for msr in msrs:
-        for thr in set(df['threshold']):
-            pop_mean = df.loc[df['threshold']==thr,msr].mean(skipna=True)
-            df.loc[df['threshold']==thr,(msr+'_normed')] = df.loc[df['threshold']==thr,msr]/pop_mean
+    msrs = [msrs] if msrs and not isinstance(msrs, list) else msrs
+    msrs = find_msr_cols(df) if not msrs else msrs
+    for network in set(df['network']):
+        for msr in msrs:
+            for thr in sorted(set(df['threshold'])):
+                pop_mean = df.loc[(df['threshold'] == thr) & (
+                    df['network'] == network), msr].mean(skipna=True)
+                df.loc[(df['threshold'] == thr) & (df['network'] == network), (msr + '_normed')
+                       ] = df.loc[(df['threshold'] == thr) & (df['network'] == network), msr] / pop_mean
     return df

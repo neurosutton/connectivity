@@ -285,11 +285,19 @@ def add_node_weights(G, msr_name, nx_func):
         G.nodes[n][msr_name] = msr_dict[n]
 
 
-def sort_edge_weights(G):
+def sort_edge_weights(G, verbose=False):
     """Helper function. Extract the weights, sort them, and find the matching
     values for a sorted list. Needed for percentile thresholding to supplement
     the MST selection.
+
+    Returns
+    -------
+    sorted edges : list
+        edges sorted by ascending weight
+    sorted weights : list
+        ascending edge weights
     """
+
     weights_dict = {}
     for u, v, weight in G.edges.data("weight"):
         weights_dict[weight] = [u, v]
@@ -299,12 +307,15 @@ def sort_edge_weights(G):
         sorted_edges = sorted([])
         for wt in sorted_weights:
             sorted_edges.append(weights_dict[wt])
+        if verbose:
+            print(f'Sorted edge weights = beginning {sorted_weights[0]} and end {sorted_weights[-1]}')
+            print(f'pop() defaults to the end of the list.')
         return sorted_edges, sorted_weights
     else:
         raise ValueError('Graph did not have sortable weights.\n')
 
 
-def add_thr_edges(G, prop_thr=None):
+def add_thr_edges(G, prop_thr=None, verbose=False):
     """
     Computes MST for whole brain and then adds subset of edges back
     to the MST graph, depending on proportional threshold for highest
@@ -316,7 +327,9 @@ def add_thr_edges(G, prop_thr=None):
     prop_thr : float
     proportional threshold (optional) for adding nodes to
         the MST result.
-    Returns:
+
+    Returns
+    -------
     thresholded_network : nx.Graph
         The subsetted network FOR AN INDIVIDUAL that contains the MST
         skeleton and the extra nodes/edges up to the proportional threshold
@@ -326,10 +339,11 @@ def add_thr_edges(G, prop_thr=None):
         highest percentage of ranked edges.
     """
 
-    n_edges_density = fam.get_edge_count(prop_thr)
+    n_edges_density = fam.get_edge_count(prop_thr) # Same for any FCN at a given
+    # thr, b/c it is based on the whole brain matrix
     thresholded_network = nx.algorithms.tree.mst.maximum_spanning_tree(G)
-    mst_edges = [tuple(m) for m in thresholded_network.edges()]
-    sorted_edges, sorted_weights = sort_edge_weights(G)
+    mst_edges = [tuple(m) for m in thresholded_network.edges()] # For debugging
+    sorted_edges, sorted_weights = sort_edge_weights(G, verbose=verbose)
     shared_edges = []
     while len(thresholded_network.edges()) < n_edges_density:
         try:
@@ -378,7 +392,8 @@ def create_density_based_network(subj_idx, prop_thr):
 
 
 def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None, subj=None):
-    df = utils.get_long_format_results()
+    df = None # To override option to append data
+    #df = utils.get_long_format_results()
     cmplt_msrs = []
     if df is not None:
         if subgraph_name and prop_thr:
@@ -391,7 +406,7 @@ def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None, subj=None):
                          (df['subj_ix'] == subj),
                          :].dropna(axis='columns')
         else:
-            tmp = df.loc[df['subj_ix'] == subj,:].dropna(axis='columns')
+            tmp = df.loc[df['subj_ix'] == subj, :].dropna(axis='columns')
 
         if not tmp.empty:
             cmplt_msrs = tmp.columns
@@ -444,8 +459,8 @@ def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None, subj=None):
                 'sg_shortest_path_length': 'nx.average_shortest_path_length(subgraph)',
                 'sg_global_efficiency': 'nx.global_efficiency(subgraph)',
                 'mean_degree': 'np.nanmean(nx.degree(G))',
-                'network' : 'subgraph_name',
-                'threshold' : 'prop_thr'}
+                'network': 'subgraph_name',
+                'threshold': 'prop_thr'}
             for msr in to_run:
                 # Should be evaluated now
                 individ_graph_msr_dict[msr] = eval(discnntd_dict[msr])
@@ -466,6 +481,7 @@ def collate_graph_measures(
         if isinstance(subjects, np.ndarray):
             subjects = list(subjects)
         elif isinstance(subjects, int):
+            # Case from save_long_format_results when single subject is passed
             subjects = [subjects]
         elif not isinstance(subjects, list):
             # The case where group name was used for the list of subjects
@@ -554,7 +570,7 @@ def individ_graph_msrs(subj, prop_thr=None, grouping_col='group'):
                         pd.DataFrame(columns=['percent_shared_edges',
                                               'threshold',
                                               'subj_ix'])])
-    tmp_df[['percent_shared_edges', 'threshold','subj_ix']
+    tmp_df[['percent_shared_edges', 'threshold', 'subj_ix']
            ] = percent_shared_edges, prop_thr, subj
     tmp_df['network'] = 'whole_brain'
     tmp_df = utils.subject_converter(tmp_df, orig_subj_col='subj_ix')
@@ -613,23 +629,28 @@ def save_long_format_results(
     """
     if 'long_format' not in output_filename:
         output_filename = (os.path.splitext(output_filename)[
-                            0] + '_long_format.csv')
+            0] + '_long_format.csv')
 
     # Since calculating the graph measures now checks for previously analyzed
     # data and excludes repetitve calculations, import the
-    orig_df = utils.get_long_format_results()
+    orig_df=None
+    #orig_df = utils.get_long_format_results() # Effectively turns off all the addendums.
     if orig_df is None:
-        orig_df = pd.DataFrame(columns = ['network','subject','threshold'])
+        orig_df = pd.DataFrame(columns=['network', 'subject', 'threshold'])
 
     df_list = []
     parcels = get.get_network_parcels('whole_brain')
+    print(f'Testing {len(parcels)} ROIs') # Validating
     networks = sorted(set([fcn.split("_")[0] for fcn in parcels.keys()])
                       ) + ['whole_brain'] if not networks else networks
     networks = [networks] if not isinstance(networks, list) else networks
     prop_thr = [prop_thr] if not isinstance(prop_thr, list) else prop_thr
-    print(f'Testing {networks} at {prop_thr}')
+
     for network in networks:
         for thr in prop_thr:
+            # Round the threshold to avoid strange, long floats.
+            thr = np.round(thr, decimals = 2)
+            print(f'Testing {networks} at {thr}')
             # Maintain only one call to collate_graph_measures by effectively eliminating
             # subgraph network argument for whole brain.
             network = None if network in [
@@ -644,17 +665,15 @@ def save_long_format_results(
 
             # Intentionally overwrite the file at each iteration, so that if the code crashes,
             # there is a record of the previous results.
-            df_out = pd.concat(df_list).dropna(how='all',axis='columns')
+            df_out = pd.concat(df_list).dropna(how='all', axis='columns')
             df_out = df_out.replace({'nan', np.nan})
 
             try:
-                # Ensure data types are compatible
             # Ensure data types are compatible
-                # Ensure data types are compatible
                 for d in [orig_df, df_out]:
                     d[['subject', 'network']] = d[[
                         'subject', 'network']].astype(str)
-                    d['threshhold'] = d['threshold'].astype(float)
+                    d['threshold'] = d['threshold'].astype(float)
                 # Get entries from original DF, but add extra information if
                 # available from new analysis
 
@@ -668,14 +687,17 @@ def save_long_format_results(
                     df_out, on=[
                         'subject', 'threshold', 'network'], how='right', suffixes=(
                         '_x', ''), indicator=True)
-                new_info = new_info.loc[new_info['_merge'] == 'right_only', :].drop(columns='_merge')
+                new_info = new_info.loc[new_info['_merge']
+                                        == 'right_only', :].drop(columns='_merge')
                 # Clean up any accidental duplicates
-                new_info = new_info.drop(new_info.filter(regex='_x').columns, axis=1)
+                new_info = new_info.drop(
+                    new_info.filter(
+                        regex='_x').columns, axis=1)
                 df = df.drop(df.filter(regex='_x').columns, axis=1)
 
                 if not new_info.empty:
                     df = pd.concat([df, new_info], copy=False)
-                df = df.loc[:,~df.columns.duplicated()]
+                df = df.loc[:, ~df.columns.duplicated()]
                 # By default, save_df will prepend the date of the analysis
                 utils.save_df(df, output_filename)
             except KeyError:

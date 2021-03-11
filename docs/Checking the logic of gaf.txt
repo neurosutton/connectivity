@@ -1,0 +1,15 @@
+Checking the logic of connected graphs (i.e., "whole brain") in gaf 
+
+1) Start at save_long_format_results
+2) Get all network parcels.
+    - Because "whole_brain" is passed, no filtering should occur.
+    - Checked with len of network_parcels
+3) Individual graphs are sent to separate threads by way of collate_graph_measures
+4) collate_graph_measures's subgraph_network is by default None, which is what is passed from save_long_format_results explicitly for whole_brain
+5) For WB, the next step is parallel_graph_msr, which is really a wrapper for individ_graph_msrs.
+    a) create_density_based_network at the prop_thr. This is whole brain MST + whatever number of edges are needed to get to threshold value. Individuals may vary in which edges are included, but not in the number of edges.
+    b) Whole brain does not go through the subgraph building method, filter_density_based_network, which simply applies a mask to get ROIs' values for a specific network. This method alters the nx.graph data structure to only include ROIs in the network of interest as a subgraph.
+    c) calculate_graph_msrs with the thresholded network (i.e., modified nx.graph data structure)
+    d) Add identifier columns
+    e) Make sure the network column is filled with "whole_brain"
+    f) Add the subject identifer that is readable via utils.subject_converter. (Validated)
