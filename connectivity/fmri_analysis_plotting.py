@@ -123,8 +123,9 @@ def plot_cohort_comparison_over_thresholds(
 
 
 def plot_network_matrix(
-        network_name,
-        subj_idx,
+        matrix=None,
+        network_name=None,
+        subj_idx=None,
         conn_data=None,
         clear_triu=True):
     """
@@ -134,15 +135,21 @@ def plot_network_matrix(
         clear_triu=clear_triu) if not conn_data else conn_data
     parcels = get.get_network_parcels(network_name)
     # Organize the array by FCN/alphabetical regions for grouped visualization
-    parcels = OrderedDict(sorted(parcels.items()))
-    # Speed boost with np.array over list
-    indices = np.array(list(parcels.values()))
+    parcels = sorted(parcels.items())
+    indices = np.array([y for (x, y) in parcels])
+
     fig = plt.figure()
     ax = plt.gca()
-    im = ax.matshow(conn_data[:, :, subj_idx][np.ix_(indices, indices)])
+    if matrix is None:
+        im = ax.matshow(conn_data[:, :, subj_idx][np.ix_(indices, indices)])
+    else:
+        matrix = np.nansum([matrix, matrix.T], axis=0) - np.diag(np.diag(matrix))
+        im = ax.matshow(matrix[np.ix_(indices, indices)], cmap=plt.cm.seismic)
+        im.set_clim(-0.2, 0.9)
     fig.colorbar(im)
     # Let's adjust the tick labels.
     plt.title(f'Subject: {subj_idx} | Network: {network_name}')
+    '''
     if len(indices) < 20:
         plt.xticks(
             np.arange(
@@ -157,9 +164,9 @@ def plot_network_matrix(
         # Can be deleted in the future.
         check_parc_order = []
         for i in indices:
-            check_parc_order.append([k for k, v in parcels.items() if v == i])
+            check_parc_order.append([k for k, v in parcels if v == i])
         print(check_parc_order)
-
+    '''
     ax.tick_params(
         axis="x",
         bottom=True,
@@ -172,8 +179,8 @@ def plot_network_matrix(
         pathpatch = PathPatch(path, facecolor='None', edgecolor='red')
         ax.add_patch(pathpatch)
     plt.show()
-    print(
-        f'Order for FCN along diagonal is:\n{sorted(set([fcn.split("_")[0] for fcn in parcels.keys()]))}')
+    # print(
+    #    f'Order for FCN along diagonal is:\n{sorted(set([fcn.split("_")[0] for fcn in parcels.keys()]))}')
 
 
 def add_squares(network='wb'):
