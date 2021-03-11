@@ -22,7 +22,7 @@ from scipy.stats import pearsonr
 
 import fmri_analysis_load_funcs as faload
 
-config = get.get_config()
+import shared
 
 
 # Moved to load_funcs:
