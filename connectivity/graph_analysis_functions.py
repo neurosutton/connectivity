@@ -27,7 +27,7 @@ utils.check_data_loaded()
 # CREATE A FUNCTION TO SIMPLIFY PLOTTING and GRAPH MEASURES
 
 
-def plot_weighted_graph(gw, network=None, color_nodes_by=None, **kwargs):
+def plot_weighted_graph(gw, network=None, color_nodes_by=None, cmap=None, **kwargs):
     """Plot the edges and nodes in the selected graph.
 
        Should look like an axial glass view, if the orthocenter coordinates
@@ -38,12 +38,14 @@ def plot_weighted_graph(gw, network=None, color_nodes_by=None, **kwargs):
        gw : nx.Graph
            Graph from full-rank connectivity matrix. (May not have to
            be from the full-rank results.)
-       colored_nodes_by : string
-           String identifier of a parameter/feature given to
-           the nodes in gw. Typically this will be assigned with
-           the function nx.set_node_attributes(g, dict) by passing a
-           dictionary of node / parameter / value pairs,
-           in form of {node: {'param': value}}
+       color_nodes_by : string or function
+           If string identifier of a parameter/feature given to
+               the nodes in gw. Typically this will be assigned with
+               the function nx.set_node_attributes(g, dict) by passing a
+               dictionary of node / parameter / value pairs,
+               in form of {node: {'param': value}}
+           If function, must accept gw as the only parameter and must return
+               a dict of node:value pairs. Works with, for example, NX's clustering()
        **kwargs : Optional parameters. Presently accepts the following:
        pos (kwarg) : dict
            Dictionary with coordinates for each node. Possibly
@@ -66,19 +68,18 @@ def plot_weighted_graph(gw, network=None, color_nodes_by=None, **kwargs):
           using the dict values instead of dict keys (JJB)
     """
     gc = gw.copy()
-    # eweights = [d['weight'] for (u, v, d) in gw.edges(data=True)]
+
     options = {
-        # "edge_color": eweights,
         "width": 0.5,
         "node_size": 300,
         "linewidths": 1,
         "edgecolors": 'black',
         "node_color": 'yellow',
         "edge_cmap": plt.cm.rainbow,
-        "cmap": plt.cm.hsv,
         "edge_vmin": 0,
-        "edge_vmax": 1.2,
-        "with_labels": False
+        "edge_vmax": 1,
+        "with_labels": False,
+        "vmax": 1
     }
     if network is not None:
         pos = get_position_dict(network)
@@ -92,10 +93,25 @@ def plot_weighted_graph(gw, network=None, color_nodes_by=None, **kwargs):
 
     eweights = [d['weight'] for (u, v, d) in gc.edges(data=True)]
     options['edge_color'] = eweights
+    cmap = plt.cm.hsv if cmap is None else cmap
+    options['cmap'] = cmap
 
     if color_nodes_by is not None:
-        options['node_color'] = [
-            [v for v in nx.get_node_attributes(gc, color_nodes_by).values()]]
+        if callable(color_nodes_by):
+            try:
+                color_return = dict(color_nodes_by(gc))
+                color_dict = {}
+                for key in color_return:
+                    color_dict[key] = {'func_color': color_return[key]}
+                nx.set_node_attributes(gc, color_dict)
+                color_nodes_by = 'func_color'
+            except TypeError:
+                print('color_nodes_by parameter could not be used')
+
+        if type(color_nodes_by) is str:
+            options['node_color'] = [
+                [v for v in nx.get_node_attributes(gc, color_nodes_by).values()]]
+
     elif 'node_weights' in kwargs.keys():
         add_node_weights(
             gc,
@@ -106,9 +122,9 @@ def plot_weighted_graph(gw, network=None, color_nodes_by=None, **kwargs):
             v for v in nx.get_node_attributes(
                 gc, kwargs['node_weights'][0])]
 
-    fig, ax = plt.subplots(figsize=(16, 16))
+    fig, ax = plt.subplots(figsize=(8, 8))
     nx.draw(gc, ax=ax, **options)
-    norm = mpl.colors.Normalize(vmin=0, vmax=1.2, clip=False)
+    norm = mpl.colors.Normalize(vmin=0, vmax=1, clip=False)
     fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap='rainbow'), ax=ax)
     plt.show()
 
