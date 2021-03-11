@@ -27,7 +27,7 @@ utils.check_data_loaded()
 # CREATE A FUNCTION TO SIMPLIFY PLOTTING and GRAPH MEASURES
 
 
-def plot_weighted_graph(gw, network=None, color_nodes_by=None, cmap=None, **kwargs):
+def plot_weighted_graph(gw, network=None, color_nodes_by=None, cmap=None, node_size=300, **kwargs):
     """Plot the edges and nodes in the selected graph.
 
        Should look like an axial glass view, if the orthocenter coordinates
@@ -70,14 +70,14 @@ def plot_weighted_graph(gw, network=None, color_nodes_by=None, cmap=None, **kwar
     gc = gw.copy()
 
     options = {
-        "width": 0.5,
-        "node_size": 300,
+        "width": 1.5,
+        "node_size": node_size,
         "linewidths": 1,
         "edgecolors": 'black',
         "node_color": 'yellow',
-        "edge_cmap": plt.cm.rainbow,
-        "edge_vmin": 0,
-        "edge_vmax": 1,
+        "edge_cmap": cmap,
+        "edge_vmin": -0.4,
+        "edge_vmax": 0.4,
         "with_labels": False,
         "vmax": 1
     }
@@ -124,8 +124,8 @@ def plot_weighted_graph(gw, network=None, color_nodes_by=None, cmap=None, **kwar
 
     fig, ax = plt.subplots(figsize=(8, 8))
     nx.draw(gc, ax=ax, **options)
-    norm = mpl.colors.Normalize(vmin=0, vmax=1, clip=False)
-    fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap='rainbow'), ax=ax)
+    norm = mpl.colors.Normalize(vmin=-0.4, vmax=0.4, clip=False)
+    fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax)
     plt.show()
 
 

@@ -10,11 +10,11 @@ import os.path as op
 import json
 import numpy as np
 from math import ceil, floor
-
+import shared
 
 import fmri_analysis_load_funcs as faload
 
-shared = faload.load_shared()
+# shared = faload.load_shared()
 
 # Moved to load_funcs:
 # get_mdata

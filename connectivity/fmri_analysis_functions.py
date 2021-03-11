@@ -19,10 +19,10 @@ import json
 import thresholding_and_normalizing as tan
 import seaborn as sns
 from scipy.stats import pearsonr
-
+import fmri_analysis_get_data as get
 import fmri_analysis_load_funcs as faload
 
-config = get.get_config()
+# config = get.get_config()
 
 
 # Moved to load_funcs:
@@ -50,7 +50,7 @@ def get_network_matrix(
     '''
     prop_thr is None if prop_thr == 0 else prop_thr
     conn_data = get.get_conn_data() if conn_data is None else conn_data
-    parcels = get.get_network_parcels(network_name, subj_idx, mdata=mdata)
+    parcels = get.get_network_parcels(network_name, mdata=mdata)
     indices = list(parcels.values())
     matrix = conn_data[:, :, subj_idx][np.ix_(indices, indices)]
     if prop_thr or network_mask is not None:
@@ -79,7 +79,8 @@ def get_cohort_network_matrices(
         prop_thr=None,
         subject_level=False,
         network_mask=None,
-        exclude_negatives=False):
+        exclude_negatives=False,
+        normalize=False  ):
     conn_data = get.get_conn_data() if conn_data is None else conn_data
     ''' Get the matrices for a cohort of patients in a given network. '''
     cohort_matrices = []  # need to collect all the matrices to add
