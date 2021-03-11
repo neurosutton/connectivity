@@ -72,19 +72,8 @@ def plot_cohort_comparison_over_thresholds(
         comparison_df : pandas.Dataframe, output from get_cohort_over_thresholds()
         group_names : list, should include two str items with the group names
         y : measure from graph to plot
-
-        STILL NEEDS ADDRESSED
-        ---------------------
-        1. add * markers for significance testing above the error bars
-        - The significance testing at a given thresh can be done like this (cdf = comparison_df):
-        g1 = cdf[cdf['group'] == group_names[0]
-            ][cdf['threshold']==thresh]['connectivity']
-        g2 = cdf[cdf['group'] == group_names[1]
-            ][cdf['threshold']==thresh]['connectivity']
-        ttest_ind(g1, g2)
-        - So this needs to loop over each threshold, calculate the p value, and then place the
-          asterix in the right position
     '''
+
     if exclude is not None:
         try:
             comparison_df = comparison_df.query('subj_ix not in @exclude')
@@ -116,10 +105,43 @@ def plot_cohort_comparison_over_thresholds(
         err_kws={
             'capsize': 5},
         linestyle=':')
+    star_dict = add_asterisks(df, y, group=group)
+    for thr in star_dict.keys():
+        ax.text(thr, star_dict[thr]['y'], '*')
     plt.title(f'Group Differences in {network} Network')
     ax.set_xlabel('Proportional Threshold')
     ax.set_ylabel(y)
     plt.show()
+
+def add_asterisks(df, msr, group='group'):
+    """
+    Add significance markers at each threshold on a graph.
+    Parameters
+    ----------
+    df : DataFrame
+        Pared down dataframe that contains the network of interest at any thresholds that 
+        are calculated. If the df has been normalized, then those values should be used.
+    msr : string
+        Name of the column that contains the data that will be plotted on the y-axis
+    Returns
+    -------
+
+    """
+    star_dict = {}
+    group_names = list(set(df[group]))
+    for thr in sorted(set(df['threshold'])):
+        g1 = df.loc[(df[group] == group_names[0]) & 
+                    (df['threshold']==thr), msr]
+        g2 = df.loc[(df[group] == group_names[1]) & 
+                    (df['threshold']==thr), msr]
+        x,pval = scipy.stats.ttest_ind(g1, g2)
+        if pval <= .05:
+            star_dict[thr] = {}
+            top_val = max(np.mean(g1), np.mean(g2))
+            sd = max(np.std(g1), np.std(g2))
+            star_dict[thr]['y'] = top_val + (.05*(top_val+sd))
+            star_dict[thr]['pval'] = pval
+    return star_dict
 
 
 def plot_network_matrix(

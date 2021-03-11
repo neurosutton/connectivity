@@ -301,12 +301,12 @@ def calculate_auc(
                         normalize=normalize))
 
             prms_lssr = len(
-                [val for val in permuted_diffs if val < study_exp_auc_diff])
+                [val for val in permuted_diffs if val > study_exp_auc_diff])
             try:
-                print('The experimental AUC difference, ',
-                      f'{study_exp_auc_diff.round(3)}',
-                      f'p-value from the boostrapped results',
-                      f'is {permuted_p_val(prms_lssr/bootstrap*100)}')
+                print('The experimental AUC difference is ',
+                      f'{study_exp_auc_diff.round(3)}.',
+                      f'\np-value from the boostrapped results',
+                      f'is {permuted_p_val(prms_lssr/bootstrap)}')
             except BaseException:
                 print(f'The AUC difference, {study_exp_auc_diff.round(3)}, ',
                       ' beyond any bootstrapped result')
@@ -318,10 +318,10 @@ def calculate_auc(
 
 
 def permuted_p_val(orig_percentage):
-    if orig_percentage >= 50:
-        return (100-orig_percentage)*2
+    if orig_percentage >= .5:
+        return (1-orig_percentage)
     else:
-        return (orig_percentage)*2
+        return (orig_percentage)
 
 def auc_group_diff(
         df,
