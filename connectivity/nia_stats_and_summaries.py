@@ -304,9 +304,9 @@ def calculate_auc(
                 [val for val in permuted_diffs if val < study_exp_auc_diff])
             try:
                 print('The experimental AUC difference, ',
-                      f'{study_exp_auc_diff.round(3)}, occurs ',
-                      f'{round(prms_lssr/bootstrap*100,3)}% of the time in ',
-                      'the boostrapped results.')
+                      f'{study_exp_auc_diff.round(3)}',
+                      f'p-value from the boostrapped results',
+                      f'is {permuted_p_val(prms_lssr/bootstrap*100)}')
             except BaseException:
                 print(f'The AUC difference, {study_exp_auc_diff.round(3)}, ',
                       ' beyond any bootstrapped result')
@@ -316,6 +316,12 @@ def calculate_auc(
                 msr,
                 network=network)
 
+
+def permuted_p_val(orig_percentage):
+    if orig_percentage >= 50:
+        return (100-orig_percentage)*2
+    else:
+        return (orig_percentage)*2
 
 def auc_group_diff(
         df,

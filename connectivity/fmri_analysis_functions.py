@@ -16,23 +16,17 @@ from matplotlib.pyplot import figure
 import pandas as pd
 from matplotlib import cm
 import json
-import thresholding_and_normalizing as tan
 import seaborn as sns
 from scipy.stats import pearsonr
 import fmri_analysis_get_data as get
 import fmri_analysis_load_funcs as faload
+import fmri_analysis_manipulations as fam
 import shared
 
 
-# Moved to load_funcs:
-# get.get_network_parcels
-
-
-# Moved to thresholding_and_normalizing
-# get_proportional_threshold_mask
-
-
-# Moved plotting funcs to fmri_analysis_plotting
+# Change log
+# 03.11.21 BMS
+# Removed equals signs in the printed statements of describe_cohort_networks that broke imports
 
 def get_network_matrix(
         network_name,
@@ -80,6 +74,15 @@ def get_cohort_network_matrices(
         network_mask=None,
         exclude_negatives=False,
         normalize=False  ):
+    """
+    Parameters
+    ----------
+    
+    Returns
+    -------
+
+    """
+
     conn_data = get.get_conn_data() if conn_data is None else conn_data
     ''' Get the matrices for a cohort of patients in a given network. '''
     cohort_matrices = []  # need to collect all the matrices to add
@@ -108,6 +111,15 @@ def describe_cohort_networks(
         conn_data=None,
         prop_thr=None,
         subject_level=False):
+    """
+    Parameters
+    ----------
+
+    Returns
+    -------
+    Prints comparison statistics.
+    """
+
     conn_data = get.get_conn_data() if conn_data is None else conn_data
     matrix_1 = get_cohort_network_matrices(
         network_name,
@@ -123,10 +135,10 @@ def describe_cohort_networks(
         prop_thr=prop_thr)
     t_test_results = scipy.stats.ttest_ind(
         matrix_1, matrix_2, axis=None, nan_policy='omit')
-    print(f'Shapes: {matrix_1.shape=} | {matrix_2.shape=}')
-    print(f'Means: {np.nanmean(matrix_1)=} | {np.nanmean(matrix_2)=}')
-    print(f'StDev: {np.nanstd(matrix_1)=} | {np.nanstd(matrix_2)=}')
-    print(f'{t_test_results=}')
+    print(f'Shapes: {matrix_1.shape} | {matrix_2.shape}')
+    print(f'Means: {np.nanmean(matrix_1)} | {np.nanmean(matrix_2)}')
+    print(f'StDev: {np.nanstd(matrix_1)} | {np.nanstd(matrix_2)}')
+    print(f'{t_test_results}')
 
 
 def get_cohort_comparison_over_thresholds(
@@ -139,6 +151,16 @@ def get_cohort_comparison_over_thresholds(
         subject_level=False,
         plot=False,
         exclude_negatives=False):
+    """
+    Parameters
+    ----------
+    group_indices : list of lists
+
+    Returns
+    -------
+    comp_df : 
+    """
+
     conn_data = get.get_conn_data() if conn_data is None else conn_data
     thr_increment = 0.1 if thr_increment is None else thr_increment
     thr_range = np.arange(
@@ -147,7 +169,7 @@ def get_cohort_comparison_over_thresholds(
     comp_df = pd.DataFrame(columns=['threshold', 'group', 'connectivity'])
     df_idx = 0
     for value in thr_range:
-        network_mask = get_proportional_threshold_mask(
+        network_mask = fam.make_proportional_threshold_mask(
             network_name, value, exclude_negatives=exclude_negatives)
         matrix_1 = get_cohort_network_matrices(
             network_name,
@@ -178,6 +200,19 @@ def get_cohort_comparison_over_thresholds(
 
 
 def get_subject_scores(measure):
+    """
+    Parameters
+    ----------
+    measure: str
+        Graph measure column header
+
+    Returns
+    -------
+    scores_df : DataFrame
+        Subsetted dataframe that contains the subject labels and scores for the 
+        graph measure of interest.
+    """
+    
     scores = {}
     scores_df = pd.DataFrame(columns=['index', 'subject', measure])
 
