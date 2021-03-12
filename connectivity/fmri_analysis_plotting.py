@@ -90,13 +90,12 @@ def plot_cohort_comparison_over_thresholds(
                       'network'] = 'whole_brain'
     network = 'whole_brain' if network is None else network
     df = comparison_df.query('network == @network')
-    df['wbnd'] = 1 - df['threshold']
     if normalize:
         df = nss.normalize(df)
         y = y + '_normed'
     sns.lineplot(
         data=df,
-        x='wbnd',
+        x='threshold',
         y=y,
         hue=group,
         marker='.',
@@ -108,7 +107,7 @@ def plot_cohort_comparison_over_thresholds(
         linestyle=':')
     star_dict = add_asterisks(df, y, group=group)
     for thr in star_dict.keys():
-        ax.text(((1-thr)-.01), star_dict[thr]['y'], '*')
+        ax.text((thr-.01), star_dict[thr]['y'], '*')
     plt.title(f'Group Differences in {network} Network')
     ax.set_xlabel('Whole Brain Network Density')
     ax.set_ylabel(y)
