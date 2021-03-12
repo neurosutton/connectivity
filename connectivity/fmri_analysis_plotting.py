@@ -90,12 +90,13 @@ def plot_cohort_comparison_over_thresholds(
                       'network'] = 'whole_brain'
     network = 'whole_brain' if network is None else network
     df = comparison_df.query('network == @network')
+    df['wbnd'] = 1 - df['threshold']
     if normalize:
         df = nss.normalize(df)
         y = y + '_normed'
     sns.lineplot(
         data=df,
-        x='threshold',
+        x='wbnd',
         y=y,
         hue=group,
         marker='.',
@@ -107,9 +108,9 @@ def plot_cohort_comparison_over_thresholds(
         linestyle=':')
     star_dict = add_asterisks(df, y, group=group)
     for thr in star_dict.keys():
-        ax.text(thr, star_dict[thr]['y'], '*')
+        ax.text(((1-thr)-.01), star_dict[thr]['y'], '*')
     plt.title(f'Group Differences in {network} Network')
-    ax.set_xlabel('Proportional Threshold')
+    ax.set_xlabel('Whole Brain Network Density')
     ax.set_ylabel(y)
     plt.show()
 
@@ -139,7 +140,7 @@ def add_asterisks(df, msr, group='group'):
             star_dict[thr] = {}
             top_val = max(np.mean(g1), np.mean(g2))
             sd = max(np.std(g1), np.std(g2))
-            star_dict[thr]['y'] = top_val + (.05*(top_val+sd))
+            star_dict[thr]['y'] = (top_val+sd) + (.03*(top_val+sd))
             star_dict[thr]['pval'] = pval
     return star_dict
 
