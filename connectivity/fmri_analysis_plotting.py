@@ -327,10 +327,17 @@ def plot_auc(study_exp_auc_diff, permuted_diffs, msr, network=None):
     """
     network = network if network else 'whole_brain'
     fig, ax = plt.subplots()
-    sns.kdeplot(x=permuted_diffs, fill=True, linewidth=0, alpha=.5, color= sns.xkcd_rgb['light grey'])
-    plt.axvline(study_exp_auc_diff, ymin=0, ymax=0.75, color='b', linewidth=2, ls='-.')
-    label = f'Experimental value\n:{study_exp_auc_diff}'
-    plt.ax.Axes.annotate(label,arrowprops=dict(facecolor='black', shrink=0.05))
+    sns.kdeplot(x=permuted_diffs, fill=True, linewidth=0, alpha=.8, color= sns.xkcd_rgb['light grey'])
+    #plt.axvline(study_exp_auc_diff, ymin=0, ymax=0.75, color='b', linewidth=2, ls='-.')
+    label = f'Experimental value\n{round(study_exp_auc_diff,3)}'
+    ax.annotate(label, 
+                xy=(study_exp_auc_diff, 0),
+                xytext=(study_exp_auc_diff,.75),
+                arrowprops=dict(width = 2,
+                                headwidth = 10,
+                                facecolor='blue', 
+                                shrink=.05),
+                horizontalalignment='center')
     plt.title(f'{network}:{msr}')
     sns.despine()
     plt.show()

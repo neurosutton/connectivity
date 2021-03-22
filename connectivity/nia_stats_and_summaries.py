@@ -108,12 +108,12 @@ def summarize_group_differences(df, msrs, group_cols='group', thr_based=False,
     if graph:
         # TODO See if the logic for the graph holds for the
         # threshold/multigrouper case
-        keep = msrs + [group_col]
+        keep = msrs + [group_cols[0]]
         tmp = df[keep]
-        sns.pairplot(tmp, hue=group_col, palette='winter')
+        sns.pairplot(tmp, hue=group_cols[0], palette='winter')
         plt.xticks(rotation=80)
         plt.show()
-    return result
+    return result, set(df['network'])
 
 
 def _helper_sgd_grouper(
