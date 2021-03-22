@@ -27,7 +27,8 @@ def calc_mean_conn_data(
         mdata=None,
         roi_count=None,
         clear_triu=True,
-        subset=[]):
+        subset=None,
+        normalize=False):
     """
     Summarize the connectivity matrix for each included subject (all, 
     if no subset is provided).
@@ -53,6 +54,41 @@ def calc_mean_conn_data(
         clear_triu=clear_triu,
         subset=subset)
     return np.nanmean(conn_data, axis=2)
+
+def summarize_mean_conn_values(network_name=None, subj_idx=None):
+    """
+    Figure out the mean connectivity of various networks based on
+    raw input from CONN's first-level connectivity matrices.
+
+    Parameters
+    ----------
+    network_name : string, can be 'whole_brain' or a canonical network from HCP
+    subj_idx : int or list of int, numerical subject indices
+
+    Returns
+    -------
+    nx4 dataframe summarizes the mean connectivity and mean, normed connectivity
+    for the specificied networks.
+    """
+
+    conn_data = get.get_conn_data(subset=subj_idx)
+    network_name = 'whole_brain' if network_name is None else network_name
+    subj_idx = np.arange(conn_data.shape[-1]) if subj_idx is None else [subj_idx]
+    mv_df_list = []
+    for subj in subj_idx:
+        mean_dict = {}
+        mat = get.get_network_matrix(network_name,
+                                    [subj])
+        mat1 = get.get_network_matrix(network_name,
+                                    [subj],
+                                    normalize=True) 
+        mean_dict[subj] = {'mean_conn':np.nanmean(mat), 
+                           'mean_conn_normed':np.nanmean(mat1),
+                           'network':network_name}
+        mv_df_list.append(pd.DataFrame(mean_dict).T)
+    df = pd.concat(mv_df_list).reset_index()  
+    df = utils.subject_converter(df, orig_subj_col='index').drop(columns=['index'])
+    return df
 
 
 def get_sorted_values(

@@ -108,8 +108,9 @@ def plot_cohort_comparison_over_thresholds(
     star_dict = add_asterisks(df, y, group=group)
     for thr in star_dict.keys():
         ax.text((thr-.01), star_dict[thr]['y'], '*')
+    #ax.set_yscale('log', base=10) # 
     plt.title(f'Group Differences in {network} Network')
-    ax.set_xlabel('Whole Brain Network Density')
+    ax.set_xlabel('Density')
     ax.set_ylabel(y)
     plt.show()
 
@@ -326,7 +327,10 @@ def plot_auc(study_exp_auc_diff, permuted_diffs, msr, network=None):
     """
     network = network if network else 'whole_brain'
     fig, ax = plt.subplots()
-    sns.histplot(x=permuted_diffs, kde=True)
-    plt.axvline(study_exp_auc_diff, color='r', linewidth=5)
+    sns.kdeplot(x=permuted_diffs, fill=True, linewidth=0, alpha=.5, color= sns.xkcd_rgb['light grey'])
+    plt.axvline(study_exp_auc_diff, ymin=0, ymax=0.75, color='b', linewidth=2, ls='-.')
+    label = f'Experimental value\n:{study_exp_auc_diff}'
+    plt.ax.Axes.annotate(label,arrowprops=dict(facecolor='black', shrink=0.05))
     plt.title(f'{network}:{msr}')
+    sns.despine()
     plt.show()

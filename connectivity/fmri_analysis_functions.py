@@ -28,40 +28,41 @@ import shared
 # 03.11.21 BMS
 # Removed equals signs in the printed statements of describe_cohort_networks that broke imports
 
-def get_network_matrix(
-        network_name,
-        subj_idx,
-        conn_data=None,
-        mdata=None,
-        prop_thr=None,
-        network_mask=None,
-        exclude_negatives=False,
-        normalize=False):
-    '''
-    Adding a normalize, which can call different types.
-        - 'self' will divide by own whole brain mean connectivity
-    '''
-    prop_thr is None if prop_thr == 0 else prop_thr
-    conn_data = get.get_conn_data() if conn_data is None else conn_data
-    parcels = get.get_network_parcels(network_name, mdata=mdata)
-    indices = list(parcels.values())
-    matrix = conn_data[:, :, subj_idx][np.ix_(indices, indices)]
-    if prop_thr or network_mask is not None:
-        if prop_thr:
-            network_mask = get_proportional_threshold_mask(
-                network_name=network_name,
-                prop_thr=prop_thr,
-                conn_data=conn_data,
-                mdata=mdata,
-                exclude_negatives=exclude_negatives)
-        matrix = network_mask * matrix
-        matrix[matrix == 0] = np.nan
-    if normalize is not False:
-        # for start, will just assume it's 'self'
-        self_norm_value = np.nanmean(
-            tan.drop_negatives(conn_data[:, :, subj_idx]))
-        matrix = matrix / np.absolute(self_norm_value)
-    return matrix
+# Duplicate method?? Looks like get_ntework_matrix is in fmri_analysis_get_data
+# def get_network_matrix(
+#         network_name,
+#         subj_idx,
+#         conn_data=None,
+#         mdata=None,
+#         prop_thr=None,
+#         network_mask=None,
+#         exclude_negatives=False,
+#         normalize=False):
+#     '''
+#     Adding a normalize, which can call different types.
+#         - 'self' will divide by own whole brain mean connectivity
+#     '''
+#     prop_thr is None if prop_thr == 0 else prop_thr
+#     conn_data = get.get_conn_data() if conn_data is None else conn_data
+#     parcels = get.get_network_parcels(network_name, mdata=mdata)
+#     indices = list(parcels.values())
+#     matrix = conn_data[:, :, subj_idx][np.ix_(indices, indices)]
+#     if prop_thr or network_mask is not None:
+#         if prop_thr:
+#             network_mask = get_proportional_threshold_mask(
+#                 network_name=network_name,
+#                 prop_thr=prop_thr,
+#                 conn_data=conn_data,
+#                 mdata=mdata,
+#                 exclude_negatives=exclude_negatives)
+#         matrix = network_mask * matrix
+#         matrix[matrix == 0] = np.nan
+#     if normalize is not False:
+#         # for start, will just assume it's 'self'
+#         self_norm_value = np.nanmean(
+#             tan.drop_negatives(conn_data[:, :, subj_idx]))
+#         matrix = matrix / np.absolute(self_norm_value)
+#     return matrix
 
 
 def get_cohort_network_matrices(

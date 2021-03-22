@@ -19,7 +19,7 @@ from tqdm import tqdm
 import random
 
 
-def summarize_group_differences(df, group_cols, msrs, thr_based=False,
+def summarize_group_differences(df, msrs, group_cols='group', thr_based=False,
                                 graph=False, exclude=None):
     """
     Compare group differences and produce a table with the
@@ -54,6 +54,7 @@ def summarize_group_differences(df, group_cols, msrs, thr_based=False,
     """
 
     msrs = [msrs] if not isinstance(msrs, list) else msrs
+    df[msrs] = df[msrs].astype(float)
     msr_dict = {msr: ['mean', 'std', 'count'] for msr in msrs}
     group_cols = [group_cols] if not isinstance(
         group_cols, list) else group_cols
@@ -102,7 +103,7 @@ def summarize_group_differences(df, group_cols, msrs, thr_based=False,
         grp1_ix = df.loc[(df[group_cols[0]] == groups[0])].index
         grp2_ix = df.loc[(df[group_cols[0]] == groups[1])].index
         result = df.groupby(group_cols).agg(msr_dict).round(2).T.unstack()
-        result = _helper_sgd_stats(df, grp1_ix, grp2_ix, result, msr_dict)
+        result = _helper_sgd_stats(df, grp1_ix, grp2_ix, msr_dict, orig_grouper=group_cols[0])
 
     if graph:
         # TODO See if the logic for the graph holds for the
@@ -175,15 +176,18 @@ def _helper_sgd_stats(
     -------
     summarized df
     """
+    result = (df.loc[df.index.isin(grp1_ix.union(
+            grp2_ix)), :]
+                .dropna()
+                .groupby(orig_grouper)
+                .agg(msr_dict)
+                .round(2).T
+                .unstack())
     for msr in msr_dict.keys():
         # Narrow the df to entries that should be in the pvalue comparison.
         tmp = df.loc[df.index.isin(grp1_ix.union(
             grp2_ix)), :].dropna(subset=[msr])
         if tmp.shape[0] > 10:
-            result = (tmp.groupby(orig_grouper)
-                      .agg(msr_dict)
-                      .round(2).T
-                      .unstack())
             grp1 = df.loc[df.index.isin(grp1_ix), msr].dropna()
             grp2 = df.loc[df.index.isin(grp2_ix), msr].dropna()
             try:
@@ -195,11 +199,10 @@ def _helper_sgd_stats(
                     grp1, grp2)[-1].round(3)
             except Exception as e:
                 pass
-            return result
         else:
             #print(f'{tmp.shape[0]} is too few responses to test statistically.')
             pass
-
+    return result
 
 def calculate_auc(
         df,
@@ -305,8 +308,8 @@ def calculate_auc(
             try:
                 print('The experimental AUC difference is ',
                       f'{study_exp_auc_diff.round(3)}.',
-                      f'\np-value from the boostrapped results',
-                      f'is {permuted_p_val(prms_lssr/bootstrap)}')
+                      f'\nTwo-tailed p-value from the boostrapped results',
+                      f'is {round(permuted_p_val(prms_lssr/bootstrap),3)}')
             except BaseException:
                 print(f'The AUC difference, {study_exp_auc_diff.round(3)}, ',
                       ' beyond any bootstrapped result')
@@ -319,9 +322,9 @@ def calculate_auc(
 
 def permuted_p_val(orig_percentage):
     if orig_percentage >= .5:
-        return (1-orig_percentage)
+        return (2*(1-orig_percentage))
     else:
-        return (orig_percentage)
+        return (2*orig_percentage)
 
 def auc_group_diff(
         df,

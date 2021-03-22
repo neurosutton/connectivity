@@ -27,7 +27,7 @@ def get_mdata(conn_dir=None, conn_file=None):
     return loadmat(os.path.join(conn_dir, conn_file))
 
 
-def get_conn_data(mdata=None, roi_count=None, clear_triu=True, subset=[]):
+def get_conn_data(mdata=None, roi_count=None, clear_triu=True, subset=None):
     """Foundational method to transform the MATLAB matrices to numpy matrices.
     Output:
     mdata     : loaded in the shared object; dictionary of arrays in line with
@@ -157,7 +157,6 @@ def get_network_matrix(
     prop_thr is None if prop_thr == 0 else prop_thr
     conn_data = get_conn_data() if conn_data is None else conn_data
     parcels = get_network_parcels(network_name)
-    print(f'get_network_matrix found {len(parcels)} rois to include for {network_name}.') # validation
     indices = list(parcels.values())
     if not (isinstance(subj_idx, int) or isinstance(subj_idx, list)):
         raise TypeError('subj_idx must be an integer or list of integers.')
