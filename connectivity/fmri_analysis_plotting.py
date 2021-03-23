@@ -328,16 +328,26 @@ def plot_auc(study_exp_auc_diff, permuted_diffs, msr, network=None):
     network = network if network else 'whole_brain'
     fig, ax = plt.subplots()
     sns.kdeplot(x=permuted_diffs, fill=True, linewidth=0, alpha=.8, color= sns.xkcd_rgb['light grey'])
-    #plt.axvline(study_exp_auc_diff, ymin=0, ymax=0.75, color='b', linewidth=2, ls='-.')
+    vert_lines = find_stdevs(permuted_diffs)
+    for val in vert_lines:
+        plt.axvline(val, ymin=0, ymax=1, color='w', linewidth=2, ls='--')
+    plt.axvline(np.mean(permuted_diffs), ymin=0, ymax=1, color='w', linewidth=2, ls='-')    
+    plt.axvline(study_exp_auc_diff, ymin=0, ymax=0.625, color='b', linewidth=2, ls='-')
     label = f'Experimental value\n{round(study_exp_auc_diff,3)}'
+    ymin, ymax = ax.get_ylim()
     ax.annotate(label, 
-                xy=(study_exp_auc_diff, 0),
-                xytext=(study_exp_auc_diff,.75),
+                xy=(study_exp_auc_diff, .65*ymax),
+                xytext=(study_exp_auc_diff,.78*ymax),
                 arrowprops=dict(width = 2,
-                                headwidth = 10,
+                                headwidth = 8,
                                 facecolor='blue', 
                                 shrink=.05),
                 horizontalalignment='center')
     plt.title(f'{network}:{msr}')
     sns.despine()
     plt.show()
+
+def find_stdevs(sample):
+    mean = np.mean(sample)
+    sd = np.std(sample)
+    return (mean-3*sd, mean-2*sd, mean-sd, mean+sd, mean+2*sd, mean+3*sd)

@@ -55,7 +55,7 @@ def calc_mean_conn_data(
         subset=subset)
     return np.nanmean(conn_data, axis=2)
 
-def summarize_mean_conn_values(network_name=None, subj_idx=None):
+def summarize_mean_conn_values(network_name=None, subj_idx=None, exclude=None):
     """
     Figure out the mean connectivity of various networks based on
     raw input from CONN's first-level connectivity matrices.
@@ -64,6 +64,7 @@ def summarize_mean_conn_values(network_name=None, subj_idx=None):
     ----------
     network_name : string, can be 'whole_brain' or a canonical network from HCP
     subj_idx : int or list of int, numerical subject indices
+    exclude : list of subject indices, optional
 
     Returns
     -------
@@ -74,6 +75,8 @@ def summarize_mean_conn_values(network_name=None, subj_idx=None):
     conn_data = get.get_conn_data(subset=subj_idx)
     network_name = 'whole_brain' if network_name is None else network_name
     subj_idx = np.arange(conn_data.shape[-1]) if subj_idx is None else [subj_idx]
+    if exclude:
+        subj_idx =  [subj for subj in subj_idx if subj not in exclude]
     mv_df_list = []
     for subj in subj_idx:
         mean_dict = {}
