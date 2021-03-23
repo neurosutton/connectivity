@@ -176,8 +176,10 @@ def get_network_matrix(
     if normalize is not False:
         # for start, will just assume it's 'self'
         # Does this matrix need to be sorted per "indices"
+        # I think dropping negatives might be a separate decision here... JB
+        # self_norm_value = np.nanmean(
+        #     utils.drop_negatives(conn_data[:, :, subj_idx]))
         self_norm_value = np.nanmean(conn_data[:, :, subj_idx])
-        # this was dropping negatives previously — did removing it mess anything up?
         matrix = matrix / np.absolute(self_norm_value)
     return matrix
 

@@ -79,7 +79,8 @@ def plot_weighted_graph(gw, network=None, color_nodes_by=None, cmap=None, node_s
         "edge_vmin": -0.4,
         "edge_vmax": 0.4,
         "with_labels": False,
-        "vmax": 1
+        "vmin": -0.1,
+        "vmax": 0.1
     }
     if network is not None:
         pos = get_position_dict(network)

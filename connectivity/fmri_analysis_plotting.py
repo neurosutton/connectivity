@@ -150,25 +150,38 @@ def plot_network_matrix(
         network_name=None,
         subj_idx=None,
         conn_data=None,
-        clear_triu=True):
+        clear_triu=True,
+        vmin=None,
+        vmax=None,
+        cmap=None):
     """
     """
-
     conn_data = get.get_conn_data(
         clear_triu=clear_triu) if not conn_data else conn_data
     parcels = get.get_network_parcels(network_name)
     # Organize the array by FCN/alphabetical regions for grouped visualization
     parcels = sorted(parcels.items())
     indices = np.array([y for (x, y) in parcels])
+    vmin = -1 if vmin is None else vmin
+    vmax = 1 if vmin is None else vmax
+    cmap = plt.cm.seismic if cmap is None else cmap
+
+    # matrix = conn_data[:, :, subj_idx][np.ix_(
+    #     indices, indices)] if matrix is None else matrix
+
+    if matrix is None:
+        if subj_idx is None:
+            raise ValueError('Unsuccessful. Need to pass either a matrix or subj_idx.')
+            return
+        else:
+            matrix = conn_data[:, :, subj_idx]
+    else:
+        matrix = np.nansum([matrix, matrix.T], axis=0) - np.diag(np.diag(matrix))
 
     fig = plt.figure()
     ax = plt.gca()
-    if matrix is None:
-        im = ax.matshow(conn_data[:, :, subj_idx][np.ix_(indices, indices)])
-    else:
-        matrix = np.nansum([matrix, matrix.T], axis=0) - np.diag(np.diag(matrix))
-        im = ax.matshow(matrix[np.ix_(indices, indices)], cmap=plt.cm.seismic)
-        im.set_clim(-0.2, 0.9)
+    im = ax.matshow(matrix[np.ix_(indices, indices)], cmap=cmap)
+    im.set_clim(vmin, vmax)
     fig.colorbar(im)
     # Let's adjust the tick labels.
     plt.title(f'Subject: {subj_idx} | Network: {network_name}')
