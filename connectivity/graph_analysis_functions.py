@@ -69,6 +69,12 @@ def plot_weighted_graph(gw, network=None, color_nodes_by=None, cmap=None, node_s
     """
     gc = gw.copy()
 
+    vals = [d['weight'] for (u, v, d) in gc.edges(data=True)]
+    if np.absolute(max(vals)) > np.absolute(min(vals)):
+        v = .8*ceil(np.absolute(max(vals)))
+    else:
+        v = .8*ceil(np.absolute(min(vals)))
+
     options = {
         "width": 1.5,
         "node_size": node_size,
@@ -76,8 +82,8 @@ def plot_weighted_graph(gw, network=None, color_nodes_by=None, cmap=None, node_s
         "edgecolors": 'black',
         "node_color": 'yellow',
         "edge_cmap": cmap,
-        "edge_vmin": -0.4,
-        "edge_vmax": 0.4,
+        "edge_vmin": -v,
+        "edge_vmax": v,
         "with_labels": False,
         "vmin": -0.1,
         "vmax": 0.1
@@ -92,8 +98,13 @@ def plot_weighted_graph(gw, network=None, color_nodes_by=None, cmap=None, node_s
     elif 'pos' in kwargs.keys():
         options['pos'] = kwargs['pos']
 
+# Try to create an ordered list of the edges
+    options['edgelist'] = sorted(gc.edges(data=True), key=lambda t: abs(t[2].get('weight', 1)))
+    # Since the edges are passed as a list sorted by eweights, then should be able to sort 
+    # edge weight list to match
     eweights = [d['weight'] for (u, v, d) in gc.edges(data=True)]
-    options['edge_color'] = eweights
+    options['edge_color'] = sorted(eweights,key=abs)
+
     cmap = plt.cm.hsv if cmap is None else cmap
     options['cmap'] = cmap
 
@@ -125,7 +136,7 @@ def plot_weighted_graph(gw, network=None, color_nodes_by=None, cmap=None, node_s
 
     fig, ax = plt.subplots(figsize=(8, 8))
     nx.draw(gc, ax=ax, **options)
-    norm = mpl.colors.Normalize(vmin=-0.4, vmax=0.4, clip=False)
+    norm = mpl.colors.Normalize(vmin=-v, vmax=v, clip=False)
     fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax)
     plt.show()
 

@@ -90,7 +90,7 @@ def summarize_mean_conn_values(network_name=None, subj_idx=None, exclude=None):
                            'network':network_name}
         mv_df_list.append(pd.DataFrame(mean_dict).T)
     df = pd.concat(mv_df_list).reset_index()  
-    df = utils.subject_converter(df, orig_subj_col='index').drop(columns=['index'])
+    df = utils.subject_converter(df, orig_subj_col='index').rename(columns={'index':'subj_ix'})
     return df
 
 
