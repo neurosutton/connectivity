@@ -30,13 +30,13 @@ def calc_mean_conn_data(
         subset=None,
         normalize=False):
     """
-    Summarize the connectivity matrix for each included subject (all, 
+    Summarize the connectivity matrix for each included subject (all,
     if no subset is provided).
     Parameters
     ----------
-    mdata: np.array 
+    mdata: np.array
         connectivities, imported directly from CONN results
-    roi_count: 
+    roi_count:
     clear_triu : boolean
         Deletes the upper triangle. Does not affect means, but can
         have advserse affects on other measures or representations.
@@ -54,6 +54,7 @@ def calc_mean_conn_data(
         clear_triu=clear_triu,
         subset=subset)
     return np.nanmean(conn_data, axis=2)
+
 
 def summarize_mean_conn_values(network_name=None, subj_idx=None, exclude=None):
     """
@@ -74,23 +75,27 @@ def summarize_mean_conn_values(network_name=None, subj_idx=None, exclude=None):
 
     conn_data = get.get_conn_data(subset=subj_idx)
     network_name = 'whole_brain' if network_name is None else network_name
-    subj_idx = np.arange(conn_data.shape[-1]) if subj_idx is None else [subj_idx]
+    subj_idx = np.arange(
+        conn_data.shape[-1]) if subj_idx is None else [subj_idx]
     if exclude:
-        subj_idx =  [subj for subj in subj_idx if subj not in exclude]
+        subj_idx = [subj for subj in subj_idx if subj not in exclude]
     mv_df_list = []
     for subj in subj_idx:
         mean_dict = {}
         mat = get.get_network_matrix(network_name,
-                                    [subj])
+                                     [subj])
         mat1 = get.get_network_matrix(network_name,
-                                    [subj],
-                                    normalize=True) 
-        mean_dict[subj] = {'mean_conn':np.nanmean(mat), 
-                           'mean_conn_normed':np.nanmean(mat1),
-                           'network':network_name}
+                                      [subj],
+                                      normalize=True)
+        mean_dict[subj] = {'mean_conn': np.nanmean(mat),
+                           'mean_conn_normed': np.nanmean(mat1),
+                           'network': network_name}
         mv_df_list.append(pd.DataFrame(mean_dict).T)
-    df = pd.concat(mv_df_list).reset_index()  
-    df = utils.subject_converter(df, orig_subj_col='index').rename(columns={'index':'subj_ix'})
+    df = pd.concat(mv_df_list).reset_index()
+    df = utils.subject_converter(
+        df, orig_subj_col='index').rename(
+        columns={
+            'index': 'subj_ix'})
     return df
 
 
@@ -143,8 +148,8 @@ def get_prop_thr_edges(
         exclude_negatives=False,
         mean_conn_data=None,
         subset=[]):
-    """Create the mask of nodes greater than the proportional threshold on 
-    the population-averaged connectivity. The mask will be applied to 
+    """Create the mask of nodes greater than the proportional threshold on
+    the population-averaged connectivity. The mask will be applied to
     individuals' matrices.
 
     Returns
@@ -152,7 +157,7 @@ def get_prop_thr_edges(
     prop_thr_edges : np.array
         binary mask of entire connectivity matrix for an individual
     """
-    
+
     if mean_conn_data is None:
         mean_conn_data = calc_mean_conn_data(subset=subset)
     thr_value = get_prop_thr_value(

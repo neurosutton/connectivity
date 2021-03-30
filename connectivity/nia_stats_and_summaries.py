@@ -103,7 +103,12 @@ def summarize_group_differences(df, msrs, group_cols='group', thr_based=False,
         grp1_ix = df.loc[(df[group_cols[0]] == groups[0])].index
         grp2_ix = df.loc[(df[group_cols[0]] == groups[1])].index
         result = df.groupby(group_cols).agg(msr_dict).round(2).T.unstack()
-        result = _helper_sgd_stats(df, grp1_ix, grp2_ix, msr_dict, orig_grouper=group_cols[0])
+        result = _helper_sgd_stats(
+            df,
+            grp1_ix,
+            grp2_ix,
+            msr_dict,
+            orig_grouper=group_cols[0])
 
     if graph:
         # TODO See if the logic for the graph holds for the
@@ -177,12 +182,12 @@ def _helper_sgd_stats(
     summarized df
     """
     result = (df.loc[df.index.isin(grp1_ix.union(
-            grp2_ix)), :]
-                .dropna()
-                .groupby(orig_grouper)
-                .agg(msr_dict)
-                .round(2).T
-                .unstack())
+        grp2_ix)), :]
+        .dropna()
+        .groupby(orig_grouper)
+        .agg(msr_dict)
+        .round(2).T
+        .unstack())
     for msr in msr_dict.keys():
         # Narrow the df to entries that should be in the pvalue comparison.
         tmp = df.loc[df.index.isin(grp1_ix.union(
@@ -203,6 +208,7 @@ def _helper_sgd_stats(
             #print(f'{tmp.shape[0]} is too few responses to test statistically.')
             pass
     return result
+
 
 def calculate_auc(
         df,
@@ -252,7 +258,9 @@ def calculate_auc(
             print('No exclusions applied. Might not have passed ',
                   f'the right data type ({type(exclude)}).')
 
-    network = 'whole_brain' if (network is None) or (network == '') else network
+    network = 'whole_brain' if (
+        network is None) or (
+        network == '') else network
 
     # Pass around the subsetted df for the network
     tmp = df[df['network'].str.contains(
@@ -322,9 +330,10 @@ def calculate_auc(
 
 def permuted_p_val(orig_percentage):
     if orig_percentage >= .5:
-        return (2*(1-orig_percentage))
+        return (2 * (1 - orig_percentage))
     else:
-        return (2*orig_percentage)
+        return (2 * orig_percentage)
+
 
 def auc_group_diff(
         df,
@@ -345,10 +354,14 @@ def auc_group_diff(
             group1_means = group1_means / pop_means
             group2_means = group2_means / pop_means
         except ValueError:
-            g1_ix = df.loc[df[group_match_col].isin(group1_list), ['threshold', msr]].groupby('threshold').mean().index.values.tolist()
-            g2_ix = df.loc[~df[group_match_col].isin(group1_list), ['threshold', msr]].groupby('threshold').mean().index.values.tolist()
-            print(f'Group one missing values for {set(thrs).symmetric_difference(set(g1_ix))}')
-            print(f'Group two missing values for {set(thrs).symmetric_difference(set(g2_ix))}')
+            g1_ix = df.loc[df[group_match_col].isin(group1_list), ['threshold', msr]].groupby(
+                'threshold').mean().index.values.tolist()
+            g2_ix = df.loc[~df[group_match_col].isin(group1_list), ['threshold', msr]].groupby(
+                'threshold').mean().index.values.tolist()
+            print(
+                f'Group one missing values for {set(thrs).symmetric_difference(set(g1_ix))}')
+            print(
+                f'Group two missing values for {set(thrs).symmetric_difference(set(g2_ix))}')
 
     if len(thrs) > 2:
         group1_auc = metrics.auc(thrs, group1_means)
@@ -389,7 +402,7 @@ def normalize(df, msrs=None):
     Parameters
     ----------
     df : Assumes that network, threshold, and some graph measure
-         exists in the column headers. Measures are automatically 
+         exists in the column headers. Measures are automatically
          detected, but can also be provided.
     msrs (optional): Specific measure(s) to normalize
     Returns

@@ -26,7 +26,8 @@ import shared
 
 # Change log
 # 03.11.21 BMS
-# Removed equals signs in the printed statements of describe_cohort_networks that broke imports
+# Removed equals signs in the printed statements of
+# describe_cohort_networks that broke imports
 
 # Duplicate method?? Looks like get_ntework_matrix is in fmri_analysis_get_data
 # def get_network_matrix(
@@ -74,11 +75,11 @@ def get_cohort_network_matrices(
         subject_level=False,
         network_mask=None,
         exclude_negatives=False,
-        normalize=False  ):
+        normalize=False):
     """
     Parameters
     ----------
-    
+
     Returns
     -------
 
@@ -159,7 +160,7 @@ def get_cohort_comparison_over_thresholds(
 
     Returns
     -------
-    comp_df : 
+    comp_df :
     """
 
     conn_data = get.get_conn_data() if conn_data is None else conn_data
@@ -210,10 +211,10 @@ def get_subject_scores(measure):
     Returns
     -------
     scores_df : DataFrame
-        Subsetted dataframe that contains the subject labels and scores for the 
+        Subsetted dataframe that contains the subject labels and scores for the
         graph measure of interest.
     """
-    
+
     scores = {}
     scores_df = pd.DataFrame(columns=['index', 'subject', measure])
 

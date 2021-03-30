@@ -107,12 +107,13 @@ def plot_cohort_comparison_over_thresholds(
         linestyle=':')
     star_dict = add_asterisks(df, y, group=group)
     for thr in star_dict.keys():
-        ax.text((thr-.01), star_dict[thr]['y'], '*')
-    #ax.set_yscale('log', base=10) # 
+        ax.text((thr - .01), star_dict[thr]['y'], '*')
+    #ax.set_yscale('log', base=10) #
     plt.title(f'Group Differences in {network} Network')
     ax.set_xlabel('Density')
     ax.set_ylabel(y)
     plt.show()
+
 
 def add_asterisks(df, msr, group='group'):
     """
@@ -120,7 +121,7 @@ def add_asterisks(df, msr, group='group'):
     Parameters
     ----------
     df : DataFrame
-        Pared down dataframe that contains the network of interest at any thresholds that 
+        Pared down dataframe that contains the network of interest at any thresholds that
         are calculated. If the df has been normalized, then those values should be used.
     msr : string
         Name of the column that contains the data that will be plotted on the y-axis
@@ -131,16 +132,16 @@ def add_asterisks(df, msr, group='group'):
     star_dict = {}
     group_names = list(set(df[group]))
     for thr in sorted(set(df['threshold'])):
-        g1 = df.loc[(df[group] == group_names[0]) & 
-                    (df['threshold']==thr), msr]
-        g2 = df.loc[(df[group] == group_names[1]) & 
-                    (df['threshold']==thr), msr]
-        x,pval = scipy.stats.ttest_ind(g1, g2)
+        g1 = df.loc[(df[group] == group_names[0]) &
+                    (df['threshold'] == thr), msr]
+        g2 = df.loc[(df[group] == group_names[1]) &
+                    (df['threshold'] == thr), msr]
+        x, pval = scipy.stats.ttest_ind(g1, g2)
         if pval <= .05:
             star_dict[thr] = {}
             top_val = max(np.mean(g1), np.mean(g2))
             sd = max(np.std(g1), np.std(g2))
-            star_dict[thr]['y'] = (top_val+sd) + (.03*(top_val+sd))
+            star_dict[thr]['y'] = (top_val + sd) + (.03 * (top_val + sd))
             star_dict[thr]['pval'] = pval
     return star_dict
 
@@ -150,18 +151,24 @@ def plot_network_matrix(
         network_name=None,
         subj_idx=None,
         conn_data=None,
+        id_networks=False,
         clear_triu=True,
         vmin=None,
         vmax=None,
         cmap=None):
     """
+
     """
+    network_name = 'whole_brain' if not network_name else network_name
     conn_data = get.get_conn_data(
         clear_triu=clear_triu) if not conn_data else conn_data
     parcels = get.get_network_parcels(network_name)
     # Organize the array by FCN/alphabetical regions for grouped visualization
-    parcels = sorted(parcels.items())
-    indices = np.array([y for (x, y) in parcels])
+    # TODO check that the following line actually sorts properly
+    # Noticing that single subject matrices are rearranged if it is uncommented
+    #parcels = sorted(parcels.items())
+    # Don't use ".items()", if the items are already pulled in the line above.
+    indices = np.array([y for (x, y) in parcels.items()])
     vmin = -1 if vmin is None else vmin
     vmax = 1 if vmin is None else vmax
     cmap = plt.cm.seismic if cmap is None else cmap
@@ -171,12 +178,14 @@ def plot_network_matrix(
 
     if matrix is None:
         if subj_idx is None:
-            raise ValueError('Unsuccessful. Need to pass either a matrix or subj_idx.')
+            raise ValueError(
+                'Unsuccessful. Need to pass either a matrix or subj_idx.')
             return
         else:
             matrix = conn_data[:, :, subj_idx]
     else:
-        matrix = np.nansum([matrix, matrix.T], axis=0) - np.diag(np.diag(matrix))
+        matrix = np.nansum([matrix, matrix.T], axis=0) - \
+            np.diag(np.diag(matrix))
 
     fig = plt.figure()
     ax = plt.gca()
@@ -209,14 +218,15 @@ def plot_network_matrix(
         top=True,
         labelbottom=True,
         labeltop=False)
-    if network_name in ['wb', 'whole_brain', 'whole brain']:
+    if network_name in ['wb', 'whole_brain', 'whole brain'] and id_networks:
         codes, vertices = add_squares()
         path = Path(vertices, codes)
         pathpatch = PathPatch(path, facecolor='None', edgecolor='red')
         ax.add_patch(pathpatch)
     plt.show()
     # print(
-    #    f'Order for FCN along diagonal is:\n{sorted(set([fcn.split("_")[0] for fcn in parcels.keys()]))}')
+    # f'Order for FCN along diagonal is:\n{sorted(set([fcn.split("_")[0] for
+    # fcn in parcels.keys()]))}')
 
 
 def add_squares(network='wb'):
@@ -246,8 +256,6 @@ def add_squares(network='wb'):
     vertices = []
     for n in unique_networks:
         ix = df.loc[df['label'].str.contains(n)].index
-        # TODO Figure out how to reference the top left corner
-        # rather than the bottom left for coords
         corner1 = (np.min(ix), np.min(ix))
         corner2 = (np.min(ix), np.max(ix))
         corner3 = (np.max(ix), np.max(ix))
@@ -340,27 +348,51 @@ def plot_auc(study_exp_auc_diff, permuted_diffs, msr, network=None):
     """
     network = network if network else 'whole_brain'
     fig, ax = plt.subplots()
-    sns.kdeplot(x=permuted_diffs, fill=True, linewidth=0, alpha=.8, color= sns.xkcd_rgb['light grey'])
+    sns.kdeplot(
+        x=permuted_diffs,
+        fill=True,
+        linewidth=0,
+        alpha=.8,
+        color=sns.xkcd_rgb['light grey'])
     vert_lines = find_stdevs(permuted_diffs)
     for val in vert_lines:
         plt.axvline(val, ymin=0, ymax=1, color='w', linewidth=2, ls='--')
-    plt.axvline(np.mean(permuted_diffs), ymin=0, ymax=1, color='w', linewidth=2, ls='-')    
-    plt.axvline(study_exp_auc_diff, ymin=0, ymax=0.625, color='b', linewidth=2, ls='-')
+    plt.axvline(
+        np.mean(permuted_diffs),
+        ymin=0,
+        ymax=1,
+        color='w',
+        linewidth=2,
+        ls='-')
+    plt.axvline(
+        study_exp_auc_diff,
+        ymin=0,
+        ymax=0.625,
+        color='b',
+        linewidth=2,
+        ls='-')
     label = f'Experimental value\n{round(study_exp_auc_diff,3)}'
     ymin, ymax = ax.get_ylim()
-    ax.annotate(label, 
-                xy=(study_exp_auc_diff, .65*ymax),
-                xytext=(study_exp_auc_diff,.78*ymax),
-                arrowprops=dict(width = 2,
-                                headwidth = 8,
-                                facecolor='blue', 
+    ax.annotate(label,
+                xy=(study_exp_auc_diff, .65 * ymax),
+                xytext=(study_exp_auc_diff, .78 * ymax),
+                arrowprops=dict(width=2,
+                                headwidth=8,
+                                facecolor='blue',
                                 shrink=.05),
                 horizontalalignment='center')
     plt.title(f'{network}:{msr}')
     sns.despine()
     plt.show()
 
+
 def find_stdevs(sample):
     mean = np.mean(sample)
     sd = np.std(sample)
-    return (mean-3*sd, mean-2*sd, mean-sd, mean+sd, mean+2*sd, mean+3*sd)
+    return (
+        mean - 3 * sd,
+        mean - 2 * sd,
+        mean - sd,
+        mean + sd,
+        mean + 2 * sd,
+        mean + 3 * sd)

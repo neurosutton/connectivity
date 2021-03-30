@@ -29,7 +29,14 @@ utils.check_data_loaded()
 # CREATE A FUNCTION TO SIMPLIFY PLOTTING and GRAPH MEASURES
 
 
-def plot_weighted_graph(gw, network=None, color_nodes_by=None, cmap=None, node_size=300, **kwargs):
+def plot_weighted_graph(
+        gw,
+        network=None,
+        color_nodes_by=None,
+        cmap=None,
+        node_cmap=None,
+        node_size=300,
+        **kwargs):
     """Plot the edges and nodes in the selected graph.
 
        Should look like an axial glass view, if the orthocenter coordinates
@@ -72,7 +79,8 @@ def plot_weighted_graph(gw, network=None, color_nodes_by=None, cmap=None, node_s
     gc = gw.copy()
 
     # Find min/max edge weights
-    v = _find_colorbar_limits([d['weight'] for (u, v, d) in gc.edges(data=True)])
+    v = _find_colorbar_limits([d['weight']
+                               for (u, v, d) in gc.edges(data=True)])
 
     options = {
         "width": 1.5,
@@ -102,9 +110,13 @@ def plot_weighted_graph(gw, network=None, color_nodes_by=None, cmap=None, node_s
     # of the edge weights. This allows highly negative values (favoring the second
     # comparison group in a difference map) to be plotted on top alongside strong
     # positive connections
-    options['edgelist'] = sorted(gc.edges(data=True), key=lambda t: abs(t[2].get('weight', 1)))
+    options['edgelist'] = sorted(
+        gc.edges(
+            data=True), key=lambda t: abs(
+            t[2].get(
+                'weight', 1)))
     eweights = [d['weight'] for (u, v, d) in gc.edges(data=True)]
-    options['edge_color'] = sorted(eweights,key=abs)
+    options['edge_color'] = sorted(eweights, key=abs)
 
     cmap = plt.cm.hsv if cmap is None else cmap
     options['cmap'] = cmap
@@ -121,10 +133,10 @@ def plot_weighted_graph(gw, network=None, color_nodes_by=None, cmap=None, node_s
             except TypeError:
                 print('color_nodes_by parameter could not be used')
 
-        if type(color_nodes_by) is str:
+        if isinstance(color_nodes_by, str):
             options['node_color'] = [
                 [v for v in nx.get_node_attributes(gc, color_nodes_by).values()]]
-        
+
         node_v = _find_colorbar_limits(options['node_color'][0])
         options['vmin'] = -node_v
         options['vmax'] = node_v
@@ -146,23 +158,32 @@ def plot_weighted_graph(gw, network=None, color_nodes_by=None, cmap=None, node_s
     cbar.ax.set_ylabel('Edges')
 
     if color_nodes_by:
-        # Option for second colorbar based on node weight or other characteristic
+        # Option for second colorbar based on node weight or other
+        # characteristic
         divider = make_axes_locatable(ax)
-        ax_cb = divider.append_axes("bottom", size = "5%", pad = 0.2)
-        node_norm = mpl.colors.Normalize(vmin=options['vmin'], 
-                                        vmax=options['vmax'], 
-                                        clip=False)
-        fig.colorbar(mpl.cm.ScalarMappable(norm=node_norm, cmap=cmap), cax=ax_cb,
-                    ax = 'vertical', orientation='horizontal')
+        ax_cb = divider.append_axes("bottom", size="5%", pad=0.2)
+        node_norm = mpl.colors.Normalize(vmin=options['vmin'],
+                                         vmax=options['vmax'],
+                                         clip=False)
+        cmap = cmap if not node_cmap else node_cmap
+        fig.colorbar(
+            mpl.cm.ScalarMappable(
+                norm=node_norm,
+                cmap=cmap),
+            cax=ax_cb,
+            ax='vertical',
+            orientation='horizontal')
         ax_cb.set_xlabel('Nodes')
 
     plt.show()
 
+
 def _find_colorbar_limits(vals):
     if np.absolute(max(vals)) > np.absolute(min(vals)):
-        return (.8*ceil(np.absolute(max(vals))))
+        return (.8 * ceil(np.absolute(max(vals))))
     else:
-        return (.8*ceil(np.absolute(min(vals))))
+        return (.8 * ceil(np.absolute(min(vals))))
+
 
 def print_graph_measures(gw):
     print(f'{nx.average_shortest_path_length(gw)}')
@@ -343,7 +364,8 @@ def sort_edge_weights(G, verbose=False):
         for wt in sorted_weights:
             sorted_edges.append(weights_dict[wt])
         if verbose:
-            print(f'Sorted edge weights = beginning {sorted_weights[0]} and end {sorted_weights[-1]}')
+            print(
+                f'Sorted edge weights = beginning {sorted_weights[0]} and end {sorted_weights[-1]}')
             print(f'pop() defaults to the end of the list.')
         return sorted_edges, sorted_weights
     else:
@@ -374,10 +396,12 @@ def add_thr_edges(G, prop_thr=None, verbose=False):
         highest percentage of ranked edges.
     """
 
-    n_edges_density = fam.get_edge_count(prop_thr) # Same for any FCN at a given
+    n_edges_density = fam.get_edge_count(
+        prop_thr)  # Same for any FCN at a given
     # thr, b/c it is based on the whole brain matrix
     thresholded_network = nx.algorithms.tree.mst.maximum_spanning_tree(G)
-    mst_edges = [tuple(m) for m in thresholded_network.edges()] # For debugging
+    mst_edges = [tuple(m)
+                 for m in thresholded_network.edges()]  # For debugging
     sorted_edges, sorted_weights = sort_edge_weights(G, verbose=verbose)
     shared_edges = []
     while len(thresholded_network.edges()) < n_edges_density:
@@ -427,7 +451,7 @@ def create_density_based_network(subj_idx, prop_thr):
 
 
 def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None, subj=None):
-    df = None # To override option to append data
+    df = None  # To override option to append data
     #df = utils.get_long_format_results()
     cmplt_msrs = []
     if df is not None:
@@ -668,14 +692,15 @@ def save_long_format_results(
 
     # Since calculating the graph measures now checks for previously analyzed
     # data and excludes repetitve calculations, import the
-    orig_df=None
-    #orig_df = utils.get_long_format_results() # Effectively turns off all the addendums.
+    orig_df = None
+    # orig_df = utils.get_long_format_results() # Effectively turns off all
+    # the addendums.
     if orig_df is None:
         orig_df = pd.DataFrame(columns=['network', 'subject', 'threshold'])
 
     df_list = []
     parcels = get.get_network_parcels('whole_brain')
-    print(f'Testing {len(parcels)} ROIs') # Validating
+    print(f'Testing {len(parcels)} ROIs')  # Validating
     networks = sorted(set([fcn.split("_")[0] for fcn in parcels.keys()])
                       ) + ['whole_brain'] if not networks else networks
     networks = [networks] if not isinstance(networks, list) else networks
@@ -684,7 +709,7 @@ def save_long_format_results(
     for network in networks:
         for thr in prop_thr:
             # Round the threshold to avoid strange, long floats.
-            thr = np.round(thr, decimals = 2)
+            thr = np.round(thr, decimals=2)
             print(f'Testing {networks} at {thr}')
             # Maintain only one call to collate_graph_measures by effectively eliminating
             # subgraph network argument for whole brain.
@@ -704,7 +729,7 @@ def save_long_format_results(
             df_out = df_out.replace({'nan', np.nan})
 
             try:
-            # Ensure data types are compatible
+                # Ensure data types are compatible
                 for d in [orig_df, df_out]:
                     d[['subject', 'network']] = d[[
                         'subject', 'network']].astype(str)

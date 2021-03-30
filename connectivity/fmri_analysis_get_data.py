@@ -68,7 +68,11 @@ def get_network_parcels(network, mdata=None):
 
     parcel_names = [str[0].lower() for str in mdata['names'][0]]
     parcels = {k.split('.')[-1]: v for v, k in enumerate(parcel_names)}
-    if network and network not in ["wb", "whole_brain", "whole brain", "wholeBrain"]:
+    if network and network not in [
+        "wb",
+        "whole_brain",
+        "whole brain",
+            "wholeBrain"]:
         pattern = network.lower() + '*'
         matching = fnmatch.filter(parcels.keys(), pattern)
         network_parcels = {k: v for k, v in parcels.items() if k in matching}
@@ -160,9 +164,9 @@ def get_network_matrix(
     indices = list(parcels.values())
     if not (isinstance(subj_idx, int) or isinstance(subj_idx, list)):
         raise TypeError('subj_idx must be an integer or list of integers.')
-    if type(subj_idx) is int:
+    if isinstance(subj_idx, int):
         matrix = conn_data[:, :, subj_idx][np.ix_(indices, indices)]
-    elif type(subj_idx) is list:
+    elif isinstance(subj_idx, list):
         matrices = conn_data[:, :, subj_idx]
         matrix = np.mean(matrices, axis=2)[np.ix_(indices, indices)]
     if prop_thr or network_mask is not None:
