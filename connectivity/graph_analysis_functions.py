@@ -16,7 +16,9 @@ from networkx.algorithms import community
 
 # BMS
 import os
+from math import ceil
 from collections import OrderedDict
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import fmri_analysis_get_data as get
 import fmri_analysis_manipulations as fam
 import fmri_analysis_bnv_prep as bnv_prep
@@ -69,11 +71,8 @@ def plot_weighted_graph(gw, network=None, color_nodes_by=None, cmap=None, node_s
     """
     gc = gw.copy()
 
-    vals = [d['weight'] for (u, v, d) in gc.edges(data=True)]
-    if np.absolute(max(vals)) > np.absolute(min(vals)):
-        v = .8*ceil(np.absolute(max(vals)))
-    else:
-        v = .8*ceil(np.absolute(min(vals)))
+    # Find min/max edge weights
+    v = _find_colorbar_limits([d['weight'] for (u, v, d) in gc.edges(data=True)])
 
     options = {
         "width": 1.5,
@@ -98,10 +97,12 @@ def plot_weighted_graph(gw, network=None, color_nodes_by=None, cmap=None, node_s
     elif 'pos' in kwargs.keys():
         options['pos'] = kwargs['pos']
 
-# Try to create an ordered list of the edges
+    # Create an ordered list of the edges
+    # The key for both options will sort the values based on the absolute value
+    # of the edge weights. This allows highly negative values (favoring the second
+    # comparison group in a difference map) to be plotted on top alongside strong
+    # positive connections
     options['edgelist'] = sorted(gc.edges(data=True), key=lambda t: abs(t[2].get('weight', 1)))
-    # Since the edges are passed as a list sorted by eweights, then should be able to sort 
-    # edge weight list to match
     eweights = [d['weight'] for (u, v, d) in gc.edges(data=True)]
     options['edge_color'] = sorted(eweights,key=abs)
 
@@ -123,6 +124,10 @@ def plot_weighted_graph(gw, network=None, color_nodes_by=None, cmap=None, node_s
         if type(color_nodes_by) is str:
             options['node_color'] = [
                 [v for v in nx.get_node_attributes(gc, color_nodes_by).values()]]
+        
+        node_v = _find_colorbar_limits(options['node_color'][0])
+        options['vmin'] = -node_v
+        options['vmax'] = node_v
 
     elif 'node_weights' in kwargs.keys():
         add_node_weights(
@@ -137,9 +142,27 @@ def plot_weighted_graph(gw, network=None, color_nodes_by=None, cmap=None, node_s
     fig, ax = plt.subplots(figsize=(8, 8))
     nx.draw(gc, ax=ax, **options)
     norm = mpl.colors.Normalize(vmin=-v, vmax=v, clip=False)
-    fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax)
+    cbar = fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax)
+    cbar.ax.set_ylabel('Edges')
+
+    if color_nodes_by:
+        # Option for second colorbar based on node weight or other characteristic
+        divider = make_axes_locatable(ax)
+        ax_cb = divider.append_axes("bottom", size = "5%", pad = 0.2)
+        node_norm = mpl.colors.Normalize(vmin=options['vmin'], 
+                                        vmax=options['vmax'], 
+                                        clip=False)
+        fig.colorbar(mpl.cm.ScalarMappable(norm=node_norm, cmap=cmap), cax=ax_cb,
+                    ax = 'vertical', orientation='horizontal')
+        ax_cb.set_xlabel('Nodes')
+
     plt.show()
 
+def _find_colorbar_limits(vals):
+    if np.absolute(max(vals)) > np.absolute(min(vals)):
+        return (.8*ceil(np.absolute(max(vals))))
+    else:
+        return (.8*ceil(np.absolute(min(vals))))
 
 def print_graph_measures(gw):
     print(f'{nx.average_shortest_path_length(gw)}')
