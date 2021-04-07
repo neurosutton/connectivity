@@ -83,7 +83,7 @@ def plot_weighted_graph(
     # Find min/max edge weights
     v = _find_colorbar_limits([d['weight']
                                for (u, v, d) in gc.edges(data=True)],
-                               cmap_factor=cmap_factor)
+                              cmap_factor=cmap_factor)
 
     options = {
         "width": 1.5,
@@ -140,7 +140,7 @@ def plot_weighted_graph(
             options['node_color'] = [
                 [v for v in nx.get_node_attributes(gc, color_nodes_by).values()]]
 
-        node_v = _find_colorbar_limits(options['node_color'][0], 
+        node_v = _find_colorbar_limits(options['node_color'][0],
                                        cmap_factor=node_cmap_factor)
         options['vmin'] = -node_v
         options['vmax'] = node_v
@@ -157,15 +157,20 @@ def plot_weighted_graph(
 
     fig, ax = plt.subplots(figsize=(8, 8))
     nx.draw(gc, ax=ax, **options)
-    norm = mpl.colors.Normalize(vmin=-v, vmax=v, clip=False)
-    cbar = fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), ax=ax)
+    norm = mpl.colors.Normalize(vmin=-v, 
+                                vmax=v, 
+                                clip=False)
+    cbar = fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), 
+                        ax=ax)
     cbar.ax.set_ylabel('Edges')
 
     if color_nodes_by:
         # Option for second colorbar based on node weight or other
         # characteristic
         divider = make_axes_locatable(ax)
-        ax_cb = divider.append_axes("bottom", size="5%", pad=0.2)
+        ax_cb = divider.append_axes("bottom", 
+                                    size="5%", 
+                                    pad=0.2)
         node_norm = mpl.colors.Normalize(vmin=options['vmin'],
                                          vmax=options['vmax'],
                                          clip=False)

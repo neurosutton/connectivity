@@ -180,10 +180,10 @@ class bnv_analysis():
         edges_bin = np.where(edges > .1, 1, 0)
 
         group_name = ''.join(self.group) if self.group else 'sample'
-        np.savetxt(os.path.join(shared.conn_dir, str(shared.date) + '_' + self.network + '_' + \
-                   group_name + '_' + str(self.prop_thr).split('.')[-1] + '_bnv.edge'), edges, delimiter='\t')
-        np.savetxt(os.path.join(shared.conn_dir, str(shared.date) + '_' + self.network + '_' + group_name + \
-                   '_' + str(self.prop_thr).split('.')[-1] + '_binary_bnv.edge'), edges_bin, delimiter='\t')
+        np.savetxt(os.path.join(shared.conn_dir, str(shared.date) + '_' + self.network + '_' +
+                                group_name + '_' + str(self.prop_thr).split('.')[-1] + '_bnv.edge'), edges, delimiter='\t')
+        np.savetxt(os.path.join(shared.conn_dir, str(shared.date) + '_' + self.network + '_' + group_name +
+                                '_' + str(self.prop_thr).split('.')[-1] + '_binary_bnv.edge'), edges_bin, delimiter='\t')
 
     def make_pval_edge_file(self):
         edges, x = fam.get_sig_edges(self.network, prop_thr=self.prop_thr)
@@ -192,10 +192,10 @@ class bnv_analysis():
 
         group_name = ''.join(self.group) if self.group else 'sample'
 
-        np.savetxt(os.path.join(shared.conn_dir, str(shared.date) + '_' + self.network + '_' + \
-                   group_name + '_' + str(self.prop_thr).split('.')[-1] + '_pval_bnv.edge'), edges, delimiter='\t')
-        np.savetxt(os.path.join(shared.conn_dir, str(shared.date) + '_' + self.network + '_' + group_name + \
-                   '_' + str(self.prop_thr).split('.')[-1] + '_binary_pval_bnv.edge'), edges_bin, delimiter='\t')
+        np.savetxt(os.path.join(shared.conn_dir, str(shared.date) + '_' + self.network + '_' +
+                                group_name + '_' + str(self.prop_thr).split('.')[-1] + '_pval_bnv.edge'), edges, delimiter='\t')
+        np.savetxt(os.path.join(shared.conn_dir, str(shared.date) + '_' + self.network + '_' + group_name +
+                                '_' + str(self.prop_thr).split('.')[-1] + '_binary_pval_bnv.edge'), edges_bin, delimiter='\t')
 
     def run_bnv_prep(self, statistical_edges=False):
         self.clean_labels()
