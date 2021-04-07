@@ -34,7 +34,9 @@ def plot_weighted_graph(
         network=None,
         color_nodes_by=None,
         cmap=None,
-        node_cmap=None,
+        cmap_factor=None,
+        node_cmap=.8,
+        node_cmap_factor=.8,
         node_size=300,
         **kwargs):
     """Plot the edges and nodes in the selected graph.
@@ -80,7 +82,8 @@ def plot_weighted_graph(
 
     # Find min/max edge weights
     v = _find_colorbar_limits([d['weight']
-                               for (u, v, d) in gc.edges(data=True)])
+                               for (u, v, d) in gc.edges(data=True)],
+                               cmap_factor=cmap_factor)
 
     options = {
         "width": 1.5,
@@ -137,7 +140,8 @@ def plot_weighted_graph(
             options['node_color'] = [
                 [v for v in nx.get_node_attributes(gc, color_nodes_by).values()]]
 
-        node_v = _find_colorbar_limits(options['node_color'][0])
+        node_v = _find_colorbar_limits(options['node_color'][0], 
+                                       cmap_factor=node_cmap_factor)
         options['vmin'] = -node_v
         options['vmax'] = node_v
 
@@ -165,11 +169,11 @@ def plot_weighted_graph(
         node_norm = mpl.colors.Normalize(vmin=options['vmin'],
                                          vmax=options['vmax'],
                                          clip=False)
-        cmap = cmap if not node_cmap else node_cmap
+        node_cmap = cmap if not node_cmap else node_cmap
         fig.colorbar(
             mpl.cm.ScalarMappable(
                 norm=node_norm,
-                cmap=cmap),
+                cmap=node_cmap),
             cax=ax_cb,
             ax='vertical',
             orientation='horizontal')
@@ -178,11 +182,11 @@ def plot_weighted_graph(
     plt.show()
 
 
-def _find_colorbar_limits(vals):
+def _find_colorbar_limits(vals, cmap_factor=.8):
     if np.absolute(max(vals)) > np.absolute(min(vals)):
-        return (.8 * ceil(np.absolute(max(vals))))
+        return (cmap_factor * ceil(np.absolute(max(vals))))
     else:
-        return (.8 * ceil(np.absolute(min(vals))))
+        return (cmap_factor * ceil(np.absolute(min(vals))))
 
 
 def print_graph_measures(gw):
