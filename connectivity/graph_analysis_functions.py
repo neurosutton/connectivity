@@ -34,8 +34,8 @@ def plot_weighted_graph(
         network=None,
         color_nodes_by=None,
         cmap=None,
-        cmap_factor=None,
-        node_cmap=.8,
+        cmap_factor=1,
+        node_cmap=None,
         node_cmap_factor=.8,
         node_size=300,
         **kwargs):
@@ -81,9 +81,8 @@ def plot_weighted_graph(
     gc = gw.copy()
 
     # Find min/max edge weights
-    v = _find_colorbar_limits([d['weight']
-                               for (u, v, d) in gc.edges(data=True)],
-                              cmap_factor=cmap_factor)
+    vals = [d['weight'] for (u, v, d) in gc.edges(data=True)]
+    v = _find_colorbar_limits(vals, cmap_factor=cmap_factor)
 
     options = {
         "width": 1.5,
@@ -157,10 +156,10 @@ def plot_weighted_graph(
 
     fig, ax = plt.subplots(figsize=(8, 8))
     nx.draw(gc, ax=ax, **options)
-    norm = mpl.colors.Normalize(vmin=-v, 
-                                vmax=v, 
+    norm = mpl.colors.Normalize(vmin=-v,
+                                vmax=v,
                                 clip=False)
-    cbar = fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap), 
+    cbar = fig.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap=cmap),
                         ax=ax)
     cbar.ax.set_ylabel('Edges')
 
@@ -168,8 +167,8 @@ def plot_weighted_graph(
         # Option for second colorbar based on node weight or other
         # characteristic
         divider = make_axes_locatable(ax)
-        ax_cb = divider.append_axes("bottom", 
-                                    size="5%", 
+        ax_cb = divider.append_axes("bottom",
+                                    size="5%",
                                     pad=0.2)
         node_norm = mpl.colors.Normalize(vmin=options['vmin'],
                                          vmax=options['vmax'],
@@ -461,7 +460,7 @@ def create_density_based_network(subj_idx, prop_thr):
 
 def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None, subj=None):
     df = None  # To override option to append data
-    #df = utils.get_long_format_results()
+    df = utils.get_long_format_results()  # uncommented this
     cmplt_msrs = []
     if df is not None:
         if subgraph_name and prop_thr:
@@ -486,7 +485,8 @@ def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None, subj=None):
                          'nx_num_of_comm',
                          'modularity',
                          'shortest_path',
-                         'local_efficiency']
+                         'local_efficiency',
+                         'average_clustering']
         # Check against completed measures so that only incomplete or missing
         # analyses are run.
         to_run = [msr for msr in possible_msrs if msr not in cmplt_msrs]
@@ -498,6 +498,7 @@ def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None, subj=None):
                               'modularity': 'nx.algorithms.community.quality.modularity(G, communities)',
                               'shortest_path': 'nx.algorithms.shortest_paths.generic.average_shortest_path_length(G, method="dijkstra")',
                               'local_efficiency': 'nx.algorithms.efficiency_measures.local_efficiency(G)',
+                              'average_clustering': 'nx.average_clustering(G)'
                               # 'mean_fc' : sum(G.degree(weight='weight'))/float(len(G))}
                               }
             for msr in to_run:
@@ -579,12 +580,12 @@ def collate_graph_measures(
     else:
         df_list = []
         for subj in subjects:
-            print(f'Working on {thr} for {subj}')
+            print(f'Working on {prop_thr} for {subj}')  # changed thr to prop_thr
             if not subgraph_network:
                 df_list.append(
                     individ_graph_msrs(
                         subj,
-                        prop_thr=thr,
+                        prop_thr=prop_thr,  # changed thr to prop_thr
                         grouping_col=tmp.grouping_col))
             else:
                 if isinstance(subgraph_network, str):
@@ -594,7 +595,7 @@ def collate_graph_measures(
                         individ_subgraph_msrs(
                             network,
                             subj,
-                            prop_thr=thr,
+                            prop_thr=prop_thr,  # changed thr to prop_thr
                             grouping_col=tmp.grouping_col))
         df = pd.concat(df_list)
     df = df.replace({'nan', np.nan})
@@ -702,7 +703,7 @@ def save_long_format_results(
     # Since calculating the graph measures now checks for previously analyzed
     # data and excludes repetitve calculations, import the
     orig_df = None
-    # orig_df = utils.get_long_format_results() # Effectively turns off all
+    orig_df = utils.get_long_format_results()  # uncommented
     # the addendums.
     if orig_df is None:
         orig_df = pd.DataFrame(columns=['network', 'subject', 'threshold'])
