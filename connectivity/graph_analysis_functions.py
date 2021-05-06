@@ -34,10 +34,11 @@ def plot_weighted_graph(
         network=None,
         color_nodes_by=None,
         cmap=None,
-        cmap_factor=1,
+        cmap_factor=.8,
         node_cmap=None,
         node_cmap_factor=.8,
         node_size=300,
+        orientation='axial',
         **kwargs):
     """Plot the edges and nodes in the selected graph.
 
@@ -81,8 +82,9 @@ def plot_weighted_graph(
     gc = gw.copy()
 
     # Find min/max edge weights
-    vals = [d['weight'] for (u, v, d) in gc.edges(data=True)]
-    v = _find_colorbar_limits(vals, cmap_factor=cmap_factor)
+    v = _find_colorbar_limits([d['weight']
+                               for (u, v, d) in gc.edges(data=True)],
+                              cmap_factor=cmap_factor)
 
     options = {
         "width": 1.5,
@@ -98,7 +100,8 @@ def plot_weighted_graph(
         "vmax": 0.1
     }
     if network is not None:
-        pos = get_position_dict(network)
+        pos, figsize = _get_position_dict(network,
+                                orientation=orientation)
         options['pos'] = pos
         # nodes = gw.nodes()
         for node in list(gc):
@@ -154,7 +157,8 @@ def plot_weighted_graph(
             v for v in nx.get_node_attributes(
                 gc, kwargs['node_weights'][0])]
 
-    fig, ax = plt.subplots(figsize=(8, 8))
+    figsize=(8, 8) if not figsize else figsize
+    fig, ax = plt.subplots(figsize=figsize)
     nx.draw(gc, ax=ax, **options)
     norm = mpl.colors.Normalize(vmin=-v,
                                 vmax=v,
@@ -294,7 +298,7 @@ class current_analysis():
         self.subgraph_network = subgraph_network
 
 
-def get_position_dict(network):
+def _get_position_dict(network, orientation='axial'):
     """Add position information to each node using the coordinates in a dataframe with ROI labels and coordinates.
     Use with plot_weighted_graphs to represent the results in an axial super glass brain.
     Currently, not flexible as the specific label column is hard coded."""
@@ -302,10 +306,23 @@ def get_position_dict(network):
     network_locs = bnv.limit_labels(network=network)
     position_dict = {}
 
-    for index, row in network_locs.iterrows():
-        position_dict[index] = [row['x'], row['y']]
+    if 'ax' in orientation :
+        first = 'x'
+        second = 'y'
+        figsize=(8,8)
+    elif 'sag' in orientation :
+        first='y'
+        second='z'
+        figsize=(10, 5)
+    else:
+        first='x'
+        second='z'
+        figsize=(9, 6)
 
-    return position_dict
+    for index, row in network_locs.iterrows():
+        position_dict[index] = [row[first], row[second]]
+
+    return position_dict, figsize
 
 
 '''
@@ -460,7 +477,7 @@ def create_density_based_network(subj_idx, prop_thr):
 
 def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None, subj=None):
     df = None  # To override option to append data
-    df = utils.get_long_format_results()  # uncommented this
+    #df = utils.get_long_format_results()
     cmplt_msrs = []
     if df is not None:
         if subgraph_name and prop_thr:
@@ -485,8 +502,7 @@ def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None, subj=None):
                          'nx_num_of_comm',
                          'modularity',
                          'shortest_path',
-                         'local_efficiency',
-                         'average_clustering']
+                         'local_efficiency']
         # Check against completed measures so that only incomplete or missing
         # analyses are run.
         to_run = [msr for msr in possible_msrs if msr not in cmplt_msrs]
@@ -498,7 +514,6 @@ def calculate_graph_msrs(G, subgraph_name=None, prop_thr=None, subj=None):
                               'modularity': 'nx.algorithms.community.quality.modularity(G, communities)',
                               'shortest_path': 'nx.algorithms.shortest_paths.generic.average_shortest_path_length(G, method="dijkstra")',
                               'local_efficiency': 'nx.algorithms.efficiency_measures.local_efficiency(G)',
-                              'average_clustering': 'nx.average_clustering(G)'
                               # 'mean_fc' : sum(G.degree(weight='weight'))/float(len(G))}
                               }
             for msr in to_run:
@@ -580,12 +595,12 @@ def collate_graph_measures(
     else:
         df_list = []
         for subj in subjects:
-            print(f'Working on {prop_thr} for {subj}')  # changed thr to prop_thr
+            print(f'Working on {thr} for {subj}')
             if not subgraph_network:
                 df_list.append(
                     individ_graph_msrs(
                         subj,
-                        prop_thr=prop_thr,  # changed thr to prop_thr
+                        prop_thr=thr,
                         grouping_col=tmp.grouping_col))
             else:
                 if isinstance(subgraph_network, str):
@@ -595,7 +610,7 @@ def collate_graph_measures(
                         individ_subgraph_msrs(
                             network,
                             subj,
-                            prop_thr=prop_thr,  # changed thr to prop_thr
+                            prop_thr=thr,
                             grouping_col=tmp.grouping_col))
         df = pd.concat(df_list)
     df = df.replace({'nan', np.nan})
@@ -703,7 +718,7 @@ def save_long_format_results(
     # Since calculating the graph measures now checks for previously analyzed
     # data and excludes repetitve calculations, import the
     orig_df = None
-    orig_df = utils.get_long_format_results()  # uncommented
+    # orig_df = utils.get_long_format_results() # Effectively turns off all
     # the addendums.
     if orig_df is None:
         orig_df = pd.DataFrame(columns=['network', 'subject', 'threshold'])
