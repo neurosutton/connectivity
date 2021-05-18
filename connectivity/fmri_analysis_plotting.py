@@ -63,7 +63,8 @@ def plot_cohort_comparison_over_thresholds(
         y='connectivity',
         exclude=None,
         threshold_range=None,
-        normalize=False):
+        normalize=False,
+        palette=None):
     ''' Plot group differences in connectivity strength over a threshold range.
 
         Parameters
@@ -104,11 +105,14 @@ def plot_cohort_comparison_over_thresholds(
         alpha=0.8,
         err_kws={
             'capsize': 5},
-        linestyle=':')
+        linestyle=':',
+        palette=palette)
     star_dict = add_asterisks(df, y, group=group)
     for thr in star_dict.keys():
         ax.text((thr - .01), star_dict[thr]['y'], '*')
     #ax.set_yscale('log', base=10) #
+    locs, labels = plt.xticks()
+    plt.xticks([0, 0.2, 0.4, 0.6, 0.8, 1.0], ['1', '0.8', '0.6', '0.4', '0.2', '0'])
     plt.title(f'Group Differences in {network} Network')
     ax.set_xlabel('Density')
     ax.set_ylabel(y)
@@ -131,13 +135,16 @@ def add_asterisks(df, msr, group='group'):
     """
     star_dict = {}
     group_names = list(set(df[group]))
+    df.round({'shortest_path': 2})
     for thr in sorted(set(df['threshold'])):
         g1 = df.loc[(df[group] == group_names[0]) &
                     (df['threshold'] == thr), msr]
         g2 = df.loc[(df[group] == group_names[1]) &
                     (df['threshold'] == thr), msr]
         x, pval = scipy.stats.ttest_ind(g1, g2)
-        if pval <= .05:
+        # error margin used to eliminate floating point rounding errors
+        error_margin = np.absolute((np.mean(g1) - np.mean(g2)) / np.mean(g2))
+        if pval <= .05 and error_margin > 0.000000001:
             star_dict[thr] = {}
             top_val = max(np.mean(g1), np.mean(g2))
             sd = max(np.std(g1), np.std(g2))
@@ -341,7 +348,7 @@ def plot_cohort_comparison_matrices(
     plt.show()
 
 
-def plot_auc(study_exp_auc_diff, permuted_diffs, msr, network=None):
+def plot_auc(study_exp_auc_diff, pvalue, permuted_diffs, msr, network=None):
     """Intended as a helper function for nia_stats_and_summaries (calculate_auc).
     Plots calculated study-related experimental differences and random,
     permuted differences for a given metric.
@@ -368,20 +375,22 @@ def plot_auc(study_exp_auc_diff, permuted_diffs, msr, network=None):
         study_exp_auc_diff,
         ymin=0,
         ymax=0.625,
-        color='b',
+        color='darkgreen',  # was 'b'
         linewidth=2,
         ls='-')
-    label = f'Experimental value\n{round(study_exp_auc_diff,3)}'
+    # label = f'Experimental value\n{round(study_exp_auc_diff,3)}'
+    label = f'p = {round(pvalue, 3)}'
     ymin, ymax = ax.get_ylim()
     ax.annotate(label,
                 xy=(study_exp_auc_diff, .65 * ymax),
                 xytext=(study_exp_auc_diff, .78 * ymax),
                 arrowprops=dict(width=2,
                                 headwidth=8,
-                                facecolor='blue',
+                                facecolor='darkgreen',
                                 shrink=.05),
                 horizontalalignment='center')
     plt.title(f'{network}:{msr}')
+    plt.ylabel('Density of Permutation-Based Values')
     sns.despine()
     plt.show()
 

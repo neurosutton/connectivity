@@ -131,7 +131,8 @@ def get_network_matrix(
         prop_thr=None,
         network_mask=None,
         exclude_negatives=False,
-        normalize=False):
+        normalize=False,
+        absolute=False):
     ''' Return a subject(s) matrix from the conn_data output from CONN.
 
     Parameters
@@ -143,6 +144,7 @@ def get_network_matrix(
     network_mask :
     exclude_negatives :
     normalize :
+    absolute : take the absolute value of the matrix before any averaging
 
     Returns
     -------
@@ -169,6 +171,11 @@ def get_network_matrix(
     elif isinstance(subj_idx, list):
         matrices = conn_data[:, :, subj_idx]
         matrix = np.mean(matrices, axis=2)[np.ix_(indices, indices)]
+    # should give a warning if both exclude_negatives and absolute are True
+    if exclude_negatives is True:
+        matrix[matrix < 0] = np.nan
+    if absolute is True:
+        matrix = np.absolute(matrix)
     if prop_thr or network_mask is not None:
         if prop_thr:
             network_mask = fam.make_proportional_threshold_mask(
@@ -183,7 +190,14 @@ def get_network_matrix(
         # I think dropping negatives might be a separate decision here... JB
         # self_norm_value = np.nanmean(
         #     utils.drop_negatives(conn_data[:, :, subj_idx]))
-        self_norm_value = np.nanmean(conn_data[:, :, subj_idx])
+        if absolute is True and exclude_negatives is False:
+            self_norm_value = np.nanmean(np.absolute(conn_data[:, :, subj_idx]))
+        elif exclude_negatives is True:
+            norm_matrix = conn_data[:, :, subj_idx]
+            norm_matrix[norm_matrix < 0] = np.nan
+            self_norm_value = np.nanmean(np.absolute(norm_matrix))
+        else:
+            self_norm_value = np.nanmean(conn_data[:, :, subj_idx])
         matrix = matrix / np.absolute(self_norm_value)
     return matrix
 

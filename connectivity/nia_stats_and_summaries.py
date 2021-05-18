@@ -220,7 +220,8 @@ def calculate_auc(
         subgroups=None,
         exclude=None,
         threshold_range=None,
-        normalize=False):
+        normalize=False,
+        random_seed=None):
     """Perform permutation-based statistical testing of graph measure AUCs.
 
     Parameters
@@ -250,6 +251,9 @@ def calculate_auc(
     if threshold_range is not None:
         df = df.query(
             'threshold >= @threshold_range[0] and threshold <= @threshold_range[1]')
+
+    if random_seed is not None:
+        random.seed(random_seed)
 
     if exclude is not None:
         try:
@@ -317,12 +321,13 @@ def calculate_auc(
                 print('The experimental AUC difference is ',
                       f'{study_exp_auc_diff.round(3)}.',
                       f'\nTwo-tailed p-value from the boostrapped results',
-                      f'is {round(permuted_p_val(prms_lssr/bootstrap),3)}')
+                      f'is {round(permuted_p_val(prms_lssr/bootstrap),5)}')
             except BaseException:
                 print(f'The AUC difference, {study_exp_auc_diff.round(3)}, ',
                       ' beyond any bootstrapped result')
             faplot.plot_auc(
                 study_exp_auc_diff,
+                permuted_p_val(prms_lssr/bootstrap),
                 permuted_diffs,
                 msr,
                 network=network)

@@ -76,7 +76,8 @@ def summarize_mean_conn_values(network_name=None, subj_idx=None, exclude=None):
     conn_data = get.get_conn_data(subset=subj_idx)
     network_name = 'whole_brain' if network_name is None else network_name
     subj_idx = np.arange(
-        conn_data.shape[-1]) if subj_idx is None else [subj_idx]
+        conn_data.shape[-1]) if subj_idx is None else subj_idx
+    subj_idx = [subj_idx] if type(subj_idx) is int else subj_idx
     if exclude:
         subj_idx = [subj for subj in subj_idx if subj not in exclude]
     mv_df_list = []
@@ -87,8 +88,26 @@ def summarize_mean_conn_values(network_name=None, subj_idx=None, exclude=None):
         mat1 = get.get_network_matrix(network_name,
                                       [subj],
                                       normalize=True)
+        m_abs = get.get_network_matrix(network_name,
+                                       [subj],
+                                       absolute=True)
+        m_pos = get.get_network_matrix(network_name,
+                                       [subj],
+                                       exclude_negatives=True)
+        m_abs_norm = get.get_network_matrix(network_name,
+                                            [subj],
+                                            normalize=True,
+                                            absolute=True)
+        m_pos_norm = get.get_network_matrix(network_name,
+                                            [subj],
+                                            normalize=True,
+                                            exclude_negatives=True)
         mean_dict[subj] = {'mean_conn': np.nanmean(mat),
                            'mean_conn_normed': np.nanmean(mat1),
+                           'mean_conn_abs': np.nanmean(m_abs),
+                           'mean_conn_pos': np.nanmean(m_pos),
+                           'mean_conn_abs_normed': np.nanmean(m_abs_norm),
+                           'mean_conn_pos_normed': np.nanmean(m_pos_norm),
                            'network': network_name}
         mv_df_list.append(pd.DataFrame(mean_dict).T)
     df = pd.concat(mv_df_list).reset_index()
