@@ -31,7 +31,7 @@ utils.check_data_loaded()
 
 def plot_weighted_graph(
         gw,
-        network=None,
+        network='whole_brain',
         color_nodes_by=None,
         cmap=None,
         cmap_factor=.8,
@@ -39,6 +39,7 @@ def plot_weighted_graph(
         node_cmap_factor=.8,
         node_size=300,
         orientation='axial',
+        figsize=None,
         **kwargs):
     """Plot the edges and nodes in the selected graph.
 
@@ -100,8 +101,9 @@ def plot_weighted_graph(
         "vmax": 0.1
     }
     if network is not None:
-        pos, figsize = _get_position_dict(network,
-                                orientation=orientation)
+        pos, figsize, xticks, yticks = _get_position_dict(network,
+                                                          orientation=orientation,
+                                                          figsize=figsize)
         options['pos'] = pos
         # nodes = gw.nodes()
         for node in list(gc):
@@ -157,9 +159,15 @@ def plot_weighted_graph(
             v for v in nx.get_node_attributes(
                 gc, kwargs['node_weights'][0])]
 
-    figsize=(8, 8) if not figsize else figsize
+    figsize = (8, 8) if not figsize else figsize
+    print(figsize)
     fig, ax = plt.subplots(figsize=figsize)
     nx.draw(gc, ax=ax, **options)
+    ax.set_xticks(xticks)
+    ax.set_yticks(yticks)
+    print(ax.get_xticks())  # testing
+    print(ax.get_yticks())
+    # print(pos)
     norm = mpl.colors.Normalize(vmin=-v,
                                 vmax=v,
                                 clip=False)
@@ -298,7 +306,7 @@ class current_analysis():
         self.subgraph_network = subgraph_network
 
 
-def _get_position_dict(network, orientation='axial'):
+def _get_position_dict(network, orientation='axial', figsize=None):
     """Add position information to each node using the coordinates in a dataframe with ROI labels and coordinates.
     Use with plot_weighted_graphs to represent the results in an axial super glass brain.
     Currently, not flexible as the specific label column is hard coded."""
@@ -309,20 +317,26 @@ def _get_position_dict(network, orientation='axial'):
     if 'ax' in orientation :
         first = 'x'
         second = 'y'
-        figsize=(8,8)
-    elif 'sag' in orientation :
+        figsize = (8, 8) if figsize is None else figsize
+        xticks = np.arange(-80., 81., 20.)
+        yticks = np.arange(-125., 76., 25.)
+    elif 'sag' in orientation:
         first='y'
         second='z'
-        figsize=(10, 5)
+        figsize = (10, 5) if figsize is None else figsize
+        xticks = np.arange(-125, 76, 25)
+        yticks = np.arange(-60, 81, 20)
     else:
         first='x'
         second='z'
-        figsize=(9, 6)
+        figsize = (9, 6) if figsize is None else figsize
+        xticks = np.arange(-80, 81, 20)
+        yticks = np.arange(-60, 81, 20)
 
     for index, row in network_locs.iterrows():
         position_dict[index] = [row[first], row[second]]
 
-    return position_dict, figsize
+    return position_dict, figsize, xticks, yticks
 
 
 '''
